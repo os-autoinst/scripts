@@ -1,0 +1,59 @@
+#!/bin/sh -ex
+
+# Trigger tests on an openQA instance testing openQA itself.
+#
+# Can be configured by variables.
+
+set -o pipefail
+
+# configuration variables with defaults.
+target_host="${target_host:-"openqa.opensuse.org"}"
+target_host_proto="${target_host_proto:-"https"}"
+dry_run="${dry_run:-"0"}"
+tw_openqa_host="${tw_openqa_host:-"https://openqa.opensuse.org"}"
+openqa_client="${openqa_client:-"/usr/share/openqa/script/client"}"
+arch="${arch:-"x86_64"}"
+machine="${machine:-"64bit"}"
+
+main() {
+    [ "$dry_run" = "1" ] && client_prefix=echo
+    find_latest_tumbleweed_image
+    trigger
+}
+
+find_latest_tumbleweed_image() {
+    qcow=$(/usr/share/openqa/script/client --host ${tw_openqa_host} assets get | sed -n "s/^.*name.*\"\(.*Tumbleweed-${arch}-[0-9]\+-Tumbleweed\\\\@${machine}\.qcow2\)\",$/\1/p" | sed -e 's/\\@/@/g' | sort -n | tail -n 1)
+    if [ "$target_host_proto://$target_host" != "$tw_openqa_host" ]; then
+        [ "$qcow" = "" ] && (echo "could not find valid asset" && exit 2)
+        url="${tw_openqa_host}/assets/hdd/${qcow}"
+
+        # instead of manual wget it should also work to provide a whitelisted url to openqa as HDD_1_URL which should then download it itself but a first experiment didn't work
+        ${client_prefix} wget -c "$url" -O /var/lib/openqa/factory/hdd/$qcow
+    fi
+    last_tw_build=$(echo $qcow | sed "s/^.*${arch}-\([0-9@]\+\).*$/\1/g")
+    # ensure the build tag conforms to coolo's unwritten rules for the openQA dashboard
+    build=$(echo $BUILD_TAG | sed -e "s/jenkins-trigger-openQA_in_openQA-/:/" -e "s/-/./g")
+}
+
+trigger() {
+    # prevent host access problem when running within o3 infrastructure
+    # where o3 is not reachable over https
+    if [ "$target_host" = "openqa.opensuse.org" ]; then
+        ARGS="OPENQA_HOST_URL=http://openqa.opensuse.org"
+    fi
+
+    ${client_prefix} ${openqa_client} \
+        --host ${target_host_proto}://${target_host} isos post \
+        VERSION=Tumbleweed \
+        DISTRI=openQA FLAVOR=dev BUILD=${build} \
+        ARCH=${arch} BACKEND=qemu WORKER_CLASS=qemu_x86_64 \
+        HDD_1=$qcow \
+        ${ARGS} \
+        | tee job_post_response
+
+    JOB_ID=$(sed -n 's/^.*ids => \[\([0-9]\+\)\].*$/\1/p' job_post_response)
+
+    echo "Triggered as: ${target_host_proto}://${target_host}/tests/${JOB_ID}"
+}
+
+main
