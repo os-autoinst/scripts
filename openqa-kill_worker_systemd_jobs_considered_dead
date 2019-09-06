@@ -1,0 +1,6 @@
+jobs=$(tail -n 200 /var/log/openqa | sed -n 's/^.*Got \(artefact for job with no worker assigned (maybe running job already considered dead): \(.*\)\|status update for job \([0-9]\+\) with unexpected worker.*expected no updates anymore, job is done with result incomplete.*\)$/\2\3/p' | uniq)
+for job in $jobs; do
+    worker_and_instance=$(sudo -u geekotest psql -q --no-align --tuples-only openqa -c "select host,instance from workers where id=(select assigned_worker_id from jobs where id='$job');")
+    IFS='|' read worker instance <<<$worker_and_instance
+    salt "${worker}*" cmd.run "grep -q $job /var/lib/openqa/pool/$instance/*.json && systemctl restart openqa-worker@${instance} ||:"
+done
