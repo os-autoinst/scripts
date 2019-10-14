@@ -2,6 +2,7 @@
 
 set -e
 
+export LC_ALL=C
 src_project="${src_project:-"devel:openQA"}"
 dst_project="${dst_project:-"${src_project}:tested"}"
 XMLSTARLET=$(which xmlstarlet)
@@ -21,6 +22,9 @@ update_package() {
     sed -i -e 's,mode="disabled" mode="disabled",mode="disabled",' _service
     # reenable buildtime services
     sed -i -e 's,mode="buildtime" mode="disabled",mode="buildtime",' _service
+    # ignore those updates
+    rm -f _service:*-test.changes
+    cp .osc/*-test.changes .
     for file in _service:*; do 
       mv -v $file `echo $file | sed -e 's,.*:,,'`
     done
@@ -62,7 +66,6 @@ sync_changesrevision() {
     if ! diff -u $dir/$package/.osc/_servicedata $dir/$package/_servicedata; then
        osc up $dir/$package
        osc cat openSUSE:Factory $package $package.changes > $dir/$package/$package.changes
-       osc cat openSUSE:Factory $package $package-test.changes > $dir/$package/$package-test.changes
        osc ci -m 'sync changesrevision with openSUSE:Factory' $dir/$package
        osc up -S $dir/$package
     fi
