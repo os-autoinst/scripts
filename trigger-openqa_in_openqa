@@ -39,7 +39,7 @@ trigger() {
     # prevent host access problem when running within o3 infrastructure
     # where o3 is not reachable over https
     if [ "$target_host" = "openqa.opensuse.org" ]; then
-        ARGS="OPENQA_HOST_URL=http://openqa.opensuse.org"
+        ARGS="OPENQA_HOST=http://openqa.opensuse.org"
     fi
 
     ${client_prefix} ${openqa_client} \
