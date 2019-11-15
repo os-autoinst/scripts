@@ -1,0 +1,9 @@
+https://openqa.opensuse.org/tests/1082274 boot_linuxrc
+https://openqa.opensuse.org/tests/1082273 udev-no-partlabel-links
+https://openqa.opensuse.org/tests/1082296 extra_tests_package_hub
+https://openqa.opensuse.org/tests/1082787 kde
+https://openqa.opensuse.org/tests/1082796 kde
+https://openqa.opensuse.org/tests/1082801 kde
+https://openqa.opensuse.org/tests/1083172 openqa_bootstrap
+https://openqa.opensuse.org/tests/1082628 zdup-Leap-42.1-kde
+https://openqa.opensuse.org/tests/1082647 virtualization@dcermak/os-autoinst-distri-opensuse#splitout_vagrant_tests

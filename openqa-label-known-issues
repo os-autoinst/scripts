@@ -1,0 +1,61 @@
+#!/bin/sh -e
+host="${host:-"openqa.opensuse.org"}"
+scheme="${scheme:-"https"}"
+host_url="$scheme://$host"
+dry_run="${dry_run:-"0"}"
+
+label_on_issue() {
+    id=$1
+    search_term=$2
+    comment=$3
+    restart=$4
+    grep -q "$search_term" "$out" || return 1
+    $client_call jobs/"$id"/comments post text="$comment"
+    if [ "$restart" = "1" ]; then
+        $client_call jobs/"$id"/restart post
+    fi
+}
+
+main() {
+    [ "$dry_run" = "1" ] && client_prefix=echo
+    client_call="${client_call:-"$client_prefix openqa-client --host $host_url"}"
+    for i in $(cat - | sed 's/ .*$//'); do
+        id="${i##*/}"
+        # if not even an autoinst-log.txt exists it is most likely poo#57620
+        if ! curl -s "$i" | grep -q autoinst-log.txt; then
+            # See "openqa-label-all" as an interesting alternative which can
+            # label and optionally restart jobs based on group, build, module
+            # parameters
+            $client_call jobs/"$id"/comments post text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
+            # triggering a restart on jobs that already have a clone does not have an effect
+            $client_call jobs/"$id"/restart post
+        else
+            out=$(mktemp)
+            curl -s "$i/file/autoinst-log.txt" -o "$out"
+            # Idea: query progress.o.o for all subjects with '"' included as search terms and
+            # crosscheck logfile with these issues
+            # it is possible to search for issues with a subject search term, e.g.:
+            # curl -s "https://progress.opensuse.org/projects/openqav3/issues.json?subject=~merge%20keys" | jq '.issues | .[] | .id'
+            if label_on_issue "$id" 'Migrate to file failed, it has been running for more than' 'poo#59858 migrate failed, took too long' 1; then :
+            elif label_on_issue "$id" 'Could not open backing file.*: No such file or directory' 'poo#46742 premature deletion of files from cache' 1; then :
+            elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then :
+            # could create an issue automatically with
+            # curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
+            # but we should check if the issue already exists, e.g. same
+            # subject line
+            elif label_on_issue "$id" 'Download of .* failed with: 404' 'label:non_existing asset, candidate for removal'; then
+                echo "$i : Non-existing asset referenced, potential candidate for removal and/or ticket"
+            else
+                echo "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
+                echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
+                # Look for different termination points with likely context
+                (grep -B 10 'sending magic and exit' $out || grep -B 5 'killing command server.*because test execution ended through exception' $out) | head -n -1
+                echo "---"
+            fi
+            rm "$out"
+        fi
+    done
+    # openqa-client --host $host jobs/$i/restart post; done
+}
+
+main
