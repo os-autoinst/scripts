@@ -1,0 +1,10 @@
+#!/bin/sh -e
+host="${host:-"openqa.opensuse.org"}"
+scheme="${scheme:-"https"}"
+failed_since="${failed_since:-"(NOW() - interval '24 hour')"}"
+query="${query:-"select id,test from jobs where (result='incomplete' and t_finished >= $failed_since and id not in (select job_id from comments where job_id is not null));"}"
+for i in $(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"$query\" openqa"); do
+    url="$scheme://$host/tests/${i%|*}"
+    details="${i#*|}"
+    echo "$url" "$details"
+done
