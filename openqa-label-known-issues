@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
@@ -17,14 +17,14 @@ label_on_issue() {
 }
 
 main() {
-    [ "$dry_run" = "1" ] && client_prefix=echo
+    [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-client --host $host_url"}"
     for i in $(cat - | sed 's/ .*$//'); do
         id="${i##*/}"
         out=$(mktemp)
-        if ! curl -s "$i/file/autoinst-log.txt" -o "$out"; then
+        if [[ "$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")" != "200" ]]; then
             # if we can not even access the page it is something more critical
-            if ! curl -s --head "$i"; then
+            if ! curl -s --head "$i" -o /dev/null; then
                 # the page might be gone, try the scheme+host we configured (might be different one though)
                 if ! grep -q "$host_url" <<< "$i"; then
                     echo "'$i' is not reachable and 'host_url' parameter does not match '$i', can not check further, continuing with next"
@@ -37,15 +37,24 @@ main() {
                 echo "'$i' is not reachable, assuming deleted, continuing with next"
                 continue
             fi
-            if ! curl -s "$i"; then
+            # resorting to downloading the job details page instead of the
+            # log, overwrites $out
+            if ! curl -s "$i" -o "$out"; then
                 echo "'$i' can be reached but not downloaded, bailing out"
                 curl "$i"
                 exit 2
             fi
-            # if the page is there but not even an autoinst-log.txt exists it is most likely poo#57620
-            # See "openqa-label-all" as an interesting alternative which can
-            # label and optionally restart jobs based on group, build, module
-            # parameters
+            # if the page is there but not even an autoinst-log.txt exists
+            # then the job might be too old and logs are already deleted.
+            # Checking timestamp
+            if [[ $(date -uIs -d '-14days') > $(hxnormalize -x "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
+                echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
+                continue
+            fi
+            # if the job is not too old but there is no log file it is most
+            # likely poo#57620 See "openqa-label-all" as an interesting
+            # alternative which can label and optionally restart jobs based on
+            # group, build, module parameters
             $client_call jobs/"$id"/comments post text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
             # triggering a restart on jobs that already have a clone does not have an effect
             $client_call jobs/"$id"/restart post
@@ -56,8 +65,14 @@ main() {
         elif label_on_issue "$id" 'Migrate to file failed, it has been running for more than' 'poo#59858 migrate failed, took too long' 1; then :
         elif label_on_issue "$id" 'Could not open backing file.*: No such file or directory' 'poo#46742 premature deletion of files from cache' 1; then :
         elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then :
+        elif label_on_issue "$id" 'Asset was already requested by another job' 'poo#60140 job incompletes failing on initial asset download with "Asset was already requested by another job"' 1; then :
+        elif label_on_issue "$id" 'needledir not found: .*null' 'poo#59330 openqa-clone-custom-git-refspec fails setting NEEDLES_DIR=null with new os-autoinst or openQA'; then :
+        elif label_on_issue "$id" 'The console .sut. is not responding (half-open socket?)' 'poo#60161 test incompletes in t20_teaming_ab_all_link'; then :
+        elif label_on_issue "$id" 'Download .* failed with: 521 - Connect timeout' 'poo#60167 jobs incomplete trying to download from cache, potentially worker specific' 1; then :
+        elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then :
+        elif label_on_issue "$id" 'considering VNC stalled, no update for' 'poo#60200 job incompletes just after VNC stall detection, no clear error' 1; then :
         # could create an issue automatically with
-        # curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
+        # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
         # but we should check if the issue already exists, e.g. same
         # subject line
         elif label_on_issue "$id" 'Download of .* failed with: 404' 'label:non_existing asset, candidate for removal'; then
@@ -66,7 +81,7 @@ main() {
             echo "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
             echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
             # Look for different termination points with likely context
-            (grep -B 10 'sending magic and exit' $out || grep -B 5 'killing command server.*because test execution ended through exception' $out) | head -n -1
+            (grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out") | head -n -1
             echo "---"
         fi
         rm "$out"
