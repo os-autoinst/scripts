@@ -67,6 +67,9 @@ main() {
         elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then :
         elif label_on_issue "$id" 'Asset was already requested by another job' 'poo#60140 job incompletes failing on initial asset download with "Asset was already requested by another job"' 1; then :
         elif label_on_issue "$id" 'needledir not found: .*null' 'poo#59330 openqa-clone-custom-git-refspec fails setting NEEDLES_DIR=null with new os-autoinst or openQA'; then :
+        elif label_on_issue "$id" 'The console .sut. is not responding (half-open socket?)' 'poo#60161 test incompletes in t20_teaming_ab_all_link'; then :
+        elif label_on_issue "$id" 'Download .* failed with: 521 - Connect timeout' 'poo#60167 jobs incomplete trying to download from cache, potentially worker specific' 1; then :
+        elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then :
         # could create an issue automatically with
         # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
         # but we should check if the issue already exists, e.g. same
