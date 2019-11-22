@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
@@ -17,14 +17,14 @@ label_on_issue() {
 }
 
 main() {
-    [ "$dry_run" = "1" ] && client_prefix=echo
+    [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-client --host $host_url"}"
     for i in $(cat - | sed 's/ .*$//'); do
         id="${i##*/}"
         out=$(mktemp)
-        if ! curl -s "$i/file/autoinst-log.txt" -o "$out"; then
+        if [[ "$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")" != "200" ]]; then
             # if we can not even access the page it is something more critical
-            if ! curl -s --head "$i"; then
+            if ! curl -s --head "$i" -o /dev/null; then
                 # the page might be gone, try the scheme+host we configured (might be different one though)
                 if ! grep -q "$host_url" <<< "$i"; then
                     echo "'$i' is not reachable and 'host_url' parameter does not match '$i', can not check further, continuing with next"
@@ -37,7 +37,9 @@ main() {
                 echo "'$i' is not reachable, assuming deleted, continuing with next"
                 continue
             fi
-            if ! curl -s "$i"; then
+            # resorting to downloading the job details page instead of the
+            # log, overwrites $out
+            if ! curl -s "$i" -o "$out"; then
                 echo "'$i' can be reached but not downloaded, bailing out"
                 curl "$i"
                 exit 2
@@ -66,7 +68,7 @@ main() {
             echo "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
             echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
             # Look for different termination points with likely context
-            (grep -B 10 'sending magic and exit' $out || grep -B 5 'killing command server.*because test execution ended through exception' $out) | head -n -1
+            (grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out") | head -n -1
             echo "---"
         fi
         rm "$out"
