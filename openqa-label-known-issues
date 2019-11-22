@@ -77,7 +77,7 @@ main() {
             echo "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
             echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
             # Look for different termination points with likely context
-            (grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out") | head -n -1
+            (grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out") | head -n -1
             echo "---"
         fi
         rm "$out"
