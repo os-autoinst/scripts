@@ -44,10 +44,17 @@ main() {
                 curl "$i"
                 exit 2
             fi
-            # if the page is there but not even an autoinst-log.txt exists it is most likely poo#57620
-            # See "openqa-label-all" as an interesting alternative which can
-            # label and optionally restart jobs based on group, build, module
-            # parameters
+            # if the page is there but not even an autoinst-log.txt exists
+            # then the job might be too old and logs are already deleted.
+            # Checking timestamp
+            if [[ $(date -uIs -d '-14days') > $(hxnormalize -x "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
+                echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
+                continue
+            fi
+            # if the job is not too old but there is no log file it is most
+            # likely poo#57620 See "openqa-label-all" as an interesting
+            # alternative which can label and optionally restart jobs based on
+            # group, build, module parameters
             $client_call jobs/"$id"/comments post text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
             # triggering a restart on jobs that already have a clone does not have an effect
             $client_call jobs/"$id"/restart post
