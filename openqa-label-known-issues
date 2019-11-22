@@ -68,7 +68,7 @@ main() {
         elif label_on_issue "$id" 'Asset was already requested by another job' 'poo#60140 job incompletes failing on initial asset download with "Asset was already requested by another job"' 1; then :
         elif label_on_issue "$id" 'needledir not found: .*null' 'poo#59330 openqa-clone-custom-git-refspec fails setting NEEDLES_DIR=null with new os-autoinst or openQA'; then :
         # could create an issue automatically with
-        # curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
+        # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
         # but we should check if the issue already exists, e.g. same
         # subject line
         elif label_on_issue "$id" 'Download of .* failed with: 404' 'label:non_existing asset, candidate for removal'; then
