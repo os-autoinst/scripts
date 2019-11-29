@@ -83,6 +83,7 @@ main() {
         elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then :
         elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then :
         elif label_on_issue "$id" 'Result: setup failure' 'label:setup_failure, probably wrong settings or missing asset'; then :
+        elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
         else
             echo "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
             echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
