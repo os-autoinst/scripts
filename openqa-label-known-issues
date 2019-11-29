@@ -72,6 +72,7 @@ main() {
         elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then :
         elif label_on_issue "$id" 'considering VNC stalled, no update for' 'poo#60200 job incompletes just after VNC stall detection, no clear error' 1; then :
         elif label_on_issue "$id" 'Result: done' 'poo#43631 Job ending up incomplete but everything else looks fine' 1; then :
+        elif label_on_issue "$id" 'svirt serial: unable to read: transport read (error code: -43)' 'poo#60416 The console .* is not responding (half-open socket?)", very big log files with repetition of "svirt serial: unable to read: transport read (error code: -43)"'; then :
         # could create an issue automatically with
         # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
         # but we should check if the issue already exists, e.g. same
