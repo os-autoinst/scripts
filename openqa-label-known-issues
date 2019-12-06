@@ -83,6 +83,8 @@ main() {
         elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then :
         elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then :
         elif label_on_issue "$id" 'Result: setup failure' 'label:setup_failure, probably wrong settings or missing asset'; then :
+        elif label_on_issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then :
+        elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then :
         elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
         elif label_on_issue "$id" 'isotovideo failed' 'poo#60443 no further details what is wrong' 1; then :
         else
