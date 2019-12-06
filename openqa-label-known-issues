@@ -3,6 +3,9 @@ host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
 dry_run="${dry_run:-"0"}"
+min_search_term="${min_search_term:-"16"}"
+issue_marker="${issue_marker:-"auto_review%3A"}"
+issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/issues.json?limit=200&subproject_id=*&subject=~${issue_marker}"}"
 
 echoerr() { echo "$@" >&2; }
 
@@ -21,6 +24,7 @@ label_on_issue() {
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-client --host $host_url"}"
+    issues=$($client_prefix curl -s "$issue_query" | $client_prefix jq -r '.issues | .[] | (.id,.subject)')
     for i in $(cat - | sed 's/ .*$//'); do
         id="${i##*/}"
         out=$(mktemp)
@@ -60,10 +64,7 @@ main() {
             $client_call jobs/"$id"/comments post text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
             # triggering a restart on jobs that already have a clone does not have an effect
             $client_call jobs/"$id"/restart post
-        # Idea: query progress.o.o for all subjects with '"' included as search terms and
-        # crosscheck logfile with these issues
-        # it is possible to search for issues with a subject search term, e.g.:
-        # curl -s "https://progress.opensuse.org/projects/openqav3/issues.json?subject=~merge%20keys" | jq '.issues | .[] | .id'
+
         elif label_on_issue "$id" 'Migrate to file failed, it has been running for more than' 'poo#59858 migrate failed, took too long' 1; then :
         elif label_on_issue "$id" 'Could not open backing file.*: No such file or directory' 'poo#46742 premature deletion of files from cache' 1; then :
         elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then :
@@ -72,7 +73,6 @@ main() {
         elif label_on_issue "$id" 'The console .sut. is not responding (half-open socket?)' 'poo#60161 test incompletes in t20_teaming_ab_all_link'; then :
         elif label_on_issue "$id" 'Download .* failed with: 521 - Connect timeout' 'poo#60167 jobs incomplete trying to download from cache, potentially worker specific' 1; then :
         elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then :
-        elif label_on_issue "$id" 'considering VNC stalled, no update for' 'poo#60200 job incompletes just after VNC stall detection, no clear error' 1; then :
         elif label_on_issue "$id" 'Result: done' 'poo#43631 Job ending up incomplete but everything else looks fine' 1; then :
         elif label_on_issue "$id" 'svirt serial: unable to read: transport read (error code: -43)' 'poo#60416 The console .* is not responding (half-open socket?)", very big log files with repetition of "svirt serial: unable to read: transport read (error code: -43)"'; then :
         # could create an issue automatically with
@@ -89,6 +89,18 @@ main() {
         elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then :
         elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
         elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
+        # Idea: query progress.o.o for all subjects with '"' included as search terms and
+        # crosscheck logfile with these issues
+        # it is possible to search for issues with a subject search term, e.g.:
+        # curl -s "https://progress.opensuse.org/projects/openqav3/issues.json?subject=~merge%20keys" | jq '.issues | .[] | .id'
+        # First approach was using '"' at the beginning of a subject
+        # line as the marker for any regex but we can also do something like
+        # 'known_issue:".*"'
+        # this reads out all progress issues that have the search term included and
+        # splice each line with a call to label_on_issue
+        elif echo "$issues" | (while read -r id; do
+            read -r subject
+            [[ $subject == \"* ]] && after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "$subject" && break; done); then :
         else
             echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
             echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
@@ -98,7 +110,6 @@ main() {
         fi
         rm "$out"
     done
-    # openqa-client --host $host jobs/$i/restart post; done
 }
 
 main
