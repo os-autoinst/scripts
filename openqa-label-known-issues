@@ -86,7 +86,6 @@ main() {
         elif label_on_issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then :
         elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then :
         elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
-        elif label_on_issue "$id" 'isotovideo failed' 'poo#60443 no further details what is wrong' 1; then :
         elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
         else
             echo "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
