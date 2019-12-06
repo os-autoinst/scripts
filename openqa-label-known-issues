@@ -4,6 +4,8 @@ scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
 dry_run="${dry_run:-"0"}"
 
+echoerr() { printf "%s\n" "$*" >&2; }
+
 label_on_issue() {
     id=$1
     search_term=$2
@@ -88,11 +90,11 @@ main() {
         elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
         elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
         else
-            echo "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
-            echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
+            echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
+            echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
             # Look for different termination points with likely context
-            (grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out") | head -n -1
-            echo "---"
+            (grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out") | head -n -1 >&2
+            echoerr "---"
         fi
         rm "$out"
     done
