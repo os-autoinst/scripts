@@ -4,7 +4,7 @@ scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
 dry_run="${dry_run:-"0"}"
 
-echoerr() { echo $* >&2; }
+echoerr() { echo "$@" >&2; }
 
 label_on_issue() {
     id=$1
