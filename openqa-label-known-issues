@@ -11,7 +11,9 @@ label_on_issue() {
     search_term=$2
     comment=$3
     restart=$4
-    grep -q "$search_term" "$out" || return 1
+    grep_opts="${grep_opts:-"-qPzo"}"
+    # shellcheck disable=SC2086
+    grep $grep_opts "$search_term" "$out" || return 1
     $client_call jobs/"$id"/comments post text="$comment"
     if [ "$restart" = "1" ]; then
         $client_call jobs/"$id"/restart post
@@ -92,6 +94,7 @@ main() {
         elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then :
         elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
         elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
+        elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then :
         else
             echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
             echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
