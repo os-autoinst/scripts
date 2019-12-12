@@ -104,9 +104,9 @@ main() {
         # 'known_issue:".*"'
         # this reads out all progress issues that have the search term included and
         # splice each line with a call to label_on_issue
-        elif echo "$issues" | (while read -r id; do
+        elif echo "$issues" | (while read -r issue; do
             read -r subject
-            [[ $subject == \"* ]] && after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "$subject" && break; done); then :
+            after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" && break; done); then :
         else
             echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
             echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
