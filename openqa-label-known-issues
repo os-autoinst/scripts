@@ -95,6 +95,7 @@ main() {
         elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
         elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
         elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then :
+        elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then :
         # Idea: query progress.o.o for all subjects with '"' included as search terms and
         # crosscheck logfile with these issues
         # it is possible to search for issues with a subject search term, e.g.:
