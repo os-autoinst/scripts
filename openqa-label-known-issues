@@ -65,7 +65,7 @@ main() {
             # group, build, module parameters
             # As long as we have a ticket for "incomplete jobs with no logs"
             # of higher priority we should use that one instead:
-            $client_call jobs/"$id"/comments post text='poo#60866 Again many incomplete jobs with no logs at all'
+            $client_call jobs/"$id"/comments post text='poo#61922 Incomplete jobs with no logs at all'
             #$client_call jobs/"$id"/comments post text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
             # triggering a restart on jobs that already have a clone does not have an effect
             $client_call jobs/"$id"/restart post
