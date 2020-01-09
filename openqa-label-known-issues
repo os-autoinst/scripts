@@ -26,7 +26,7 @@ label_on_issue() {
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-client --host $host_url"}"
-    issues=$($client_prefix curl -s "$issue_query" | $client_prefix jq -r '.issues | .[] | (.id,.subject)')
+    issues=$(curl -s "$issue_query" | jq -r '.issues | .[] | (.id,.subject)')
     for i in $(cat - | sed 's/ .*$//'); do
         id="${i##*/}"
         out=$(mktemp)
