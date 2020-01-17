@@ -23,101 +23,136 @@ label_on_issue() {
     fi
 }
 
+handle_unreachable_or_no_log() {
+    local id=$1
+    local i=$2
+    local out=$3
+
+    if ! curl -s --head "$i" -o /dev/null; then
+        # the page might be gone, try the scheme+host we configured (might be different one though)
+        if ! grep -q "$host_url" <<< "$i"; then
+            echo "'$i' is not reachable and 'host_url' parameter does not match '$i', can not check further, continuing with next"
+            return 0
+        fi
+        if ! curl -s --head "$host_url"; then
+            echo "'$host_url' is not reachable, bailing out"
+            curl --head "$host_url"
+        fi
+        echo "'$i' is not reachable, assuming deleted, continuing with next"
+        return 0
+    fi
+    # resorting to downloading the job details page instead of the
+    # log, overwrites $out
+    if ! curl -s "$i" -o "$out"; then
+        echo "'$i' can be reached but not downloaded, bailing out"
+        curl "$i"
+        exit 2
+    fi
+    # if the page is there but not even an autoinst-log.txt exists
+    # then the job might be too old and logs are already deleted.
+    # Checking timestamp
+    if [[ $(date -uIs -d '-14days') > $(hxnormalize -x "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
+        echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
+        return 0
+    fi
+    # if the job is not too old but there is no log file it is most
+    # likely poo#57620 See "openqa-label-all" as an interesting
+    # alternative which can label and optionally restart jobs based on
+    # group, build, module parameters
+    # As long as we have a ticket for "incomplete jobs with no logs"
+    # of higher priority we should use that one instead:
+    $client_call jobs/"$id"/comments post text='poo#61922 Incomplete jobs with no logs at all'
+    #$client_call jobs/"$id"/comments post text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
+    # triggering a restart on jobs that already have a clone does not have an effect
+    $client_call jobs/"$id"/restart post
+}
+
+label_on_issues_from_issue_tracker() {
+    local id=$1
+    # Idea: query progress.o.o for all subjects with '"' included as search terms and
+    # crosscheck logfile with these issues
+    # it is possible to search for issues with a subject search term, e.g.:
+    # curl -s "https://progress.opensuse.org/projects/openqav3/issues.json?subject=~merge%20keys" | jq '.issues | .[] | .id'
+    # First approach was using '"' at the beginning of a subject
+    # line as the marker for any regex but we can also do something like
+    # 'known_issue:".*"'
+    # this reads out all progress issues that have the search term included and
+    # splice each line with a call to label_on_issue
+    echo "$issues" | (while read -r issue; do
+        read -r subject
+        after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" && break; done)
+}
+
+label_on_issues_with_tickets() {
+    if label_on_issue "$id" 'Migrate to file failed, it has been running for more than' 'poo#59858 migrate failed, took too long' 1; then :
+    elif label_on_issue "$id" 'Could not open backing file.*: No such file or directory' 'poo#46742 premature deletion of files from cache' 1; then :
+    elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then :
+    elif label_on_issue "$id" 'Asset was already requested by another job' 'poo#60140 job incompletes failing on initial asset download with "Asset was already requested by another job"' 1; then :
+    elif label_on_issue "$id" 'needledir not found: .*null' 'poo#59330 openqa-clone-custom-git-refspec fails setting NEEDLES_DIR=null with new os-autoinst or openQA'; then :
+    elif label_on_issue "$id" 'The console .sut. is not responding (half-open socket?)' 'poo#60161 test incompletes in t20_teaming_ab_all_link'; then :
+    elif label_on_issue "$id" 'Download .* failed with: 521 - Connect timeout' 'poo#60167 jobs incomplete trying to download from cache, potentially worker specific' 1; then :
+    elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then :
+    elif label_on_issue "$id" 'Result: done' 'poo#43631 Job ending up incomplete but everything else looks fine' 1; then :
+    elif label_on_issue "$id" 'svirt serial: unable to read: transport read (error code: -43)' 'poo#60416 The console .* is not responding (half-open socket?)", very big log files with repetition of "svirt serial: unable to read: transport read (error code: -43)"'; then :
+    elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
+    elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
+    fi
+    false
+}
+
+label_on_issues_without_tickets() {
+    if label_on_issue "$id" 'Download of .* failed with: 404' 'label:non_existing asset, candidate for removal'; then :
+    elif label_on_issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then :
+    elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then :
+    elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then :
+    elif label_on_issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then :
+    elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then :
+    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then :
+    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then :
+    elif label_on_issue "$id" '(?s)(Failed to download|download failed: 404 - Not Found).*Result: setup failure' 'label:setup_failure, probably wrong settings or missing asset'; then :
+    fi
+    false
+}
+
+handle_unknown() {
+    local i=$1
+    local out=$2
+    echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
+    echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
+    # Look for different termination points with likely context
+    (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out") | head -n -1 >&2
+    echoerr "---"
+}
+
+investigate_issue() {
+    local id="${1##*/}"
+    local out
+    out=$(mktemp)
+    if [[ "$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")" != "200" ]]; then
+        # if we can not even access the page it is something more critical
+        handle_unreachable_or_no_log "$id" "$i" "$out"
+    elif label_on_issues_from_issue_tracker "$id"; then :
+    elif label_on_issues_with_tickets "$id"; then :
+
+    ## Issues without tickets, e.g. potential singular, manual debug jobs,
+    # wrong user settings, etc.
+    # could create an issue automatically with
+    # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
+    # but we should check if the issue already exists, e.g. same
+    # subject line
+    elif label_on_issues_without_tickets "$id"; then :
+    else
+        handle_unknown "$i" "$out"
+    fi
+    rm "$out"
+}
+
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-client --host $host_url"}"
     issues=$(curl -s "$issue_query" | jq -r '.issues | .[] | (.id,.subject)')
     for i in $(cat - | sed 's/ .*$//'); do
-        id="${i##*/}"
-        out=$(mktemp)
-        if [[ "$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")" != "200" ]]; then
-            # if we can not even access the page it is something more critical
-            if ! curl -s --head "$i" -o /dev/null; then
-                # the page might be gone, try the scheme+host we configured (might be different one though)
-                if ! grep -q "$host_url" <<< "$i"; then
-                    echo "'$i' is not reachable and 'host_url' parameter does not match '$i', can not check further, continuing with next"
-                    continue
-                fi
-                if ! curl -s --head "$host_url"; then
-                    echo "'$host_url' is not reachable, bailing out"
-                    curl --head "$host_url"
-                fi
-                echo "'$i' is not reachable, assuming deleted, continuing with next"
-                continue
-            fi
-            # resorting to downloading the job details page instead of the
-            # log, overwrites $out
-            if ! curl -s "$i" -o "$out"; then
-                echo "'$i' can be reached but not downloaded, bailing out"
-                curl "$i"
-                exit 2
-            fi
-            # if the page is there but not even an autoinst-log.txt exists
-            # then the job might be too old and logs are already deleted.
-            # Checking timestamp
-            if [[ $(date -uIs -d '-14days') > $(hxnormalize -x "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
-                echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
-                continue
-            fi
-            # if the job is not too old but there is no log file it is most
-            # likely poo#57620 See "openqa-label-all" as an interesting
-            # alternative which can label and optionally restart jobs based on
-            # group, build, module parameters
-            # As long as we have a ticket for "incomplete jobs with no logs"
-            # of higher priority we should use that one instead:
-            $client_call jobs/"$id"/comments post text='poo#61922 Incomplete jobs with no logs at all'
-            #$client_call jobs/"$id"/comments post text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
-            # triggering a restart on jobs that already have a clone does not have an effect
-            $client_call jobs/"$id"/restart post
-
-        # Idea: query progress.o.o for all subjects with '"' included as search terms and
-        # crosscheck logfile with these issues
-        # it is possible to search for issues with a subject search term, e.g.:
-        # curl -s "https://progress.opensuse.org/projects/openqav3/issues.json?subject=~merge%20keys" | jq '.issues | .[] | .id'
-        # First approach was using '"' at the beginning of a subject
-        # line as the marker for any regex but we can also do something like
-        # 'known_issue:".*"'
-        # this reads out all progress issues that have the search term included and
-        # splice each line with a call to label_on_issue
-        elif echo "$issues" | (while read -r issue; do
-            read -r subject
-            after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" && break; done); then :
-        elif label_on_issue "$id" 'Migrate to file failed, it has been running for more than' 'poo#59858 migrate failed, took too long' 1; then :
-        elif label_on_issue "$id" 'Could not open backing file.*: No such file or directory' 'poo#46742 premature deletion of files from cache' 1; then :
-        elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then :
-        elif label_on_issue "$id" 'Asset was already requested by another job' 'poo#60140 job incompletes failing on initial asset download with "Asset was already requested by another job"' 1; then :
-        elif label_on_issue "$id" 'needledir not found: .*null' 'poo#59330 openqa-clone-custom-git-refspec fails setting NEEDLES_DIR=null with new os-autoinst or openQA'; then :
-        elif label_on_issue "$id" 'The console .sut. is not responding (half-open socket?)' 'poo#60161 test incompletes in t20_teaming_ab_all_link'; then :
-        elif label_on_issue "$id" 'Download .* failed with: 521 - Connect timeout' 'poo#60167 jobs incomplete trying to download from cache, potentially worker specific' 1; then :
-        elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then :
-        elif label_on_issue "$id" 'Result: done' 'poo#43631 Job ending up incomplete but everything else looks fine' 1; then :
-        elif label_on_issue "$id" 'svirt serial: unable to read: transport read (error code: -43)' 'poo#60416 The console .* is not responding (half-open socket?)", very big log files with repetition of "svirt serial: unable to read: transport read (error code: -43)"'; then :
-        elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
-        elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
-
-        ## Issues without tickets, e.g. potential singular, manual debug jobs,
-        # wrong user settings, etc.
-        # could create an issue automatically with
-        # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
-        # but we should check if the issue already exists, e.g. same
-        # subject line
-        elif label_on_issue "$id" 'Download of .* failed with: 404' 'label:non_existing asset, candidate for removal'; then :
-        elif label_on_issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then :
-        elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then :
-        elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then :
-        elif label_on_issue "$id" 'Result: setup failure' 'label:setup_failure, probably wrong settings or missing asset'; then :
-        elif label_on_issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then :
-        elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then :
-        elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then :
-        elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then :
-        else
-            echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
-            echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
-            # Look for different termination points with likely context
-            (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out") | head -n -1 >&2
-            echoerr "---"
-        fi
-        rm "$out"
+        investigate_issue "$i"
     done
 }
 
