@@ -55,6 +55,11 @@ handle_unreachable_or_no_log() {
         echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
         return 0
     fi
+    if hxnormalize -x "$out" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
+        $client_call jobs/"$id"/comments post text='poo#62456 test incompletes after failing in GRU download task on "Inactivity timeout" with no logs'
+        $client_call jobs/"$id"/restart post
+        return 0
+    fi
     # if the job is not too old but there is no log file it is most
     # likely poo#57620 See "openqa-label-all" as an interesting
     # alternative which can label and optionally restart jobs based on
