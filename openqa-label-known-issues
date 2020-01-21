@@ -15,8 +15,13 @@ label_on_issue() {
     comment=$3
     restart=$4
     grep_opts="${grep_opts:-"-qPzo"}"
+    check=$5
     # shellcheck disable=SC2086
-    grep $grep_opts "$search_term" "$out" || return 1
+    if [[ -n $check ]]; then
+        eval $check || return 1
+    else
+        grep $grep_opts "$search_term" "$out" || return 1
+    fi
     $client_call jobs/"$id"/comments post text="$comment"
     if [ "$restart" = "1" ]; then
         $client_call jobs/"$id"/restart post
@@ -101,6 +106,8 @@ label_on_issues_with_tickets() {
     elif label_on_issue "$id" 'svirt serial: unable to read: transport read (error code: -43)' 'poo#60416 The console .* is not responding (half-open socket?)", very big log files with repetition of "svirt serial: unable to read: transport read (error code: -43)"'; then return
     elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then return
     elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then return
+    elif label_on_issue "$id" '' 'poo#62420 Improve reporting on incompletes with result "setup-failure" and no further explanation' 1 "grep -q 'setup failure' $out && [ $(wc -l < "$out") -lt 8 ]"; then return
+    elif label_on_issue "$id" '' 'https://github.com/os-autoinst/openQA/pull/2679 improve reporting on asset download failures' 0 "grep -qPzo '(?s)Download.*processed.*setup failure' $out && [ $(wc -l < "$out") -lt 10 ]"; then return
     fi
     false
 }
