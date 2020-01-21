@@ -32,14 +32,14 @@ handle_unreachable_or_no_log() {
         # the page might be gone, try the scheme+host we configured (might be different one though)
         if ! grep -q "$host_url" <<< "$i"; then
             echo "'$i' is not reachable and 'host_url' parameter does not match '$i', can not check further, continuing with next"
-            return 0
+            return
         fi
         if ! curl -s --head "$host_url"; then
             echo "'$host_url' is not reachable, bailing out"
             curl --head "$host_url"
         fi
         echo "'$i' is not reachable, assuming deleted, continuing with next"
-        return 0
+        return
     fi
     # resorting to downloading the job details page instead of the
     # log, overwrites $out
@@ -53,12 +53,12 @@ handle_unreachable_or_no_log() {
     # Checking timestamp
     if [[ $(date -uIs -d '-14days') > $(hxnormalize -x "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
         echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
-        return 0
+        return
     fi
     if hxnormalize -x "$out" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
         $client_call jobs/"$id"/comments post text='poo#62456 test incompletes after failing in GRU download task on "Inactivity timeout" with no logs'
         $client_call jobs/"$id"/restart post
-        return 0
+        return
     fi
     # if the job is not too old but there is no log file it is most
     # likely poo#57620 See "openqa-label-all" as an interesting
@@ -89,31 +89,31 @@ label_on_issues_from_issue_tracker() {
 }
 
 label_on_issues_with_tickets() {
-    if label_on_issue "$id" 'Migrate to file failed, it has been running for more than' 'poo#59858 migrate failed, took too long' 1; then :
-    elif label_on_issue "$id" 'Could not open backing file.*: No such file or directory' 'poo#46742 premature deletion of files from cache' 1; then :
-    elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then :
-    elif label_on_issue "$id" 'Asset was already requested by another job' 'poo#60140 job incompletes failing on initial asset download with "Asset was already requested by another job"' 1; then :
-    elif label_on_issue "$id" 'needledir not found: .*null' 'poo#59330 openqa-clone-custom-git-refspec fails setting NEEDLES_DIR=null with new os-autoinst or openQA'; then :
-    elif label_on_issue "$id" 'The console .sut. is not responding (half-open socket?)' 'poo#60161 test incompletes in t20_teaming_ab_all_link'; then :
-    elif label_on_issue "$id" 'Download .* failed with: 521 - Connect timeout' 'poo#60167 jobs incomplete trying to download from cache, potentially worker specific' 1; then :
-    elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then :
-    elif label_on_issue "$id" 'Result: done' 'poo#43631 Job ending up incomplete but everything else looks fine' 1; then :
-    elif label_on_issue "$id" 'svirt serial: unable to read: transport read (error code: -43)' 'poo#60416 The console .* is not responding (half-open socket?)", very big log files with repetition of "svirt serial: unable to read: transport read (error code: -43)"'; then :
-    elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then :
-    elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then :
+    if label_on_issue "$id" 'Migrate to file failed, it has been running for more than' 'poo#59858 migrate failed, took too long' 1; then return
+    elif label_on_issue "$id" 'Could not open backing file.*: No such file or directory' 'poo#46742 premature deletion of files from cache' 1; then return
+    elif label_on_issue "$id" 'Unexpected end of data 0' 'poo#59926 test incompletes just in the middle of execution with Unexpected end of data 0' 1; then return
+    elif label_on_issue "$id" 'Asset was already requested by another job' 'poo#60140 job incompletes failing on initial asset download with "Asset was already requested by another job"' 1; then return
+    elif label_on_issue "$id" 'needledir not found: .*null' 'poo#59330 openqa-clone-custom-git-refspec fails setting NEEDLES_DIR=null with new os-autoinst or openQA'; then return
+    elif label_on_issue "$id" 'The console .sut. is not responding (half-open socket?)' 'poo#60161 test incompletes in t20_teaming_ab_all_link'; then return
+    elif label_on_issue "$id" 'Download .* failed with: 521 - Connect timeout' 'poo#60167 jobs incomplete trying to download from cache, potentially worker specific' 1; then return
+    elif label_on_issue "$id" 'qemu-img: Could not open ..: The .file. block driver requires a file name' 'poo#60170 job incompletes trying to load empty value ISO_1'; then return
+    elif label_on_issue "$id" 'Result: done' 'poo#43631 Job ending up incomplete but everything else looks fine' 1; then return
+    elif label_on_issue "$id" 'svirt serial: unable to read: transport read (error code: -43)' 'poo#60416 The console .* is not responding (half-open socket?)", very big log files with repetition of "svirt serial: unable to read: transport read (error code: -43)"'; then return
+    elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then return
+    elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then return
     fi
     false
 }
 
 label_on_issues_without_tickets() {
-    if label_on_issue "$id" '(?s)([dD]ownload.*failed.*404).*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then :
-    elif label_on_issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then :
-    elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then :
-    elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then :
-    elif label_on_issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then :
-    elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then :
-    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then :
-    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then :
+    if label_on_issue "$id" '(?s)([dD]ownload.*failed.*404).*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then return
+    elif label_on_issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then return
+    elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then return
+    elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then return
+    elif label_on_issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then return
+    elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then return
+    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then return
+    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then return
     fi
     false
 }
@@ -135,8 +135,8 @@ investigate_issue() {
     if [[ "$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")" != "200" ]]; then
         # if we can not even access the page it is something more critical
         handle_unreachable_or_no_log "$id" "$i" "$out"
-    elif label_on_issues_from_issue_tracker "$id"; then :
-    elif label_on_issues_with_tickets "$id"; then :
+    elif label_on_issues_from_issue_tracker "$id"; then return
+    elif label_on_issues_with_tickets "$id"; then return
 
     ## Issues without tickets, e.g. potential singular, manual debug jobs,
     # wrong user settings, etc.
@@ -144,7 +144,7 @@ investigate_issue() {
     # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
     # but we should check if the issue already exists, e.g. same
     # subject line
-    elif label_on_issues_without_tickets "$id"; then :
+    elif label_on_issues_without_tickets "$id"; then return
     else
         handle_unknown "$i" "$out"
     fi
