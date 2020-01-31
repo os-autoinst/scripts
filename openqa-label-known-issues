@@ -1,4 +1,7 @@
 #!/bin/bash -e
+
+set -o pipefail
+
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
@@ -56,7 +59,7 @@ handle_unreachable_or_no_log() {
     # if the page is there but not even an autoinst-log.txt exists
     # then the job might be too old and logs are already deleted.
     # Checking timestamp
-    if [[ $(date -uIs -d '-14days') > $(hxnormalize -x "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
+    if [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
         echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
         return
     fi
