@@ -110,7 +110,6 @@ label_on_issues_with_tickets() {
     elif label_on_issue "$id" 'SOL payload already de-activated' 'poo#60437 Failed trying to deactivate ipmi SOL'; then return
     elif label_on_issue "$id" 'Can.* undefined value as a symbol reference at .*serial_screen.pm' 'poo#60416 unable to read svirt serial'; then return
     elif label_on_issue "$id" '' 'poo#62420 Improve reporting on incompletes with result "setup-failure" and no further explanation' 1 "grep -q 'setup failure' $out && [ $(wc -l < "$out") -lt 8 ]"; then return
-    elif label_on_issue "$id" '' 'https://github.com/os-autoinst/openQA/pull/2679 improve reporting on asset download failures' 0 "grep -qPzo '(?s)Download.*processed.*setup failure' $out && [ $(wc -l < "$out") -lt 10 ]"; then return
     fi
     false
 }
@@ -124,6 +123,7 @@ label_on_issues_without_tickets() {
     elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then return
     elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then return
     elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then return
+    elif label_on_issue "$id" '\[error\] Failed to download' 'label:download_error potentially out-of-space worker?' 1; then return
     fi
     false
 }
