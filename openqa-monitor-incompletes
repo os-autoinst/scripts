@@ -3,7 +3,7 @@ host="${host:-"openqa.opensuse.org"}"
 ssh_host="${ssh_host:-"$host"}"
 scheme="${scheme:-"https"}"
 failed_since="${failed_since:-"(NOW() - interval '24 hour')"}"
-query="${query:-"select id,test from jobs where (result='incomplete' and t_finished >= $failed_since and id not in (select job_id from comments where job_id is not null));"}"
+query="${query:-"select id,test from jobs where (result='incomplete' and reason!='quit' and t_finished >= $failed_since and id not in (select job_id from comments where job_id is not null));"}"
 for i in $(ssh "$ssh_host" "cd /tmp; sudo -u geekotest psql --no-align --tuples-only --command=\"$query\" openqa"); do
     url="$scheme://$host/tests/${i%|*}"
     details="${i#*|}"
