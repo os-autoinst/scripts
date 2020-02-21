@@ -24,7 +24,7 @@ update_package() {
     sed -i -e 's,mode="buildtime" mode="disabled",mode="buildtime",' _service
     # ignore those updates
     rm -f _service:*-test.changes
-    cp .osc/*-test.changes .
+    cp -v .osc/*-test.changes . 2>/dev/null ||:
     # Factory policies want only multiple spec files (for now)
     rm -f _multibuild
     for file in _service:*; do 
