@@ -165,6 +165,7 @@ main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-client --host $host_url"}"
     issues=$(curl -s "$issue_query" | jq -r '.issues | .[] | (.id,.subject)')
+    # shellcheck disable=SC2013
     for i in $(cat - | sed 's/ .*$//'); do
         investigate_issue "$i"
     done
