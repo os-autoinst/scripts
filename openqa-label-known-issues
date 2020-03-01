@@ -83,18 +83,21 @@ handle_unreachable_or_no_log() {
 
 label_on_issues_from_issue_tracker() {
     local id=$1
-    # Idea: query progress.o.o for all subjects with '"' included as search terms and
-    # crosscheck logfile with these issues
+    # query progress.o.o for all subjects with
+    # 'issue_marker:"<search_term>"[:retry]' with <search_term> being the
+    # perl extended regex to search for and an optional boolean switch
+    # ':retry' after the quoted search term to instruct for retriggering
+    # the according openQA job. The search terms are crosschecked against
+    # the logfiles of the openQA jobs against these issues.
+    #
+    # Detailed explanation:
     # it is possible to search for issues with a subject search term, e.g.:
     # curl -s "https://progress.opensuse.org/projects/openqav3/issues.json?subject=~merge%20keys" | jq '.issues | .[] | .id'
-    # First approach was using '"' at the beginning of a subject
-    # line as the marker for any regex but we can also do something like
-    # 'known_issue:".*"'
     # this reads out all progress issues that have the search term included and
     # splice each line with a call to label_on_issue
     echo "$issues" | (while read -r issue; do
         read -r subject
-        after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" && break; done)
+        after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" "${after//*\":retry*/1}" && break; done)
 }
 
 label_on_issues_with_tickets() {
