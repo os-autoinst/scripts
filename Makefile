@@ -2,10 +2,10 @@
 all:
 
 .PHONY: test
-test: checkstyle unit
+test: checkstyle
 
-.PHONY: unit
-unit:
+.PHONY: test-online
+test-online:
 	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues
 
 .PHONY: checkstyle

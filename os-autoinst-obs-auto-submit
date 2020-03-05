@@ -1,11 +1,13 @@
-#! /bin/sh
+#!/bin/bash
 
 set -e
 
 export LC_ALL=C
 src_project="${src_project:-"devel:openQA"}"
 dst_project="${dst_project:-"${src_project}:tested"}"
-XMLSTARLET=$(which xmlstarlet)
+submit_target="${submit_target:-"openSUSE:Factory"}"
+dry_run="${dry_run:-"0"}"
+XMLSTARLET=$(command -v xmlstarlet)
 test -n "$XMLSTARLET" || (echo "Need xmlstarlet" && exit 1)
 
 factory_request() {
@@ -13,7 +15,7 @@ factory_request() {
    # writing xpath in url encoding is not for beginners, so don't stare at it too long :)
    local states='(state%2F%40name%3D%27declined%27%20or%20state%2F%40name%3D%27new%27%20or%20state%2F%40name%3D%27review%27)'
    local actions="(action%2Ftarget%2F%40project%3D%27openSUSE%3AFactory%27%20and%20action%2Fsource%2F%40project%3D%27devel%3AopenQA%3Atested%27%20and%20action%2Ftarget%2F%40package%3D%27$package%27)"
-   osc api "/search/request/id?match=$states%20and%20$actions" | grep 'request id' | sed -e 's,.*id=.\([0-9]*\)[^[0-9]*$,\1,' | head -n 1
+   $osc api "/search/request/id?match=$states%20and%20$actions" | grep 'request id' | sed -e 's,.*id=.\([0-9]*\)[^[0-9]*$,\1,' | head -n 1
 }
 
 update_package() {
@@ -28,24 +30,25 @@ update_package() {
     # Factory policies want only multiple spec files (for now)
     rm -f _multibuild
     for file in _service:*; do 
-      mv -v $file `echo $file | sed -e 's,.*:,,'`
+        # shellcheck disable=SC2001
+        mv -v "$file" "$(echo "$file" | sed -e 's,.*:,,')"
     done
-    version=$(sed -n 's/^Version:\s*//p' *.spec)
-    rm -f *rpmlintrc _servicedata
-    osc addremove
-    sed -i '/rpmlintrc/d' *.spec
+    version=$(sed -n 's/^Version:\s*//p' ./*.spec)
+    rm -f ./*rpmlintrc _servicedata
+    $osc addremove
+    sed -i '/rpmlintrc/d' ./*.spec
     if [ "$package" == "os-autoinst-distri-opensuse-deps" ] ; then
-        osc ci -m "Offline generation of ${version}" --noservice
+        $osc ci -m "Offline generation of ${version}" --noservice
     else
-        osc ci -m "Offline generation of ${version}"
+        $osc ci -m "Offline generation of ${version}"
     fi
-    cmd='osc sr'
-    req=$(factory_request $package)
+    cmd="$osc sr"
+    req=$(factory_request "$package")
     # TODO: check if it's a different revision than HEAD
     if test -n "$req"; then
       cmd="$cmd -s $req"
     fi
-    $cmd -m "Update to ${version}" openSUSE:Factory
+    $cmd -m "Update to ${version}" "$submit_target"
 }
 
 last_revision() {
@@ -56,67 +59,75 @@ last_revision() {
     if test "$project" != "openSUSE:Factory"; then
        file=_service:$service:$file
     fi
-    local line=$(osc cat $project/$package/$file | grep 'Update to version' | head -n1)
-    echo $line | sed -e 's,.*\.\([^.]*\):$,\1,'
+    local line
+    line=$($osc cat "$project/$package/$file" | grep 'Update to version' | head -n1)
+    # shellcheck disable=SC2001
+    echo "$line" | sed -e 's,.*\.\([^.]*\):$,\1,'
 }
 
 sync_changesrevision() {
     dir=$1
     package=$2
-    factory_rev=$(last_revision openSUSE:Factory $package)
-    xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$factory_rev" $dir/$package/_servicedata
-    if ! diff -u $dir/$package/.osc/_servicedata $dir/$package/_servicedata; then
-       osc up $dir/$package
-       osc cat openSUSE:Factory $package $package.changes > $dir/$package/$package.changes
-       osc ci -m 'sync changesrevision with openSUSE:Factory' $dir/$package
-       osc up -S $dir/$package
+    factory_rev=$(last_revision openSUSE:Factory "$package")
+    path="$dir/$package"
+    $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$factory_rev" "$path"/_servicedata
+    if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
+       $osc up "$path"
+       $osc cat openSUSE:Factory "$package" "$package".changes > "$path/$package".changes
+       $osc ci -m 'sync changesrevision with openSUSE:Factory' "$path"
+       $osc up -S "$path"
     fi
 }
 
 generate_dep_changelog() {
     dir=$1
     package=$2
-    osc cat openSUSE:Factory $package $package.changes > $package-factory.changes
-    echo "-------------------------------------------------------------------" > $dir/$package/$package.changes
-    echo "$(LANG=c date -u) - Dominik Heidler <dheidler@suse.de>" >> $dir/$package/$package.changes
-    echo >> $dir/$package/$package.changes
-    diff -u $package-factory.spec $dir/$package/_service:obs_scm:$package.spec |\
-        grep "^[+-]Requires" |\
-        sed -e 's/Requires:\s*/dependency /g' -e 's/^-/- Removed /g' -e 's/^+/- Added /g' >> $dir/$package/$package.changes
-    echo >> $dir/$package/$package.changes
-    cat $package-factory.changes >> $dir/$package/$package.changes
+    $osc cat openSUSE:Factory "$package" "$package".changes > "$package"-factory.changes
+    {
+        echo "-------------------------------------------------------------------"
+        echo "$(LANG=c date -u) - Dominik Heidler <dheidler@suse.de>"
+        echo
+        diff -u "$package"-factory.spec "$dir"/"$package"/_service:obs_scm:"$package".spec |\
+            grep "^[+-]Requires" |\
+            sed -e 's/Requires:\s*/dependency /g' -e 's/^-/- Removed /g' -e 's/^+/- Added /g'
+        echo
+        cat "$package"-factory.changes
+    } > "$dir/$package/$package".changes
 }
 
-TMPDIR=$(mktemp -d)
-cd $TMPDIR
+[ "$dry_run" = "1" ] && prefix="echo"
+osc="${osc:-"$prefix osc"}"
 
+TMPDIR=${TMPDIR:-$(mktemp -d)}
+(cd "$TMPDIR"
 for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
-    osc service wait $src_project/$package
-    osc co -S $src_project/$package
+    $osc service wait "$src_project"/$package
+    $osc co -S "$src_project"/$package
     if test "$package" == "os-autoinst-distri-opensuse-deps"; then
-        osc cat openSUSE:Factory $package $package.spec > $package-factory.spec
-        if diff -u $package-factory.spec $src_project/$package/_service:obs_scm:$package.spec | grep "^[+-]Requires"; then
+        $osc cat openSUSE:Factory $package $package.spec > $package-factory.spec
+        if diff -u $package-factory.spec "$src_project"/$package/_service:obs_scm:$package.spec | grep "^[+-]Requires"; then
             # dependency added or removed
-            generate_dep_changelog $src_project $package
+            generate_dep_changelog "$src_project" $package
         else
             echo "No dependency changes for $package"
             continue
         fi
     else
-        sync_changesrevision $src_project $package
-        if test "$factory_rev" = $(last_revision $src_project $package); then
+        sync_changesrevision "$src_project" $package
+        if test "$factory_rev" = "$(last_revision "$src_project" $package)"; then
            echo "Latest revision already in Factory"
            continue
         fi
     fi
-    osc service wait $dst_project/$package
-    osc co $dst_project/$package
-    rm $dst_project/$package/*
-    cp -v $src_project/$package/* $dst_project/$package/
-    pushd $dst_project/$package
-    update_package $package
-    popd
+    $osc service wait "$dst_project"/$package
+    $osc co "$dst_project"/$package
+    rm "$dst_project"/$package/*
+    cp -v "$src_project"/$package/* "$dst_project"/$package/
+    (
+        cd "$dst_project"/$package
+        update_package $package
+    )
 done
+)
 
-cd ..
-rm -rf $TMPDIR
+rm -rf "$TMPDIR"
