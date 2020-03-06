@@ -7,5 +7,5 @@
 # for example from a query to the 'jobs get' route or the result string of a
 # 'jobs post' or 'isos post'
 filter_id() {
-    sed -n 's/^.*ids\?\s*=>\s*\[\?\([0-9]\+\)\]\?.*$/\1/p' $@
+    sed -n 's/^.*ids\?\s*=>\s*\[\?\([0-9]\+\)\]\?.*$/\1/p' "$@"
 }

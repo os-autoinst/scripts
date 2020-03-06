@@ -7,4 +7,5 @@ failed_since="${failed_since:-"(NOW() - interval '$interval')"}"
 width="${width:-80}"
 threshold="${threshold:-5}"
 query="${query:-"select left(text, $width), count(text) from jobs, comments where (result='incomplete' and t_finished >= $failed_since and jobs.id in (select job_id from comments where id is not null)) and jobs.id = job_id group by text having count(text) > $threshold order by count(text) desc;"}"
+# shellcheck disable=SC2029
 ssh "$ssh_host" "cd /tmp; sudo -u geekotest psql --command=\"$query\" openqa"

@@ -1,4 +1,4 @@
-# os-autoinst scripts
+# os-autoinst scripts ![](https://github.com/os-autoinst/scripts/workflows/ci/badge.svg)
 
 
 ## Communication

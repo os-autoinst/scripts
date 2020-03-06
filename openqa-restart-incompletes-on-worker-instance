@@ -2,6 +2,7 @@
 #worker="${worker:-"openqaworker4"}"
 host="${host:-"openqa.opensuse.org"}"
 failed_since="${failed_since:-"$(date -I)"}"
-instance_string="${instance+" and instance='$instance'"}"
-worker_string="${worker+"assigned_worker_id in (select id from workers where (host='$worker'$instance_string)) and "}"
-for i in $(ssh $host "sudo -u geekotest psql --no-align --tuples-only --command=\"select id from jobs where (${worker_string}result='incomplete' and t_finished >= '$failed_since');\" openqa"); do openqa-client --host $host jobs/$i/restart post; done
+instance_string="${INSTANCE+" and instance='$INSTANCE'"}"
+worker_string="${WORKER+"assigned_worker_id in (select id from workers where (host='$WORKER'$instance_string)) and "}"
+# shellcheck disable=SC2029
+for i in $(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"select id from jobs where (${worker_string}result='incomplete' and t_finished >= '$failed_since');\" openqa"); do openqa-client --host "$host" jobs/"$i"/restart post; done
