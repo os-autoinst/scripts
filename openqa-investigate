@@ -40,7 +40,7 @@ investigate() {
     # have more, ambiguous potential changes that we need to bisect on
 
     # for 1. current job/build + current test -> check if reproducible/sporadic
-    clone "$id" 'retry'
+    clone "$id" 'retry' "${@:2}"
 
     job_url="$host_url/tests/$id"
     investigation=$(curl -s "$job_url"/investigation)
@@ -65,7 +65,7 @@ investigate() {
         #refspec_arg="TEST_GIT_REFSPEC=$last_good_tests"
         repo="${repo:-"https://github.com/os-autoinst/os-autoinst-distri-opensuse.git"}"
         refspec_arg="CASEDIR=$repo#$last_good_tests"
-        clone "$id" "last_good_tests:$last_good_tests" "$refspec_arg"
+        clone "$id" "last_good_tests:$last_good_tests" "$refspec_arg" "${@:2}"
     fi
 
     # 3. last good job/build + current test -> check for product regression
@@ -78,7 +78,7 @@ investigate() {
         # here we clone with unspecified test refspec, i.e. this could be a
         # more recent tests version. As an alternative we could explicitly
         # checkout the git version from "first bad"
-        clone "$last_good" "last_good_build:$last_good_build"
+        clone "$last_good" "last_good_build:$last_good_build" "${@:2}"
     fi
 
     # 4. last good job/build + last good test -> check for other problem
@@ -88,7 +88,7 @@ investigate() {
     elif [[ -z $last_good_build ]]; then
         echo "No product regression expected. Not triggered 'good build+test' as it would be the same as 2., current build + good test"
     else
-        clone "$last_good" "last_good_tests_and_build:$last_good_tests+$last_good_build" "$refspec_arg"
+        clone "$last_good" "last_good_tests_and_build:$last_good_tests+$last_good_build" "$refspec_arg" "${@:2}"
     fi
 }
 
@@ -99,8 +99,8 @@ main() {
     clone_call="${clone_call:-"$client_prefix openqa-clone-job --skip-chained-deps --within-instance"}"
     # shellcheck disable=SC2013
     for i in $(cat - | sed 's/ .*$//'); do
-        investigate "$i"
+        investigate "$i" "$@"
     done
 }
 
-main
+main "$@"
