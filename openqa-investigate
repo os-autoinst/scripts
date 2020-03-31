@@ -17,28 +17,18 @@ clone() {
     name_suffix="${2+":$2"}"
     # shellcheck disable=SC2086
     job_data=$(openqa-client $client_args jobs/"$id")
-    name=$(echo "$job_data" | jq -r '.job.test')
+    name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
     base_prio=$(echo "$job_data" | jq -r '.job.priority')
-    out=$($clone_call "$host_url/tests/$id" TEST="$name:investigate$name_suffix" _GROUP_ID=0 BUILD= "${@:3}")
-    echo "$out"
+    out=$($clone_call "$host_url/tests/$id" TEST="$name" _GROUP_ID=0 BUILD= "${@:3}")
+    # output is in $out, should change that text to a markdown list entry
+    url=$(echo "$out" | sed -n 's/^Created job.*-> //p')
+    echo "* **$name**: $url"
     clone_id=${out/:*/}; clone_id=${clone_id/*#/}
-    $client_call jobs/"$clone_id" put --json-data "{\"priority\": $((base_prio + prio_add))}"
+    $client_call jobs/"$clone_id" put --json-data "{\"priority\": $((base_prio + prio_add))}" >/dev/null
 }
 
-# crosscheck
-# 1. current job/build + current test -> check if reproducible/sporadic
-# 2. current job/build + last good test (+ last good needles) -> check for
-#    test (+needles) regression
-# 3. last good job/build + current test -> check for product regression
-# 4. last good job/build + last good test -> check for other problem
-#    sources, e.g. infrastructure
-investigate() {
-    id="${1##*/}"
-
-    # Optionally we can find "first failed", could extend openQA investigation
-    # method instead for we are just working based on supplied job which can
-    # have more, ambiguous potential changes that we need to bisect on
-
+trigger_jobs() {
+    id="${1:?"Need 'job_id'"}"
     # for 1. current job/build + current test -> check if reproducible/sporadic
     clone "$id" 'retry' "${@:2}"
 
@@ -90,6 +80,27 @@ investigate() {
     else
         clone "$last_good" "last_good_tests_and_build:$last_good_tests+$last_good_build" "$refspec_arg" "${@:2}"
     fi
+}
+
+# crosscheck
+# 1. current job/build + current test -> check if reproducible/sporadic
+# 2. current job/build + last good test (+ last good needles) -> check for
+#    test (+needles) regression
+# 3. last good job/build + current test -> check for product regression
+# 4. last good job/build + last good test -> check for other problem
+#    sources, e.g. infrastructure
+investigate() {
+    id="${1##*/}"
+
+    # Optionally we can find "first failed", could extend openQA investigation
+    # method instead for we are just working based on supplied job which can
+    # have more, ambiguous potential changes that we need to bisect on
+
+    out=$(trigger_jobs "$id" "${@:2}")
+    comment="Automatic investigation jobs:
+
+$out"
+    $client_call jobs/"$id"/comments post text="$comment"
 }
 
 main() {
