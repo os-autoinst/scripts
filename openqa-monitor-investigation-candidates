@@ -1,0 +1,14 @@
+#!/bin/sh -e
+set -euo pipefail
+host="${host:-"openqa.opensuse.org"}"
+ssh_host="${ssh_host:-"$host"}"
+scheme="${scheme:-"https"}"
+failed_since="${failed_since:-"(NOW() - interval '24 hour')"}"
+group_id="${group_id:-"1"}"
+query="${query:-"select id,test from jobs where (result='failed' and clone_id is null and group_id=$group_id and t_finished >= $failed_since and id not in (select job_id from comments where job_id is not null));"}"
+# shellcheck disable=SC2029
+for i in $(ssh "$ssh_host" "cd /tmp; sudo -u geekotest psql --no-align --tuples-only --command=\"$query\" openqa"); do
+    url="$scheme://$host/tests/${i%|*}"
+    details="${i#*|}"
+    echo "$url" "$details"
+done
