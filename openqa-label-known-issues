@@ -145,16 +145,23 @@ handle_unknown() {
 investigate_issue() {
     local id="${1##*/}"
     local out
+    local reason
+    local curl
     # reason specified with insufficient length
     # we could accept sufficient length of reason as explanation enough not
     # needing any comment but then we should distinguish between real
     # user-errors or infrastructure related ones that we need to care about
-    out="$(openqa-client --json-output --host "$host_url" jobs/"$id" | jq -r '.job.reason')"
-    if [ -n "$out" ] && [ ${#out} -lt "$reason_min_length" ]; then
+    reason="$(openqa-client --json-output --host "$host_url" jobs/"$id" | jq -r '.job.reason')"
+    if [ -n "$reason" ] && [ ${#reason} -lt "$reason_min_length" ]; then
         $client_call jobs/"$id"/comments post text="poo#63718 incomplete reason with just 'quit' could provide more information"
     fi
     out=$(mktemp)
-    if [[ "$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")" != "200" ]]; then
+    curl=$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")
+    # combine both the reason and autoinst-log.txt to check known issues
+    # against even in case when autoinst-log.txt is missing the details, e.g.
+    # see https://progress.opensuse.org/issues/69178
+    echo "$reason" >> "$out"
+    if [[ "$curl" != "200" ]]; then
         # if we can not even access the page it is something more critical
         handle_unreachable_or_no_log "$id" "$i" "$out"
     elif label_on_issues_from_issue_tracker "$id"; then return
