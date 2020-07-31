@@ -1,0 +1,10 @@
+#!/bin/sh -e
+redmine_api_key="${redmine_api_key:?"Need redmine API key"}"
+host="${host:-"https://progress.opensuse.org"}"
+query_id="${query_id:-400}"
+project_id="${project_id:-18}"
+ticket_limit="${ticket_limit:-200}"
+wip_limit="${wip_limit:-10}"
+status="${status:-"In Progress"}"
+tickets=$(curl -s -H "X-Redmine-API-Key: $redmine_api_key" "https://progress.opensuse.org/issues.json?query_id=$query_id&project_id=$project_id&limit=$ticket_limit" | jq -r '.issues | .[] | select(.status.name=="In Progress") | .id')
+test "$(echo "$tickets" | wc -l)" -le "$wip_limit"

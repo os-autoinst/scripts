@@ -1,0 +1,17 @@
+---
+name: Check SUSE QA Tools WIP-Limit
+# yamllint disable-line rule:truthy
+on:
+  schedule:
+    - cron: '0 4 * * *'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check SUSE QA Tools WIP-Limit
+        env:
+          redmine_api_key: ${{ secrets.REDMINE_API_KEY }}
+        run: |
+         sudo apt-get install curl jq
+         ./backlog-check-wip-limit
