@@ -14,4 +14,4 @@ jobs:
           redmine_api_key: ${{ secrets.REDMINE_API_KEY }}
         run: |
          sudo apt-get install curl jq
-         ./backlog-check-wip-limit
+         sh -ex backlog-check-wip-limit
