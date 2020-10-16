@@ -10,6 +10,7 @@ min_search_term="${min_search_term:-"16"}"
 issue_marker="${issue_marker:-"auto_review%3A"}"
 issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/issues.json?limit=200&subproject_id=*&subject=~${issue_marker}"}"
 reason_min_length="${reason_min_length:-"8"}"
+to_review=()
 
 echoerr() { echo "$@" >&2; }
 
@@ -115,8 +116,8 @@ label_on_issues_without_tickets() {
 }
 
 handle_unknown() {
-    local i=$1
-    local out=$2
+    local i=$1 out=$2 reason=$3
+    to_review+=("$i ${reason:0:50}")
     echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
     echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
     # Look for different termination points with likely context
@@ -156,9 +157,18 @@ investigate_issue() {
     # subject line
     elif label_on_issues_without_tickets "$id"; then return
     else
-        handle_unknown "$i" "$out"
+        handle_unknown "$i" "$out" "$reason"
     fi
     rm "$out"
+}
+
+print_summary() {
+    local to_review_count=${#to_review[@]}
+    local msg="\n\e[1m\e[31m$to_review_count unknown incompletes to be reviewed:\e[0m"
+    for job in "${to_review[@]}"; do
+        msg+="\n - $job"
+    done
+    echoerr -e "$msg"
 }
 
 main() {
@@ -169,6 +179,7 @@ main() {
     for i in $(cat - | sed 's/ .*$//'); do
         investigate_issue "$i"
     done
+    print_summary
 }
 
 main
