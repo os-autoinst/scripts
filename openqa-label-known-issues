@@ -164,6 +164,7 @@ investigate_issue() {
 
 print_summary() {
     local to_review_count=${#to_review[@]}
+    [[ $to_review_count -eq 0 ]] && return
     local msg="\n\e[1m\e[31m$to_review_count unknown incompletes to be reviewed:\e[0m"
     for job in "${to_review[@]}"; do
         msg+="\n - $job"
