@@ -7,8 +7,8 @@ src_project="${src_project:-"devel:openQA"}"
 dst_project="${dst_project:-"${src_project}:tested"}"
 submit_target="${submit_target:-"openSUSE:Factory"}"
 dry_run="${dry_run:-"0"}"
-XMLSTARLET=$(command -v xmlstarlet)
-test -n "$XMLSTARLET" || (echo "Need xmlstarlet" && exit 1)
+XMLSTARLET=$(command -v xmlstarlet || true)
+[[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" && exit 1)
 
 factory_request() {
    local package=$1
