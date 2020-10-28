@@ -99,6 +99,8 @@ generate_dep_changelog() {
 osc="${osc:-"$prefix osc"}"
 
 TMPDIR=${TMPDIR:-$(mktemp -d)}
+trap 'rm -rf "$TMPDIR"' EXIT
+
 (cd "$TMPDIR"
 for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
     $osc service wait "$src_project"/$package
@@ -129,5 +131,3 @@ for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
     )
 done
 )
-
-rm -rf "$TMPDIR"
