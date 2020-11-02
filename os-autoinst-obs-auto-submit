@@ -56,7 +56,7 @@ last_revision() {
     package=$2
     file=$package.changes
     service=obs_scm
-    if test "$project" != "openSUSE:Factory"; then
+    if [[ $project != $submit_target ]]; then
        file=_service:$service:$file
     fi
     local line
@@ -68,13 +68,13 @@ last_revision() {
 sync_changesrevision() {
     dir=$1
     package=$2
-    factory_rev=$(last_revision openSUSE:Factory "$package")
+    factory_rev=$(last_revision "$submit_target" "$package")
     path="$dir/$package"
     $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$factory_rev" "$path"/_servicedata
     if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
        $osc up "$path"
-       $osc cat openSUSE:Factory "$package" "$package".changes > "$path/$package".changes
-       $osc ci -m 'sync changesrevision with openSUSE:Factory' "$path"
+       $osc cat "$submit_target" "$package" "$package".changes > "$path/$package".changes
+       $osc ci -m "sync changesrevision with $submit_target" "$path"
        $osc up -S "$path"
     fi
 }
@@ -82,7 +82,7 @@ sync_changesrevision() {
 generate_dep_changelog() {
     dir=$1
     package=$2
-    $osc cat openSUSE:Factory "$package" "$package".changes > "$package"-factory.changes
+    $osc cat "$submit_target" "$package" "$package".changes > "$package"-factory.changes
     {
         echo "-------------------------------------------------------------------"
         echo "$(LANG=c date -u) - Dominik Heidler <dheidler@suse.de>"
@@ -106,7 +106,7 @@ for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
     $osc service wait "$src_project"/$package
     $osc co -S "$src_project"/$package
     if test "$package" == "os-autoinst-distri-opensuse-deps"; then
-        $osc cat openSUSE:Factory $package $package.spec > $package-factory.spec
+        $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
         if diff -u $package-factory.spec "$src_project"/$package/_service:obs_scm:$package.spec | grep "^[+-]Requires"; then
             # dependency added or removed
             generate_dep_changelog "$src_project" $package
@@ -117,7 +117,7 @@ for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
     else
         sync_changesrevision "$src_project" $package
         if test "$factory_rev" = "$(last_revision "$src_project" $package)"; then
-           echo "Latest revision already in Factory"
+           echo "Latest revision already in $submit_target"
            continue
         fi
     fi
