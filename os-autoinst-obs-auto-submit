@@ -7,8 +7,10 @@ src_project="${src_project:-"devel:openQA"}"
 dst_project="${dst_project:-"${src_project}:tested"}"
 submit_target="${submit_target:-"openSUSE:Factory"}"
 dry_run="${dry_run:-"0"}"
-XMLSTARLET=$(command -v xmlstarlet)
-test -n "$XMLSTARLET" || (echo "Need xmlstarlet" && exit 1)
+osc_poll_interval="${osc_poll_interval:-2}"
+osc_build_start_poll_tries="${osc_build_start_poll_tries:-5}"
+XMLSTARLET=$(command -v xmlstarlet || true)
+[[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" && exit 1)
 
 factory_request() {
    local package=$1
@@ -42,6 +44,27 @@ update_package() {
     else
         $osc ci -m "Offline generation of ${version}"
     fi
+    local osc_query="https://api.opensuse.org/public/build/$dst_project/_result?repository=$submit_target&package=$package"
+    local wip_states='\(unknown\|blocked\|scheduled\|dispatching\|building\|signing\|finished\)'
+    local bad_states='\(failed\|unresolvable\|broken\)'
+    local attempts="$osc_build_start_poll_tries"
+    while ! curl -s  "$osc_query" | grep -e "$wip_states" ; do
+        if [[ $attempts -le 0 ]]; then
+            echo "warning: Re-build of $package has not been considered in time (or package has been re-built so fast that we've missed it)"
+            break
+        fi
+        echo "Waiting for re-build of $package to be considered (attempts left: $attempts)"
+        sleep "$osc_poll_interval"
+        attempts=$((attempts - 1))
+    done
+    while curl -s "$osc_query" | grep -e "$wip_states" ; do
+        echo "Waiting while $package is in progress"
+        sleep "$osc_poll_interval"
+    done
+    if curl -s "$osc_query" | grep -e "$bad_states" ; then
+        echo "Building $package has failed, skipping submission"
+        return 1
+    fi
     cmd="$osc sr"
     req=$(factory_request "$package")
     # TODO: check if it's a different revision than HEAD
@@ -56,7 +79,7 @@ last_revision() {
     package=$2
     file=$package.changes
     service=obs_scm
-    if test "$project" != "openSUSE:Factory"; then
+    if [[ $project != "$submit_target" ]]; then
        file=_service:$service:$file
     fi
     local line
@@ -68,13 +91,13 @@ last_revision() {
 sync_changesrevision() {
     dir=$1
     package=$2
-    factory_rev=$(last_revision openSUSE:Factory "$package")
+    factory_rev=$(last_revision "$submit_target" "$package")
     path="$dir/$package"
     $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$factory_rev" "$path"/_servicedata
     if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
        $osc up "$path"
-       $osc cat openSUSE:Factory "$package" "$package".changes > "$path/$package".changes
-       $osc ci -m 'sync changesrevision with openSUSE:Factory' "$path"
+       $osc cat "$submit_target" "$package" "$package".changes > "$path/$package".changes
+       $osc ci -m "sync changesrevision with $submit_target" "$path"
        $osc up -S "$path"
     fi
 }
@@ -82,7 +105,7 @@ sync_changesrevision() {
 generate_dep_changelog() {
     dir=$1
     package=$2
-    $osc cat openSUSE:Factory "$package" "$package".changes > "$package"-factory.changes
+    $osc cat "$submit_target" "$package" "$package".changes > "$package"-factory.changes
     {
         echo "-------------------------------------------------------------------"
         echo "$(LANG=c date -u) - Dominik Heidler <dheidler@suse.de>"
@@ -99,12 +122,14 @@ generate_dep_changelog() {
 osc="${osc:-"$prefix osc"}"
 
 TMPDIR=${TMPDIR:-$(mktemp -d)}
+trap 'rm -rf "$TMPDIR"' EXIT
+
 (cd "$TMPDIR"
 for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
     $osc service wait "$src_project"/$package
     $osc co -S "$src_project"/$package
     if test "$package" == "os-autoinst-distri-opensuse-deps"; then
-        $osc cat openSUSE:Factory $package $package.spec > $package-factory.spec
+        $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
         if diff -u $package-factory.spec "$src_project"/$package/_service:obs_scm:$package.spec | grep "^[+-]Requires"; then
             # dependency added or removed
             generate_dep_changelog "$src_project" $package
@@ -115,7 +140,7 @@ for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
     else
         sync_changesrevision "$src_project" $package
         if test "$factory_rev" = "$(last_revision "$src_project" $package)"; then
-           echo "Latest revision already in Factory"
+           echo "Latest revision already in $submit_target"
            continue
         fi
     fi
@@ -129,5 +154,3 @@ for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
     )
 done
 )
-
-rm -rf "$TMPDIR"
