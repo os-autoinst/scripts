@@ -6,9 +6,10 @@ export LC_ALL=C
 src_project="${src_project:-"devel:openQA"}"
 dst_project="${dst_project:-"${src_project}:tested"}"
 submit_target="${submit_target:-"openSUSE:Factory"}"
+submit_target_escaped=$(echo -n "$submit_target" | sed -e 's|\:|_|g') # avoid, e.g. "repoid 'openSUSE:Factory' is illegal"
 dry_run="${dry_run:-"0"}"
 osc_poll_interval="${osc_poll_interval:-2}"
-osc_build_start_poll_tries="${osc_build_start_poll_tries:-5}"
+osc_build_start_poll_tries="${osc_build_start_poll_tries:-30}"
 XMLSTARLET=$(command -v xmlstarlet || true)
 [[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" && exit 1)
 
@@ -44,7 +45,7 @@ update_package() {
     else
         $osc ci -m "Offline generation of ${version}"
     fi
-    local osc_query="https://api.opensuse.org/public/build/$dst_project/_result?repository=$submit_target&package=$package"
+    local osc_query="https://api.opensuse.org/public/build/$dst_project/_result?repository=$submit_target_escaped&package=$package"
     local wip_states='\(unknown\|blocked\|scheduled\|dispatching\|building\|signing\|finished\)'
     local bad_states='\(failed\|unresolvable\|broken\)'
     local attempts="$osc_build_start_poll_tries"
