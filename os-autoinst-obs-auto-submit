@@ -9,7 +9,7 @@ submit_target="${submit_target:-"openSUSE:Factory"}"
 submit_target_escaped=$(echo -n "$submit_target" | sed -e 's|\:|_|g') # avoid, e.g. "repoid 'openSUSE:Factory' is illegal"
 dry_run="${dry_run:-"0"}"
 osc_poll_interval="${osc_poll_interval:-2}"
-osc_build_start_poll_tries="${osc_build_start_poll_tries:-5}"
+osc_build_start_poll_tries="${osc_build_start_poll_tries:-30}"
 XMLSTARLET=$(command -v xmlstarlet || true)
 [[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" && exit 1)
 
