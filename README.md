@@ -6,6 +6,26 @@
 If you have questions, visit us on IRC in [#opensuse-factory](irc://chat.freenode.net/opensuse-factory)
 
 
+## How to use
+
+Checkout the individual scripts and either call them manually or automatically, e.g. in CI jobs
+
+### auto-review - Automatically detect known issues in openQA jobs, label openQA jobs with ticket references and optionally retrigger
+
+* [openqa-monitor-incompletes](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-incompletes) queries the database of an openQA instance (ssh access is necessary) and output the list of "interesting" incompletes, where "interesting" means not all incompletes but the ones likely needing actions by admins, e.g. unreviewed, no clones, no obvious "setup failure", etc.
+* [openqa-monitor-investigation-candidates](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-investigation-candidates) queries the dabase of an openQA instance (ssh access is necessary) and output the list of failed jobs that are suitable for triggering investigation jobs on, compare to "openqa-monitor-incompletes"
+* [openqa-label-known-issues](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues) can take a list of openQA jobs, for example output from "openqa-monitor-incompletes" and look for matching "known issues", for example from progress.opensuse.org, label the job and retrigger if specified in the issue (see the source code for details how to mark tickets)
+
+For tickets referencing "auto_review" it is suggested to add a text section based on the following template:
+
+```
+## Steps to reproduce
+
+Find jobs referencing this ticket with the help of
+https://raw.githubusercontent.com/os-autoinst/scripts/master/openqa-query-for-job-label ,
+for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
+```
+
 ## Contribute
 
 This project lives in https://github.com/os-autoinst/scripts
