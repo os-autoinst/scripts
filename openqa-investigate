@@ -35,7 +35,7 @@ trigger_jobs() {
 
     job_url="$host_url/tests/$id"
     investigation=$(curl -s "$job_url"/investigation_ajax)
-    last_good=$(echo "$investigation" | jq -r '.last_good')
+    last_good=$(echo "$investigation" | jq -r '.last_good.text')
 
     # for 2. current job/build + last good test (+ last good needles) ->
     #   check for test (+needles) regression
