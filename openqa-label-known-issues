@@ -130,6 +130,7 @@ investigate_issue() {
     local out
     local reason
     local curl
+    reason="$(openqa-client --json-output --host "$host_url" jobs/"$id" | jq -r '.job.reason')"
     out=$(mktemp)
     curl=$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")
     # combine both the reason and autoinst-log.txt to check known issues
