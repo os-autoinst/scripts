@@ -113,7 +113,7 @@ main() {
     for i in $(cat - | sed 's/ .*$//'); do
         investigate "$i" "$@" || ((error_count++)) ||:
     done
-    exit $error_count
+    exit "$error_count"
 }
 
 main "$@"
