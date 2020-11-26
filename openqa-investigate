@@ -33,7 +33,7 @@ trigger_jobs() {
     clone "$id" 'retry' "${@:2}"
 
     job_url="$host_url/tests/$id"
-    investigation=$(curl -s "$job_url"/investigation)
+    investigation=$(curl -s "$job_url"/investigation_ajax)
     last_good=$(echo "$investigation" | jq -r '.last_good')
 
     # for 2. current job/build + last good test (+ last good needles) ->
