@@ -54,8 +54,17 @@ run "openqa-label-known-issues" against all "investigation candidates" and
 pass all unknown issues to "openqa-investigate":
 
 ```
-./openqa-monitor-investigation-candidates | ./openqa-label-known-issues 3>&1 1>/dev/null 2>&3- | sed -n 's/\(\S*\) : Unknown issue, to be reviewed.*$/\1/p' | ./openqa-investigate
+./openqa-review-failed
 ```
+
+which does the equivalent of:
+
+```
+./openqa-monitor-investigation-candidates | ./openqa-label-known-issues | ./openqa-investigate
+```
+
+with minor changes to the input/output format used between the commands.
+
 
 ## Contribute
 
