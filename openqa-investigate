@@ -15,8 +15,9 @@ echoerr() { echo "$@" >&2; }
 clone() {
     id="${1:?"Need 'job_id'"}"
     name_suffix="${2+":$2"}"
-    # shellcheck disable=SC2086
-    job_data=$(openqa-client $client_args jobs/"$id")
+    job_data=$(openqa-cli api --json --host "$host" jobs/"$id")
+    # shellcheck disable=SC2181
+    [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
     name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
     base_prio=$(echo "$job_data" | jq -r '.job.priority')
     out=$($clone_call "$host_url/tests/$id" TEST="$name" _GROUP_ID=0 BUILD= "${@:3}")
@@ -33,8 +34,8 @@ trigger_jobs() {
     clone "$id" 'retry' "${@:2}"
 
     job_url="$host_url/tests/$id"
-    investigation=$(curl -s "$job_url"/investigation)
-    last_good=$(echo "$investigation" | jq -r '.last_good')
+    investigation=$(curl -s "$job_url"/investigation_ajax)
+    last_good=$(echo "$investigation" | jq -r '.last_good.text')
 
     # for 2. current job/build + last good test (+ last good needles) ->
     #   check for test (+needles) regression
@@ -113,7 +114,7 @@ main() {
     for i in $(cat - | sed 's/ .*$//'); do
         investigate "$i" "$@" || ((error_count++)) ||:
     done
-    exit $error_count
+    exit "$error_count"
 }
 
 main "$@"
