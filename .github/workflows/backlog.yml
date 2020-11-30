@@ -1,5 +1,5 @@
 ---
-name: Check SUSE QA Tools WIP-Limit
+name: Check SUSE QA Tools WIP-Limit and set due dates
 # yamllint disable-line rule:truthy
 on:
   schedule:
@@ -9,9 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Check SUSE QA Tools WIP-Limit
+      - name: Check SUSE QA Tools WIP-Limit set due dates
         env:
           redmine_api_key: ${{ secrets.REDMINE_API_KEY }}
         run: |
          sudo apt-get install curl jq
          sh -ex backlog-check-wip-limit
+         sh -ex backlog-set-due-date
