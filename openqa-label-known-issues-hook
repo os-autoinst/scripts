@@ -1,0 +1,13 @@
+#!/bin/bash -e
+
+set -o pipefail
+
+# "hook script" intended to be called by openQA instances taking a job ID as
+# parameter and forwarding a complete job URL to "openqa-label-known-issues"
+# on stdin
+
+id="${1:?"Need 'job_id'"}"
+host="${host:-"openqa.opensuse.org"}"
+scheme="${scheme:-"https"}"
+host_url="$scheme://$host"
+echo "$host_url/tests/$id" | bash -ex "$(dirname "$0")"/openqa-label-known-issues
