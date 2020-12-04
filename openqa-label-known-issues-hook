@@ -10,4 +10,4 @@ id="${1:?"Need 'job_id'"}"
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
-echo "$host_url/tests/$id" | bash -ex "$(dirname "$0")"/openqa-label-known-issues
+echo "$host_url/tests/$id" | "$(dirname "$0")"/openqa-label-known-issues
