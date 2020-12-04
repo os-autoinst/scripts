@@ -137,7 +137,7 @@ investigate_issue() {
     # against even in case when autoinst-log.txt is missing the details, e.g.
     # see https://progress.opensuse.org/issues/69178
     echo "$reason" >> "$out"
-    if [[ "$curl" != "200" ]]; then
+    if [[ "$curl" != "200" ]] && [[ "$curl" != "301" ]]; then
         # if we can not even access the page it is something more critical
         handle_unreachable_or_no_log "$id" "$i" "$out"
     elif label_on_issues_from_issue_tracker "$id"; then return
