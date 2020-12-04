@@ -1,5 +1,5 @@
 #!/bin/sh -e
-host="${host:-"openqa.opensuse.org"}"
+host="${host:-"openqa.opensuse.org openqa.suse.de"}"
 scheme="${scheme:-"https"}"
 failed_since="${failed_since:-"(NOW() - interval '30 day')"}"
 comment="${1:?"Need comment to search for"}"
