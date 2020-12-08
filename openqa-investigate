@@ -93,6 +93,12 @@ trigger_jobs() {
 investigate() {
     id="${1##*/}"
 
+    job_data=$(openqa-cli api --json --host "$host" jobs/"$id")
+    # shellcheck disable=SC2181
+    [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
+    old_name="$(echo "$job_data" | jq -r '.job.test')"
+    [[ "$old_name" =~ ":investigate:" ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
+
     # Optionally we can find "first failed", could extend openQA investigation
     # method instead for we are just working based on supplied job which can
     # have more, ambiguous potential changes that we need to bisect on
