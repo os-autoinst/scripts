@@ -65,6 +65,21 @@ which does the equivalent of:
 
 with minor changes to the input/output format used between the commands.
 
+### openQA hook scripts - Call auto-review or investigation steps in openQA after every job is done
+
+openQA supports custom job done hook scripts that can be called whenever a job
+is done, see
+http://open.qa/docs/#_enable_custom_hook_scripts_on_job_done_based_on_result
+for details. For the purpose of being called as these hook scripts here the
+following scripts are provided:
+
+* [openqa-label-known-issues-hook](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues-hook)
+  calls "openqa-label-known-issues" on the specified job
+* [openqa-label-known-issues-and-investigate-hook](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues-and-investigate-hook)
+  calls "openqa-label-known-issues" on the specified job and if no label was
+  found, "openqa-investigate". Compare to section
+  "Combine auto-review and openqa-investigate"
+
 
 ## Contribute
 
