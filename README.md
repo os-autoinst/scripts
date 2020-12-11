@@ -12,6 +12,24 @@ Checkout the individual scripts and either call them manually or automatically, 
 
 ### auto-review - Automatically detect known issues in openQA jobs, label openQA jobs with ticket references and optionally retrigger
 
+Based on simple regular expressions in the subject line of tickets on
+progress.opensuse.org within https://progress.opensuse.org/projects/openqav3
+or any subproject of it, commonly
+https://progress.opensuse.org/projects/openqatests/ , openQA jobs can be
+automatically labeled with the corresponding ticket and optionally retriggered
+where it makes sense. For this the subject line of a ticket must include text
+following the format `auto_review:"<search_term>"[:retry]` with
+`<search_term>` being the perl extended regex to search for and an optional
+boolean switch `:retry` after the quoted search term to instruct for
+retriggering the according openQA job. Example: `auto_review:"error 42
+found":retry`. The search terms are crosschecked against the logfiles and
+"reason" field of the openQA jobs. A multi-line search is possible, for
+example using the `<search_term>` `(?s)something to match earlier.*something
+to match some lines further down`. Other double quotes in the subject line
+than around the search term should be avoided. Also be careful to not specify
+a too generic search term to prevent false matches of job failures unrelated
+to the specified ticket.
+
 * [openqa-monitor-incompletes](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-incompletes)
   queries the database of an openQA instance (ssh access is necessary) and
   output the list of "interesting" incompletes, where "interesting" means not
