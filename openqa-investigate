@@ -19,7 +19,7 @@ echoerr() { echo "$@" >&2; }
 clone() {
     id="${1:?"Need 'job_id'"}"
     name_suffix="${2+":$2"}"
-    job_data=$(openqa-cli api --json --host "$host" jobs/"$id")
+    job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
     name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
@@ -97,7 +97,7 @@ trigger_jobs() {
 investigate() {
     id="${1##*/}"
 
-    job_data=$(openqa-cli api --json --host "$host" jobs/"$id")
+    job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
     old_name="$(echo "$job_data" | jq -r '.job.test')"
