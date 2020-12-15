@@ -19,7 +19,7 @@ echoerr() { echo "$@" >&2; }
 clone() {
     id="${1:?"Need 'job_id'"}"
     name_suffix="${2+":$2"}"
-    job_data=$(openqa-cli api --json --host "$host" jobs/"$id")
+    job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
     name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
@@ -39,6 +39,10 @@ trigger_jobs() {
 
     job_url="$host_url/tests/$id"
     investigation=$(curl -s "$job_url"/investigation_ajax)
+    last_good_exists=$(echo "$investigation" | jq -r '.last_good')
+    if [[ "$last_good_exists" = "not found" ]]; then
+        echo "No last good recorded, skipping regression investigation jobs" && return 1
+    fi
     last_good=$(echo "$investigation" | jq -r '.last_good.text')
 
     # for 2. current job/build + last good test (+ last good needles) ->
@@ -97,7 +101,7 @@ trigger_jobs() {
 investigate() {
     id="${1##*/}"
 
-    job_data=$(openqa-cli api --json --host "$host" jobs/"$id")
+    job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
     old_name="$(echo "$job_data" | jq -r '.job.test')"
