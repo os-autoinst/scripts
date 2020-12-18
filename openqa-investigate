@@ -107,7 +107,7 @@ investigate() {
     old_name="$(echo "$job_data" | jq -r '.job.test')"
     [[ "$old_name" =~ ":investigate:" ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
     [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
-    group="$(echo "$job_data" | jq -r '.job.group + " / " + .job.parent_group')"
+    group="$(echo "$job_data" | jq -r '.job.parent_group + " / " + .job.group')"
     [[ "$group" = " / " ]] && [[ "$exclude_no_group" = "true" ]] && echo "Job w/o job group, \$exclude_no_group is set, skipping investigation" && return 0
     [[ "$group" =~ $exclude_group_regex ]] && echo "Job group '$group' matches \$exclude_group_regex '$exclude_group_regex', skipping investigation" && return 0
 
