@@ -12,7 +12,7 @@ target_host_proto="${target_host_proto:-"https"}"
 dry_run="${dry_run:-"0"}"
 tw_openqa_host="${tw_openqa_host:-"https://openqa.opensuse.org"}"
 tw_group_id="${tw_group_id:-"1"}"
-openqa_client="${openqa_client:-"/usr/share/openqa/script/client"}"
+openqa_cli="${openqa_cli:-"/usr/share/openqa/script/openqa-cli"}"
 arch="${arch:-"x86_64"}"
 machine="${machine:-"64bit"}"
 
@@ -29,7 +29,7 @@ find_latest_published_tumbleweed_image() {
         echo "Unable to find latest published Tumbleweed build."
         exit 1
     fi
-    qcow=$(/usr/share/openqa/script/openqa-cli api --host "${tw_openqa_host}" assets get \
+    qcow=$(${openqa_cli} api --host "${tw_openqa_host}" assets get \
         | jq -r "[.assets[] | select(.name | test(\"Tumbleweed-$arch-$latest_published_tw_build-Tumbleweed\\\\@$machine.qcow\"))] | .[0] | .name")
     if ! [[ $qcow ]]; then
         echo "Unable to determine qcow image for Tumbleweed build '$latest_published_tw_build' (for architecture '$arch' and machine '$machine')."
@@ -53,8 +53,8 @@ trigger() {
         ARGS="OPENQA_HOST=http://openqa.opensuse.org"
     fi
 
-    ${client_prefix} "${openqa_client}" \
-        --host "${target_host_proto}"://"${target_host}" isos post \
+    ${client_prefix} "${openqa_cli}" api -X POST \
+        --host "${target_host_proto}"://"${target_host}" isos \
         VERSION=Tumbleweed \
         DISTRI=openQA FLAVOR=dev BUILD="${build}" \
         ARCH="${arch}" BACKEND=qemu WORKER_CLASS=qemu_x86_64 \
