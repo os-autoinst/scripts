@@ -7,6 +7,9 @@ test: checkstyle
 .PHONY: test-online
 test-online:
 	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues
+	env dry_run=1 ./trigger-openqa_in_openqa
+	# Invalid JSON causes the job to abort with an error
+	env tw_openqa_host=example.com dry_run=1 ./trigger-openqa_in_openqa | grep -v 'parse error:'
 
 .PHONY: checkstyle
 checkstyle: test-shellcheck test-yaml
