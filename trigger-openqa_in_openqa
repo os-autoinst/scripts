@@ -32,7 +32,7 @@ find_latest_published_tumbleweed_image() {
     fi
     qcow=null
     for latest_published_tw_build in $latest_published_tw_builds; do
-        qcow=$(${openqa_cli} api --host "${tw_openqa_host}" assets get \
+        qcow=$(${openqa_cli} api --host "${tw_openqa_host}" assets \
             | jq -r "[.assets[] | select(.name | test(\"Tumbleweed-$arch-$latest_published_tw_build-Tumbleweed\\\\@$machine.qcow\"))] | .[0] | .name")
         # This published build has an image available
         if [[ "$qcow" != "null" ]]; then
