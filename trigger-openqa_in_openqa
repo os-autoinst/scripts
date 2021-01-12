@@ -12,6 +12,7 @@ target_host_proto="${target_host_proto:-"https"}"
 dry_run="${dry_run:-"0"}"
 tw_openqa_host="${tw_openqa_host:-"https://openqa.opensuse.org"}"
 tw_group_id="${tw_group_id:-"1"}"
+openqa_client="${openqa_client:-"/usr/share/openqa/script/client"}"
 openqa_cli="${openqa_cli:-"/usr/share/openqa/script/openqa-cli"}"
 arch="${arch:-"x86_64"}"
 machine="${machine:-"64bit"}"
@@ -62,8 +63,10 @@ trigger() {
         ARGS="OPENQA_HOST=http://openqa.opensuse.org"
     fi
 
-    ${client_prefix} "${openqa_cli}" api -X POST \
-        --host "${target_host_proto}"://"${target_host}" isos \
+    # Store response as a Perl hash, e.g. { ids => [12345, 34567] }
+    # filter_id relies on that, but also external users outside this repo
+    ${client_prefix} "${openqa_client}" \
+        --host "${target_host_proto}"://"${target_host}" isos post \
         VERSION=Tumbleweed \
         DISTRI=openQA FLAVOR=dev BUILD="${build}" \
         ARCH="${arch}" BACKEND=qemu WORKER_CLASS=qemu_x86_64 \
