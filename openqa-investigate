@@ -22,6 +22,9 @@ clone() {
     job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
+    unsupported_cluster_jobs=$(echo "$job_data" | jq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)')
+    [[ $unsupported_cluster_jobs != 0 ]] \
+        && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
     name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
     base_prio=$(echo "$job_data" | jq -r '.job.priority')
     out=$($clone_call "$host_url/tests/$id" TEST="$name" _GROUP_ID=0 BUILD= "${@:3}")
