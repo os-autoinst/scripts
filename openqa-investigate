@@ -27,7 +27,10 @@ clone() {
         && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
     name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
     base_prio=$(echo "$job_data" | jq -r '.job.priority')
-    out=$($clone_call "$host_url/tests/$id" TEST="$name" _GROUP_ID=0 BUILD= "${@:3}")
+    # clear "PUBLISH_" settings to avoid overriding production assets
+    # shellcheck disable=SC2207
+    publish_keys=($(echo "$job_data" | jq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="'))
+    out=$($clone_call "$host_url/tests/$id" TEST="$name" _GROUP_ID=0 BUILD= "${publish_keys[@]}" "${@:3}")
     # output is in $out, should change that text to a markdown list entry
     url=$(echo "$out" | sed -n 's/^Created job.*-> //p')
     echo "* **$name**: $url"
