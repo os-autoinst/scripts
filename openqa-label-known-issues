@@ -12,6 +12,9 @@ issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/iss
 reason_min_length="${reason_min_length:-"8"}"
 to_review=()
 
+out=$(mktemp)
+trap 'rm "$out"' EXIT
+
 echoerr() { echo "$@" >&2; }
 
 label_on_issue() {
@@ -127,11 +130,9 @@ handle_unknown() {
 
 investigate_issue() {
     local id="${1##*/}"
-    local out
     local reason
     local curl
     reason="$(openqa-client --json-output --host "$host_url" jobs/"$id" | jq -r '.job.reason')"
-    out=$(mktemp)
     curl=$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")
     # combine both the reason and autoinst-log.txt to check known issues
     # against even in case when autoinst-log.txt is missing the details, e.g.
@@ -152,7 +153,6 @@ investigate_issue() {
     else
         handle_unknown "$i" "$out" "$reason"
     fi
-    rm "$out"
 }
 
 print_summary() {
