@@ -12,8 +12,8 @@ issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/iss
 reason_min_length="${reason_min_length:-"8"}"
 to_review=()
 
-out=$(mktemp)
-trap 'rm "$out"' EXIT
+out="${REPORT_FILE:-$(mktemp)}"
+trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
 
 echoerr() { echo "$@" >&2; }
 
