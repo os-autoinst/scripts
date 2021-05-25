@@ -53,6 +53,9 @@ for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
 
 ### openqa-investigate - Automatic investigation jobs with failure analysis in openQA
 
+openQA can be configured to automatically trigger investigation jobs whenever
+there is no carry-over and no automatic ticket assignment by auto-review.
+
 * [openqa-monitor-investigation-candidates](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-investigation-candidates)
   queries the dabase of an openQA instance (ssh access is necessary) and
   output the list of failed jobs that are suitable for triggering
@@ -62,7 +65,9 @@ for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
   can take a list of openQA jobs, for example output of
   "openqa-monitor-investigation-candidates" and trigger "investigation jobs",
   e.g. a plain retrigger, using the "last good" tests as well as "last good"
-  build
+  build and a combination of both. The results of all these four jobs should
+  give a pretty good indication if something is a test regression, a product
+  regression, an infrastructure problem or a sporadic issue.
 
 
 ### Combine auto-review and openqa-investigate
