@@ -22,12 +22,14 @@ label_on_issue() {
     search_term=$2
     comment=$3
     restart=$4
+    test_params=$5
     grep_opts="${grep_opts:-"-qPzo"}"
     # shellcheck disable=SC2086
     grep $grep_opts "$search_term" "$out" || return 1
     $client_call jobs/"$id"/comments post text="$comment"
     if [ "$restart" = "1" ]; then
-        $client_call jobs/"$id"/restart post
+        #$client_call jobs/"$id"/restart post "${test_params/,/ }"
+        openqa-clone-job --within-instance "$host_url/t$id" "${test_params/,/ }"
     fi
 }
 
@@ -96,7 +98,7 @@ label_on_issues_from_issue_tracker() {
     # splice each line with a call to label_on_issue
     echo "$issues" | (while read -r issue; do
         read -r subject
-        after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" "${after//*\":retry*/1}" && break; done)
+        after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" "${after//*\":retry*/1}" "${after/*:retry:/}" && break; done)
 }
 
 label_on_issues_without_tickets() {
