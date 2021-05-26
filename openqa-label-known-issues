@@ -23,13 +23,8 @@ label_on_issue() {
     comment=$3
     restart=$4
     grep_opts="${grep_opts:-"-qPzo"}"
-    check=$5
     # shellcheck disable=SC2086
-    if [[ -n $check ]]; then
-        eval $check || return 1
-    else
-        grep $grep_opts "$search_term" "$out" || return 1
-    fi
+    grep $grep_opts "$search_term" "$out" || return 1
     $client_call jobs/"$id"/comments post text="$comment"
     if [ "$restart" = "1" ]; then
         $client_call jobs/"$id"/restart post
@@ -88,7 +83,7 @@ handle_unreachable_or_no_log() {
 label_on_issues_from_issue_tracker() {
     local id=$1
     # query progress.o.o for all subjects with
-    # 'issue_marker:"<search_term>"[:retry]' with <search_term> being the
+    # 'issue_marker:"<search_term>"[:netry]' with <search_term> being the
     # perl extended regex to search for and an optional boolean switch
     # ':retry' after the quoted search term to instruct for retriggering
     # the according openQA job. The search terms are crosschecked against
