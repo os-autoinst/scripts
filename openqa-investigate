@@ -40,6 +40,7 @@ clone() {
     # shellcheck disable=SC2207
     clone_settings+=($(echo "$job_data" | jq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="'))
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
+    [[ $dry_run = 1 ]] && echo "$out"
     # output is in $out, should change that text to a markdown list entry
     url=$(echo "$out" | sed -n 's/^Created job.*-> //p')
     echo "* **$name**: $url"
