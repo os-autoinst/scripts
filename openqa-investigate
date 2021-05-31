@@ -17,8 +17,9 @@ echoerr() { echo "$@" >&2; }
 
 
 clone() {
-    id="${1:?"Need 'job_id'"}"
-    name_suffix="${2+":$2"}"
+    local id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
+    id=${1:?"Need 'job_id'"}
+    name_suffix=${2+":$2"}
     refspec=${3+$3}
     job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
