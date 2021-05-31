@@ -19,6 +19,7 @@ echoerr() { echo "$@" >&2; }
 clone() {
     id="${1:?"Need 'job_id'"}"
     name_suffix="${2+":$2"}"
+    refspec=${3+$3}
     job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
@@ -27,10 +28,18 @@ clone() {
         && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
     name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
     base_prio=$(echo "$job_data" | jq -r '.job.priority')
+    clone_settings=("TEST=$name" '_GROUP_ID=0' 'BUILD=')
+    if [[ $refspec ]]; then
+        casedir=$(echo "$job_data" | jq -r '.job.settings.CASEDIR')
+        [[ $casedir == null ]] && casedir=''
+        repo=${casedir:-'https://github.com/os-autoinst/os-autoinst-distri-opensuse.git'}
+        clone_settings+=("CASEDIR=${repo%#*}#${refspec}")
+    fi
+    clone_settings+=("${@:4}")
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
-    publish_keys=($(echo "$job_data" | jq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="'))
-    out=$($clone_call "$host_url/tests/$id" TEST="$name" _GROUP_ID=0 BUILD= "${publish_keys[@]}" "${@:3}")
+    clone_settings+=($(echo "$job_data" | jq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="'))
+    out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
     # output is in $out, should change that text to a markdown list entry
     url=$(echo "$out" | sed -n 's/^Created job.*-> //p')
     echo "* **$name**: $url"
@@ -41,7 +50,7 @@ clone() {
 trigger_jobs() {
     id="${1:?"Need 'job_id'"}"
     # for 1. current job/build + current test -> check if reproducible/sporadic
-    clone "$id" 'retry' "${@:2}"
+    clone "$id" 'retry' '' "${@:2}"
 
     job_url="$host_url/tests/$id"
     investigation=$(curl -s "$job_url"/investigation_ajax)
@@ -68,8 +77,7 @@ trigger_jobs() {
         # So better we use CASEDIR with a git refspec, only slightly less
         # efficient and also needing to know which git repo to use
         #refspec_arg="TEST_GIT_REFSPEC=$last_good_tests"
-        repo="${repo:-"https://github.com/os-autoinst/os-autoinst-distri-opensuse.git"}"
-        refspec_arg="CASEDIR=$repo#$last_good_tests"
+        refspec_arg=$last_good_tests
         clone "$id" "last_good_tests:$last_good_tests" "$refspec_arg" "${@:2}"
     fi
 
@@ -83,7 +91,7 @@ trigger_jobs() {
         # here we clone with unspecified test refspec, i.e. this could be a
         # more recent tests version. As an alternative we could explicitly
         # checkout the git version from "first bad"
-        clone "$last_good" "last_good_build:$last_good_build" "${@:2}"
+        clone "$last_good" "last_good_build:$last_good_build" '' "${@:2}"
     fi
 
     # 4. last good job/build + last good test -> check for other problem
