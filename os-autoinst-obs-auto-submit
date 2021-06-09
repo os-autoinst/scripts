@@ -126,7 +126,8 @@ TMPDIR=${TMPDIR:-$(mktemp -d)}
 trap 'rm -rf "$TMPDIR"' EXIT
 
 (cd "$TMPDIR"
-for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
+auto_submit_packages="$($osc ls $dst_project | grep -v '\-test$')"
+for package in $auto_submit_packages; do
     $osc service wait "$src_project"/$package
     $osc co -S "$src_project"/$package
     if test "$package" == "os-autoinst-distri-opensuse-deps"; then
