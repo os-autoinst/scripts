@@ -98,7 +98,7 @@ last_revision() {
 sync_changesrevision() {
     dir=$1
     package=$2
-    factory_rev=$(last_revision "$submit_target" "$package")
+    factory_rev=$3
     path="$dir/$package"
     $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$factory_rev" "$path"/_servicedata
     if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
@@ -139,7 +139,8 @@ handle_auto_submit() {
             return
         fi
     else
-        sync_changesrevision "$src_project" "$package"
+        factory_rev=$(last_revision "$submit_target" "$package")
+        sync_changesrevision "$src_project" "$package" "$factory_rev"
         if test "$factory_rev" = "$(last_revision "$src_project" "$package")"; then
             echo "Latest revision already in $submit_target"
             return
