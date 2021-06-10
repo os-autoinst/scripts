@@ -126,32 +126,33 @@ TMPDIR=${TMPDIR:-$(mktemp -d)}
 trap 'rm -rf "$TMPDIR"' EXIT
 
 (cd "$TMPDIR"
-for package in os-autoinst openQA os-autoinst-distri-opensuse-deps; do
-    $osc service wait "$src_project"/$package
-    $osc co -S "$src_project"/$package
+auto_submit_packages=$($osc ls "$dst_project" | grep -v '\-test$')
+for package in $auto_submit_packages; do
+    $osc service wait "$src_project"/"$package"
+    $osc co -S "$src_project"/"$package"
     if test "$package" == "os-autoinst-distri-opensuse-deps"; then
         $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
-        if diff -u $package-factory.spec "$src_project"/$package/_service:obs_scm:$package.spec | grep "^[+-]Requires"; then
+        if diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec | grep "^[+-]Requires"; then
             # dependency added or removed
-            generate_dep_changelog "$src_project" $package
+            generate_dep_changelog "$src_project" "$package"
         else
             echo "No dependency changes for $package"
             continue
         fi
     else
-        sync_changesrevision "$src_project" $package
-        if test "$factory_rev" = "$(last_revision "$src_project" $package)"; then
+        sync_changesrevision "$src_project" "$package"
+        if test "$factory_rev" = "$(last_revision "$src_project" "$package")"; then
            echo "Latest revision already in $submit_target"
            continue
         fi
     fi
-    $osc service wait "$dst_project"/$package
-    $osc co "$dst_project"/$package
-    rm "$dst_project"/$package/*
-    cp -v "$src_project"/$package/* "$dst_project"/$package/
+    $osc service wait "$dst_project"/"$package"
+    $osc co "$dst_project"/"$package"
+    rm "$dst_project"/"$package"/*
+    cp -v "$src_project"/"$package"/* "$dst_project"/"$package"/
     (
-        cd "$dst_project"/$package
-        update_package $package
+        cd "$dst_project"/"$package"
+        update_package "$package"
     )
 done
 )
