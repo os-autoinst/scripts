@@ -163,7 +163,7 @@ TMPDIR=${TMPDIR:-$(mktemp -d)}
 trap 'rm -rf "$TMPDIR"' EXIT
 
 (cd "$TMPDIR"
-auto_submit_packages=$($osc ls "$dst_project" | grep -v '\-test$')
+auto_submit_packages=${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}
 for package in $auto_submit_packages; do
     handle_auto_submit "$package"
 done
