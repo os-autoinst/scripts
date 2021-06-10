@@ -103,7 +103,7 @@ sync_changesrevision() {
     fi
 }
 
-generate_dep_changelog() {
+generate_os-autoinst-distri-opensuse-deps_changelog() {
     dir=$1
     package=$2
     $osc cat "$submit_target" "$package" "$package".changes > "$package"-factory.changes
@@ -134,7 +134,7 @@ for package in $auto_submit_packages; do
         $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
         if diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec | grep "^[+-]Requires"; then
             # dependency added or removed
-            generate_dep_changelog "$src_project" "$package"
+            generate_os-autoinst-distri-opensuse-deps_changelog "$src_project" "$package"
         else
             echo "No dependency changes for $package"
             continue
