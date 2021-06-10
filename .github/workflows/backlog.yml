@@ -7,7 +7,8 @@ on:
 env:
   redmine_api_key: ${{ secrets.REDMINE_API_KEY }}
 jobs:
-  test:
+  check_suse_qe_tools_wip_limit:
+    name: Check SUSE QE Tools WIP-Limit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -15,5 +16,12 @@ jobs:
         run: sudo apt-get install curl jq
       - name: Check SUSE QE Tools WIP-Limit
         run: sh -ex backlog-check-wip-limit
+  set_suse_qe_tools_due_dates:
+    name: Check SUSE QE Tools WIP-Limit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: sudo apt-get install curl jq
       - name: Set SUSE QE Tools due dates
         run: sh -ex backlog-set-due-date
