@@ -105,7 +105,7 @@ sync_changesrevision() {
        $osc up "$path"
        $osc cat "$submit_target" "$package" "$package".changes > "$path/$package".changes
        $osc ci -m "sync changesrevision with $submit_target" "$path"
-       $osc up -S "$path"
+       $osc up --server-side-source-service-files "$path"
     fi
 }
 
@@ -128,7 +128,7 @@ generate_os-autoinst-distri-opensuse-deps_changelog() {
 handle_auto_submit() {
     package=$1
     $osc service wait "$src_project"/"$package"
-    $osc co -S "$src_project"/"$package"
+    $osc co --server-side-source-service-files "$src_project"/"$package"
     if test "$package" == "os-autoinst-distri-opensuse-deps"; then
         $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
         if diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec | grep "^[+-]Requires"; then
