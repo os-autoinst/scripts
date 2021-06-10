@@ -21,30 +21,11 @@ factory_request() {
    $osc api "/search/request/id?match=$states%20and%20$actions" | grep 'request id' | sed -e 's,.*id=.\([0-9]*\)[^[0-9]*$,\1,' | head -n 1
 }
 
-update_package() {
-    package=$1
-    xmlstarlet ed -L -i "/services/service" --type attr -n mode --value 'disabled' _service
-    sed -i -e 's,mode="disabled" mode="disabled",mode="disabled",' _service
-    # reenable buildtime services
+reenable_buildtime_services() {
     sed -i -e 's,mode="buildtime" mode="disabled",mode="buildtime",' _service
-    # ignore those updates
-    rm -f _service:*-test.changes
-    cp -v .osc/*-test.changes . 2>/dev/null ||:
-    # Factory policies want only multiple spec files (for now)
-    rm -f _multibuild
-    for file in _service:*; do 
-        # shellcheck disable=SC2001
-        mv -v "$file" "$(echo "$file" | sed -e 's,.*:,,')"
-    done
-    version=$(sed -n 's/^Version:\s*//p' ./*.spec)
-    rm -f ./*rpmlintrc _servicedata
-    $osc addremove
-    sed -i '/rpmlintrc/d' ./*.spec
-    if [ "$package" == "os-autoinst-distri-opensuse-deps" ] ; then
-        $osc ci -m "Offline generation of ${version}" --noservice
-    else
-        $osc ci -m "Offline generation of ${version}"
-    fi
+}
+
+wait_for_package_build() {
     local osc_query="https://api.opensuse.org/public/build/$dst_project/_result?repository=$submit_target_escaped&package=$package"
     local wip_states='\(unknown\|blocked\|scheduled\|dispatching\|building\|signing\|finished\)'
     local bad_states='\(failed\|unresolvable\|broken\)'
@@ -66,6 +47,31 @@ update_package() {
         echo "Building $package has failed, skipping submission"
         return 1
     fi
+}
+
+update_package() {
+    package=$1
+    xmlstarlet ed -L -i "/services/service" --type attr -n mode --value 'disabled' _service
+    sed -i -e 's,mode="disabled" mode="disabled",mode="disabled",' _service
+    reenable_buildtime_services
+    # ignore those updates
+    rm -f _service:*-test.changes
+    cp -v .osc/*-test.changes . 2>/dev/null ||:
+    # Factory policies want only multiple spec files (for now)
+    rm -f _multibuild
+    for file in _service:*; do
+        # shellcheck disable=SC2001
+        mv -v "$file" "$(echo "$file" | sed -e 's,.*:,,')"
+    done
+    version=$(sed -n 's/^Version:\s*//p' ./*.spec)
+    rm -f ./*rpmlintrc _servicedata
+    $osc addremove
+    sed -i '/rpmlintrc/d' ./*.spec
+    if [ "$package" == "os-autoinst-distri-opensuse-deps" ] ; then
+        local ci_args="--noservice"
+    fi
+    $osc ci -m "Offline generation of ${version}" $ci_args
+    wait_for_package_build
     cmd="$osc sr"
     req=$(factory_request "$package")
     # TODO: check if it's a different revision than HEAD
@@ -119,15 +125,8 @@ generate_os-autoinst-distri-opensuse-deps_changelog() {
     } > "$dir/$package/$package".changes
 }
 
-[ "$dry_run" = "1" ] && prefix="echo"
-osc="${osc:-"$prefix osc"}"
-
-TMPDIR=${TMPDIR:-$(mktemp -d)}
-trap 'rm -rf "$TMPDIR"' EXIT
-
-(cd "$TMPDIR"
-auto_submit_packages=$($osc ls "$dst_project" | grep -v '\-test$')
-for package in $auto_submit_packages; do
+handle_auto_submit() {
+    package=$1
     $osc service wait "$src_project"/"$package"
     $osc co -S "$src_project"/"$package"
     if test "$package" == "os-autoinst-distri-opensuse-deps"; then
@@ -137,13 +136,13 @@ for package in $auto_submit_packages; do
             generate_os-autoinst-distri-opensuse-deps_changelog "$src_project" "$package"
         else
             echo "No dependency changes for $package"
-            continue
+            return
         fi
     else
         sync_changesrevision "$src_project" "$package"
         if test "$factory_rev" = "$(last_revision "$src_project" "$package")"; then
-           echo "Latest revision already in $submit_target"
-           continue
+            echo "Latest revision already in $submit_target"
+            return
         fi
     fi
     $osc service wait "$dst_project"/"$package"
@@ -151,8 +150,20 @@ for package in $auto_submit_packages; do
     rm "$dst_project"/"$package"/*
     cp -v "$src_project"/"$package"/* "$dst_project"/"$package"/
     (
-        cd "$dst_project"/"$package"
-        update_package "$package"
+    cd "$dst_project"/"$package"
+    update_package "$package"
     )
+}
+
+[ "$dry_run" = "1" ] && prefix="echo"
+osc="${osc:-"$prefix osc"}"
+
+TMPDIR=${TMPDIR:-$(mktemp -d)}
+trap 'rm -rf "$TMPDIR"' EXIT
+
+(cd "$TMPDIR"
+auto_submit_packages=$($osc ls "$dst_project" | grep -v '\-test$')
+for package in $auto_submit_packages; do
+    handle_auto_submit "$package"
 done
 )
