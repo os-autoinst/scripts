@@ -12,7 +12,7 @@ exclude_name_regex="${exclude_name_regex:-":investigate:"}"
 exclude_no_group="${exclude_no_group:-"true"}"
 # exclude_group_regex checks a combined string "<parent job group name> / <job group name>"
 exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
-client_args="--json-output --host $host_url"
+client_args="--host $host_url"
 echoerr() { echo "$@" >&2; }
 
 
@@ -46,7 +46,7 @@ clone() {
     url=$(echo "$out" | sed -n 's/^Created job.*-> //p')
     echo "* **$name**: $url"
     clone_id=${out/:*/}; clone_id=${clone_id/*#/}
-    $client_call jobs/"$clone_id" put --json-data "{\"priority\": $((base_prio + prio_add))}" >/dev/null
+    $client_call --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
 }
 
 trigger_jobs() {
@@ -136,13 +136,13 @@ investigate() {
     comment="Automatic investigation jobs:
 
 $out"
-    $client_call jobs/"$id"/comments post text="$comment"
+    $client_call -X POST jobs/"$id"/comments text="$comment"
 }
 
 main() {
     client_prefix=''
     [ "$dry_run" = "1" ] && client_prefix="echo"
-    client_call="${client_call:-"$client_prefix openqa-client $client_args"}"
+    client_call="${client_call:-"$client_prefix openqa-cli api $client_args"}"
     clone_call="${clone_call:-"$client_prefix openqa-clone-job --skip-chained-deps --within-instance"}"
     error_count=0
     # shellcheck disable=SC2013
