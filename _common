@@ -1,11 +1,11 @@
 #!/bin/sh -e
 
 # Common shell script snippets to be used when interacting with openQA
-# instances, for example over the openQA client.
+# instances, for example over openqa-cli.
 
-# From a openQA client perl hash output filter and return the id/ids of jobs,
+# From openqa-cli JSON output filter and return the id/ids of jobs,
 # for example from a query to the 'jobs get' route or the result string of a
 # 'jobs post' or 'isos post'
 filter_id() {
-    sed -n 's/^.*ids\?\s*=>\s*\[\?\([0-9]\+\)\]\?.*$/\1/p' "$@"
+    jq -r '.ids[0]' "$@"
 }
