@@ -9,7 +9,7 @@
 
 # configuration variables with defaults.
 sleep_time="${sleep_time:-"10"}"
-openqa_client="${openqa_client:-"/usr/share/openqa/script/client"}"
+openqa_cli="${openqa_cli:-"openqa-cli"}"
 host="${host:-"https://openqa.opensuse.org"}"
 openqa_groupid="${openqa_groupid:-"24"}"
 obs_component="${obs_component:-"package"}"
@@ -27,17 +27,17 @@ JOB_ID=$(filter_id job_post_response)
 echo "waiting for job ${JOB_ID} to finish"
 while sleep "${sleep_time}" ; do
     # shellcheck disable=SC2086
-    $openqa_client --host "${host}" jobs/${JOB_ID} | grep -q 'state.*done' && break
+    [ "$($openqa_cli api jobs/"${JOB_ID}" | jq -r '.job.state')" = 'done' ] && break
 done
 # shellcheck disable=SC2086
-response=$($openqa_client --host "${host}" jobs/${JOB_ID})
-result=$(echo "$response" | sed -n 's/^.*result\s*=> "\([^"]*\)",.*/\1/p')
+response=$($openqa_cli api jobs/"${JOB_ID}")
+result=$(echo "$response" | jq -r '.job.result')
 echo "job result: $result"
 obs_package_name=$1
 if ! echo "$result" | grep -q "passed" && [ -n "$obs_package_name" ] ; then
 
     # shellcheck disable=SC2086
-    VERSION=$($openqa_client --host "${host}" jobs/${JOB_ID} | sed -n 's/^.*VERSION\s*=> "\([^"]*\)",.*/\1/p')
+    VERSION=$(echo "$response" | jq -r '.job.settings.VERSION')
     osc api /comments/"${obs_component}"/"$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">test failed.*/\1/p' | while read -r id; do osc api -X DELETE /comment/"$id"; done
     osc api --data="test failed, see https://openqa.opensuse.org/tests/overview?version=$VERSION&groupid=${openqa_groupid}" -X POST "/comments/${obs_component}/$obs_package_name"
   exit 1

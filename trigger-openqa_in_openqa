@@ -12,10 +12,12 @@ target_host_proto="${target_host_proto:-"https"}"
 dry_run="${dry_run:-"0"}"
 tw_openqa_host="${tw_openqa_host:-"https://openqa.opensuse.org"}"
 tw_group_id="${tw_group_id:-"1"}"
-openqa_client="${openqa_client:-"/usr/share/openqa/script/client"}"
-openqa_cli="${openqa_cli:-"/usr/share/openqa/script/openqa-cli"}"
+openqa_cli="${openqa_cli:-"openqa-cli"}"
 arch="${arch:-"x86_64"}"
 machine="${machine:-"64bit"}"
+
+# shellcheck source=/dev/null
+. "$(dirname "$0")"/_common
 
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
@@ -63,10 +65,8 @@ trigger() {
         ARGS="OPENQA_HOST=http://openqa.opensuse.org"
     fi
 
-    # Store response as a Perl hash, e.g. { ids => [12345, 34567] }
-    # filter_id relies on that, but also external users outside this repo
-    ${client_prefix} "${openqa_client}" \
-        --host "${target_host_proto}"://"${target_host}" isos post \
+    ${client_prefix} "${openqa_cli}" \
+        api --host "${target_host_proto}://${target_host}" -X POST isos \
         VERSION=Tumbleweed \
         DISTRI=openQA FLAVOR=dev BUILD="${build}" \
         ARCH="${arch}" BACKEND=qemu WORKER_CLASS=qemu_x86_64 \
@@ -74,8 +74,7 @@ trigger() {
         ${ARGS} \
         | tee job_post_response
 
-    JOB_ID=$(sed -n 's/^.*ids => \[\([0-9]\+\)\].*$/\1/p' job_post_response)
-
+    JOB_ID=$(filter_id job_post_response)
     echo "Triggered as: ${target_host_proto}://${target_host}/tests/${JOB_ID}"
 }
 
