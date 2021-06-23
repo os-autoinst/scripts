@@ -1,5 +1,4 @@
-#!/bin/sh -e
-# shellcheck disable=SC2039
+#!/bin/bash -e
 set -euo pipefail
 host="${host:-"openqa.opensuse.org"}"
 ssh_host="${ssh_host:-"$host"}"

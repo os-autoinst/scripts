@@ -4,7 +4,7 @@
 #
 # Can be configured by variables.
 
-set -o pipefail
+set -euo pipefail
 
 # configuration variables with defaults.
 target_host="${target_host:-"openqa.opensuse.org"}"
@@ -74,8 +74,10 @@ trigger() {
         ${ARGS} \
         | tee job_post_response
 
-    JOB_ID=$(filter_id job_post_response)
-    echo "Triggered as: ${target_host_proto}://${target_host}/tests/${JOB_ID}"
+    echo 'Triggered as:'
+    for job_id in $(job_ids job_post_response); do
+        echo " - ${target_host_proto}://${target_host}/tests/${job_id}"
+    done
 }
 
 main

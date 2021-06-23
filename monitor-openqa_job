@@ -1,11 +1,13 @@
-#!/bin/sh -ex
+#!/bin/bash -ex
 
 # Monitor an openQA job by polling the status of a job over the API.
 #
-# Continuously polls the openQA API for the status of the specified job until
-# the job finishes. After the job is finished this program exits with an exit
-# code corresponding to the job result. For example a passing job would exit
-# this program with exit code 0 for success, all other with 1.
+# Continuously polls the openQA API for the status of the specified jobs until
+# all jobs finish. After the jobs have finished this program exits with an exit
+# code corresponding to the jobs' result. For example all jobs pass it would exit
+# this program with exit code 0 for success; otherwise with 1.
+
+set -euo pipefail
 
 # configuration variables with defaults.
 sleep_time="${sleep_time:-"10"}"
@@ -13,32 +15,39 @@ openqa_cli="${openqa_cli:-"openqa-cli"}"
 host="${host:-"https://openqa.opensuse.org"}"
 openqa_groupid="${openqa_groupid:-"24"}"
 obs_component="${obs_component:-"package"}"
+obs_package_name="${1:-""}"
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
 
-# note: JOB_ID can return multiple job ids separated by newline which is not
-# properly handled here, instead implicitly only the first job is evaluated,
-# hence SC2086 is so far not attended. The proper approach would be to monitor
-# all jobs or just accept a single job and not ignore the style warning.
-
-[ -f job_post_response ] || (echo "Need job response status file 'job_post_response'" && exit 2)
-JOB_ID=$(filter_id job_post_response)
-echo "waiting for job ${JOB_ID} to finish"
-while sleep "${sleep_time}" ; do
-    # shellcheck disable=SC2086
-    [ "$($openqa_cli api --host "${host}" jobs/"${JOB_ID}" | jq -r '.job.state')" = 'done' ] && break
+[[ -f job_post_response ]] || (echo "Need job response status file 'job_post_response'" && exit 2)
+declare -A failed_versions
+failed_jobs=()
+for job_id in $(job_ids job_post_response); do
+    echo "Waiting for job $job_id to finish"
+    while sleep "${sleep_time}" ; do
+        job_state=$($openqa_cli api --host "$host" jobs/"$job_id" | jq -r '.job.state')
+        [[ $job_state = 'done' ]] && break
+    done
+    response=$($openqa_cli api --host "$host" jobs/"$job_id")
+    result=$(echo "$response" | jq -r '.job.result')
+    echo "Result of job $job_id: $result"
+    if [[ $result != 'passed' ]] && [[ -n $obs_package_name ]] ; then
+        version=$(echo "$response" | jq -r '.job.settings.VERSION')
+        failed_versions[$version]=1
+        failed_jobs+=("$job_id")
+    fi
 done
-# shellcheck disable=SC2086
-response=$($openqa_cli api jobs/"${JOB_ID}")
-result=$(echo "$response" | jq -r '.job.result')
-echo "job result: $result"
-obs_package_name=$1
-if ! echo "$result" | grep -q "passed" && [ -n "$obs_package_name" ] ; then
 
-    # shellcheck disable=SC2086
-    VERSION=$(echo "$response" | jq -r '.job.settings.VERSION')
-    osc api /comments/"${obs_component}"/"$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">test failed.*/\1/p' | while read -r id; do osc api -X DELETE /comment/"$id"; done
-    osc api --data="test failed, see https://openqa.opensuse.org/tests/overview?version=$VERSION&groupid=${openqa_groupid}" -X POST "/comments/${obs_component}/$obs_package_name"
-  exit 1
-fi
+[[ ${failed_jobs[*]} ]] || exit 0
+
+osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">test failed.*/\1/p' | while read -r id; do
+    osc api -X DELETE /comment/"$id"
+done
+comment="openQA-in-openQA test(s) failed (job IDs: ${failed_jobs[*]}), see https://openqa.opensuse.org/tests/overview?"
+for version in "${!failed_versions[@]}"; do
+    comment+="version=${version}&"
+done
+comment+="groupid=$openqa_groupid"
+osc api --data="$comment" -X POST "/comments/${obs_component}/$obs_package_name"
+exit 1
