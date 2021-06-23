@@ -27,7 +27,7 @@ JOB_ID=$(filter_id job_post_response)
 echo "waiting for job ${JOB_ID} to finish"
 while sleep "${sleep_time}" ; do
     # shellcheck disable=SC2086
-    [ "$($openqa_cli api jobs/"${JOB_ID}" | jq -r '.job.state')" = 'done' ] && break
+    [ "$($openqa_cli api --host "${host}" jobs/"${JOB_ID}" | jq -r '.job.state')" = 'done' ] && break
 done
 # shellcheck disable=SC2086
 response=$($openqa_cli api jobs/"${JOB_ID}")
