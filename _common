@@ -6,6 +6,6 @@
 # From openqa-cli JSON output filter and return the id/ids of jobs,
 # for example from a query to the 'jobs get' route or the result string of a
 # 'jobs post' or 'isos post'
-filter_id() {
-    jq -r '.ids[0]' "$@"
+job_ids() {
+    jq -r '.ids[]' "$@"
 }
