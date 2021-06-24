@@ -41,7 +41,7 @@ done
 
 [[ ${failed_jobs[*]} ]] || exit 0
 
-osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">test failed.*/\1/p' | while read -r id; do
+osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">.*test.* failed.*/\1/p' | while read -r id; do
     osc api -X DELETE /comment/"$id"
 done
 comment="openQA-in-openQA test(s) failed (job IDs: ${failed_jobs[*]}), see https://openqa.opensuse.org/tests/overview?"
