@@ -15,6 +15,8 @@ tw_group_id="${tw_group_id:-"1"}"
 openqa_cli="${openqa_cli:-"openqa-cli"}"
 arch="${arch:-"x86_64"}"
 machine="${machine:-"64bit"}"
+build_tag=${BUILD_TAG:-}
+client_prefix=${client_prefix:-}
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
@@ -55,7 +57,7 @@ find_latest_published_tumbleweed_image() {
         ${client_prefix} wget -c "$url" -O /var/lib/openqa/factory/hdd/"$qcow"
     fi
     # ensure the build tag conforms to coolo's unwritten rules for the openQA dashboard
-    build=$(echo "$BUILD_TAG" | sed -e "s/jenkins-trigger-openQA_in_openQA-/:/" -e "s/-/./g")
+    build=$(echo "$build_tag" | sed -e "s/jenkins-trigger-openQA_in_openQA-/:/" -e "s/-/./g")
 }
 
 trigger() {
