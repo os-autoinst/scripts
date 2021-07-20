@@ -40,6 +40,7 @@ clone() {
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
     clone_settings+=($(echo "$job_data" | jq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="'))
+    clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$id")
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
     [[ $dry_run = 1 ]] && echo "$out"
     # output is in $out, should change that text to a markdown list entry
