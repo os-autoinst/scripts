@@ -16,6 +16,7 @@ exclude_no_group="${exclude_no_group:-"true"}"
 # exclude_group_regex checks a combined string "<parent job group name> / <job group name>"
 exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
 client_args="--host $host_url"
+jq_output_limit="${jq_output_limit:-15}"
 echoerr() { echo "$@" >&2; }
 
 runjq() {
@@ -26,6 +27,7 @@ runjq() {
     rc=$?
     set -e
     (( "$rc" == 0 )) && echo "$output" && return
+    output=$(echo "$output" | head -"$jq_output_limit")
     echo "jq ($(caller)): $output (Input: >>>$input<<<)" >&2
     exit $rc
 }
