@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Usage
+# echo jobnumber | openqa-investigate
+
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -euo pipefail
 
@@ -15,6 +18,17 @@ exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
 client_args="--host $host_url"
 echoerr() { echo "$@" >&2; }
 
+runjq() {
+    local rc output
+    input=$(</dev/stdin)
+    set +e
+    output=$(echo "$input" | jq "$@" 2>&1)
+    rc=$?
+    set -e
+    (( "$rc" == 0 )) && echo "$output" && return
+    echo "jq ($(caller)): $output (Input: >>>$input<<<)" >&2
+    exit $rc
+}
 
 clone() {
     local id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
@@ -24,14 +38,14 @@ clone() {
     job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
-    unsupported_cluster_jobs=$(echo "$job_data" | jq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)')
+    unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)')
     [[ $unsupported_cluster_jobs != 0 ]] \
         && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
-    name="$(echo "$job_data" | jq -r '.job.test'):investigate$name_suffix"
-    base_prio=$(echo "$job_data" | jq -r '.job.priority')
+    name="$(echo "$job_data" | runjq -r '.job.test'):investigate$name_suffix"
+    base_prio=$(echo "$job_data" | runjq -r '.job.priority')
     clone_settings=("TEST=$name" '_GROUP_ID=0' 'BUILD=')
     if [[ $refspec ]]; then
-        casedir=$(echo "$job_data" | jq -r '.job.settings.CASEDIR')
+        casedir=$(echo "$job_data" | runjq -r '.job.settings.CASEDIR')
         [[ $casedir == null ]] && casedir=''
         repo=${casedir:-'https://github.com/os-autoinst/os-autoinst-distri-opensuse.git'}
         clone_settings+=("CASEDIR=${repo%#*}#${refspec}")
@@ -39,7 +53,7 @@ clone() {
     clone_settings+=("${@:4}")
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
-    clone_settings+=($(echo "$job_data" | jq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="'))
+    clone_settings+=($(echo "$job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="'))
     clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$id")
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
     [[ $dry_run = 1 ]] && echo "$out"
@@ -57,21 +71,21 @@ trigger_jobs() {
 
     job_url="$host_url/tests/$id"
     investigation=$(curl -s "$job_url"/investigation_ajax)
-    last_good_exists=$(echo "$investigation" | jq -r '.last_good')
+    last_good_exists=$(echo "$investigation" | runjq -r '.last_good')
     if [[ "$last_good_exists" = "not found" ]]; then
         echo "No last good recorded, skipping regression investigation jobs" && return 1
     fi
-    last_good=$(echo "$investigation" | jq -r '.last_good.text')
+    last_good=$(echo "$investigation" | runjq -r '.last_good.text')
 
     # for 2. current job/build + last good test (+ last good needles) ->
     #   check for test (+needles) regression
-    test_log=$(echo "$investigation" | jq -r '.test_log')
+    test_log=$(echo "$investigation" | runjq -r '.test_log')
     if echo "$test_log" | grep -q "No.*changes recorded"; then
         echo "$test_log. Skipping test regression investigation job."
         last_good_tests=''
     else
         vars_last_good=$(curl -s "$host_url/tests/$last_good"/file/vars.json)
-        last_good_tests=$(echo "$vars_last_good" | jq -r '.TEST_GIT_HASH')
+        last_good_tests=$(echo "$vars_last_good" | runjq -r '.TEST_GIT_HASH')
         # here we could apply the same approach for needles, not only tests
         # With https://github.com/os-autoinst/os-autoinst/pull/1358 we could
         # theoretically use TEST_GIT_REFSPEC but this would act on the shared
@@ -90,7 +104,7 @@ trigger_jobs() {
         last_good_build=''
     else
         vars_last_good=${vars_last_good:-$(curl -s "$host_url/tests/$last_good"/file/vars.json)}
-        last_good_build=$(echo "$vars_last_good" | jq -r '.BUILD')
+        last_good_build=$(echo "$vars_last_good" | runjq -r '.BUILD')
         # here we clone with unspecified test refspec, i.e. this could be a
         # more recent tests version. As an alternative we could explicitly
         # checkout the git version from "first bad"
@@ -121,10 +135,10 @@ investigate() {
     job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
-    old_name="$(echo "$job_data" | jq -r '.job.test')"
+    old_name="$(echo "$job_data" | runjq -r '.job.test')"
     [[ "$old_name" =~ ":investigate:" ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
     [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
-    group="$(echo "$job_data" | jq -r '.job.parent_group + " / " + .job.group')"
+    group="$(echo "$job_data" | runjq -r '.job.parent_group + " / " + .job.group')"
     [[ "$group" = " / " ]] && [[ "$exclude_no_group" = "true" ]] && echo "Job w/o job group, \$exclude_no_group is set, skipping investigation" && return 0
     [[ "$group" =~ $exclude_group_regex ]] && echo "Job group '$group' matches \$exclude_group_regex '$exclude_group_regex', skipping investigation" && return 0
 
