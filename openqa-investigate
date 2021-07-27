@@ -40,9 +40,9 @@ runcurl() {
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
     rc=$?
     set -e
-    (( "$rc" != 0 )) && echo "curl: Error fetching ($*): $response" >&2 && return 1
+    (( "$rc" != 0 )) && echo "curl ($(caller)): Error fetching ($*): $response" >&2 && return 1
     status_code=$(echo "$response" | tail -1)
-    (( "$status_code" != 200 )) && echo "curl: Error fetching url ($*): Got Status $status_code" >&2 && return 1
+    (( "$status_code" != 200 )) && echo "curl ($(caller)): Error fetching url ($*): Got Status $status_code" >&2 && return 1
     # remove last line
     body=$(echo "$response" | tac | tail -n+2 | tac)
     echo "$body"
@@ -94,6 +94,7 @@ trigger_jobs() {
         echo "No last good recorded, skipping regression investigation jobs" && return 1
     fi
     last_good=$(echo "$investigation" | runjq -r '.last_good.text') || return $?
+    [[ ! $last_good =~ ^[0-9]+$ ]] && echo ".last_good.text not found: investigation for test $id returned '$investigation'" >&2 && return 1
 
     # for 2. current job/build + last good test (+ last good needles) ->
     #   check for test (+needles) regression
