@@ -73,16 +73,6 @@ handle_unreachable_or_no_log() {
         $client_call -X POST jobs/"$id"/restart
         return
     fi
-    # if the job is not too old but there is no log file it is most
-    # likely poo#57620 See "openqa-label-all" as an interesting
-    # alternative which can label and optionally restart jobs based on
-    # group, build, module parameters
-    # As long as we have a ticket for "incomplete jobs with no logs"
-    # of higher priority we should use that one instead:
-    $client_call -X POST jobs/"$id"/comments text='poo#61922 Incomplete jobs with no logs at all'
-    #$client_call -X POST jobs/"$id"/comments text='poo#57620 job is incomplete if websockets server (or webui?) is unreachable for a minute, e.g. during upgrade'
-    # triggering a restart on jobs that already have a clone does not have an effect
-    $client_call -X POST jobs/"$id"/restart
 }
 
 label_on_issues_from_issue_tracker() {
