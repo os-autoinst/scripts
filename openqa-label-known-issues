@@ -18,17 +18,21 @@ trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
 echoerr() { echo "$@" >&2; }
 
 label_on_issue() {
-    id=$1
-    search_term=$2
-    comment=$3
-    restart=$4
-    grep_opts="${grep_opts:-"-qPzo"}"
-    check=$5
+    local id=$1 search_term=$2 comment=$3 restart=$4 check=$5
+    local rc=0 grep_output
+    local grep_opts="${grep_opts:-"-qPzo"}"
     # shellcheck disable=SC2086
     if [[ -n $check ]]; then
         eval $check || return 1
     else
-        grep $grep_opts "$search_term" "$out" || return 1
+        grep_output=$(grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
+        if (( "$rc" == 1 )); then
+            return 1
+        elif (( "$rc" != 0 )); then
+            # unexpected error, e.g. "exceeded PCRE's backtracking limit"
+            echo "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
+            return $rc
+        fi
     fi
     $client_call -X POST jobs/"$id"/comments text="$comment"
     if [ "$restart" = "1" ]; then
