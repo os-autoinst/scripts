@@ -1,6 +1,12 @@
 #!/bin/bash -e
 
+# Usage
+# echo https://openqahost/tests/1234 | openqa-label-known-issues
+
 set -o pipefail
+
+# shellcheck source=/dev/null
+. "$(dirname "$0")"/_common
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
@@ -42,34 +48,34 @@ label_on_issue() {
 
 handle_unreachable_or_no_log() {
     local id=$1
-    local i=$2
+    local testurl=$2
     local out=$3
 
-    if ! curl -s --head "$i" -o /dev/null; then
+    if ! curl -s --head "$testurl" -o /dev/null; then
         # the page might be gone, try the scheme+host we configured (might be different one though)
-        if ! grep -q "$host_url" <<< "$i"; then
-            echo "'$i' is not reachable and 'host_url' parameter does not match '$i', can not check further, continuing with next"
+        if ! grep -q "$host_url" <<< "$testurl"; then
+            echo "'$testurl' is not reachable and 'host_url' parameter does not match '$testurl', can not check further, continuing with next"
             return
         fi
         if ! curl -s --head "$host_url"; then
             echo "'$host_url' is not reachable, bailing out"
             curl --head "$host_url"
         fi
-        echo "'$i' is not reachable, assuming deleted, continuing with next"
+        echo "'$testurl' is not reachable, assuming deleted, continuing with next"
         return
     fi
     # resorting to downloading the job details page instead of the
     # log, overwrites $out
-    if ! curl -s "$i" -o "$out"; then
-        echo "'$i' can be reached but not downloaded, bailing out"
-        curl "$i"
+    if ! curl -s "$testurl" -o "$out"; then
+        echo "'$testurl' can be reached but not downloaded, bailing out"
+        curl "$testurl"
         exit 2
     fi
     # if the page is there but not even an autoinst-log.txt exists
     # then the job might be too old and logs are already deleted.
     # Checking timestamp
     if [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
-        echo "'$i' does not have autoinst-log.txt but is rather old, ignoring"
+        echo "'$testurl' does not have autoinst-log.txt but is rather old, ignoring"
         return
     fi
     if hxnormalize -x "$out" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
@@ -113,9 +119,9 @@ label_on_issues_without_tickets() {
 }
 
 handle_unknown() {
-    local i=$1 out=$2 reason=$3
-    to_review+=("$i ${reason:0:50}")
-    echoerr "$i : Unknown issue, to be reviewed -> $i/file/autoinst-log.txt"
+    local testurl=$1 out=$2 reason=$3
+    to_review+=("$testurl ${reason:0:50}")
+    echoerr "$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
     echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n---"
     # Look for different termination points with likely context
     (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | head -n -1 >&2
@@ -125,16 +131,16 @@ handle_unknown() {
 investigate_issue() {
     local id="${1##*/}"
     local reason
-    local curl
-    reason=$(openqa-cli api --host "$host_url" jobs/"$id" | jq -r '.job.reason')
-    curl=$(curl -s -w "%{http_code}" "$i/file/autoinst-log.txt" -o "$out")
+    local curl_output
+    reason=$(openqa-cli api --host "$host_url" jobs/"$id" | runjq -r '.job.reason')
+    curl_output=$(curl -s -w "%{http_code}" "$testurl/file/autoinst-log.txt" -o "$out")
     # combine both the reason and autoinst-log.txt to check known issues
     # against even in case when autoinst-log.txt is missing the details, e.g.
     # see https://progress.opensuse.org/issues/69178
     echo "$reason" >> "$out"
-    if [[ "$curl" != "200" ]] && [[ "$curl" != "301" ]]; then
+    if [[ "$curl_output" != "200" ]] && [[ "$curl_output" != "301" ]]; then
         # if we can not even access the page it is something more critical
-        handle_unreachable_or_no_log "$id" "$i" "$out"
+        handle_unreachable_or_no_log "$id" "$testurl" "$out"
     elif label_on_issues_from_issue_tracker "$id"; then return
 
     ## Issues without tickets, e.g. potential singular, manual debug jobs,
@@ -145,7 +151,7 @@ investigate_issue() {
     # subject line
     elif label_on_issues_without_tickets "$id"; then return
     else
-        handle_unknown "$i" "$out" "$reason"
+        handle_unknown "$testurl" "$out" "$reason"
     fi
 }
 
@@ -162,10 +168,10 @@ print_summary() {
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-cli api --host $host_url"}"
-    issues=$(curl -s "$issue_query" | jq -r '.issues | .[] | (.id,.subject)')
+    issues=$(runcurl -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject)')
     # shellcheck disable=SC2013
-    for i in $(cat - | sed 's/ .*$//'); do
-        investigate_issue "$i"
+    for testurl in $(cat - | sed 's/ .*$//'); do
+        investigate_issue "$testurl"
     done
     print_summary
 }
