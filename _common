@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
@@ -9,3 +9,38 @@
 job_ids() {
     jq -r '.ids[]' "$@"
 }
+
+# Wrapper around jq that outputs the first lines of JSON in case
+# jq has a problem with it, and the calling command and line
+runjq() {
+    local rc output
+    local jq_output_limit="${jq_output_limit:-15}"
+    input=$(</dev/stdin)
+    set +e
+    output=$(echo "$input" | jq "$@" 2>&1)
+    rc=$?
+    set -e
+    (( "$rc" == 0 )) && echo "$output" && return
+    output=$(echo "$output" | head -"$jq_output_limit")
+    echo "jq ($(caller)): $output (Input: >>>$input<<<)" >&2
+    return $rc
+}
+
+# Wrapper around curl that reports the HTTP status if it is not 200, and the
+# calling command and line
+runcurl() {
+    local rc status_code body response
+    local verbose="${verbose:-"false"}"
+    $verbose && echo "[debug] curl: Fetching ($*)" >&2
+    set +e
+    response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
+    rc=$?
+    set -e
+    (( "$rc" != 0 )) && echo "curl ($(caller)): Error fetching ($*): $response" >&2 && return 1
+    status_code=$(echo "$response" | tail -1)
+    (( "$status_code" != 200 )) && echo "curl ($(caller)): Error fetching url ($*): Got Status $status_code" >&2 && return 1
+    # remove last line
+    body=$(echo "$response" | tac | tail -n+2 | tac)
+    echo "$body"
+}
+
