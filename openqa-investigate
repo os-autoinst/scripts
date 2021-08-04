@@ -6,6 +6,9 @@
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -euo pipefail
 
+# shellcheck source=/dev/null
+. "$(dirname "$0")"/_common
+
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
@@ -20,33 +23,6 @@ client_args="--host $host_url"
 jq_output_limit="${jq_output_limit:-15}"
 echoerr() { echo "$@" >&2; }
 
-runjq() {
-    local rc output
-    input=$(</dev/stdin)
-    set +e
-    output=$(echo "$input" | jq "$@" 2>&1)
-    rc=$?
-    set -e
-    (( "$rc" == 0 )) && echo "$output" && return
-    output=$(echo "$output" | head -"$jq_output_limit")
-    echo "jq ($(caller)): $output (Input: >>>$input<<<)" >&2
-    return $rc
-}
-
-runcurl() {
-    local rc status_code body response
-    $verbose && echo "[debug] curl: Fetching ($*)" >&2
-    set +e
-    response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
-    rc=$?
-    set -e
-    (( "$rc" != 0 )) && echo "curl ($(caller)): Error fetching ($*): $response" >&2 && return 1
-    status_code=$(echo "$response" | tail -1)
-    (( "$status_code" != 200 )) && echo "curl ($(caller)): Error fetching url ($*): Got Status $status_code" >&2 && return 1
-    # remove last line
-    body=$(echo "$response" | tac | tail -n+2 | tac)
-    echo "$body"
-}
 
 clone() {
     local id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
