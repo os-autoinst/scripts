@@ -16,6 +16,7 @@ min_search_term="${min_search_term:-"16"}"
 issue_marker="${issue_marker:-"auto_review%3A"}"
 issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/issues.json?limit=200&subproject_id=*&subject=~${issue_marker}"}"
 reason_min_length="${reason_min_length:-"8"}"
+grep_timeout="${grep_timeout:-5}"
 to_review=()
 
 out="${REPORT_FILE:-$(mktemp)}"
@@ -31,9 +32,12 @@ label_on_issue() {
     if [[ -n $check ]]; then
         eval $check || return 1
     else
-        grep_output=$(grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
+        grep_output=$(timeout "$grep_timeout" grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
         if (( "$rc" == 1 )); then
             return 1
+        elif (( "$rc" == 124 )); then
+            echo "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
+            return $rc
         elif (( "$rc" != 0 )); then
             # unexpected error, e.g. "exceeded PCRE's backtracking limit"
             echo "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
