@@ -18,6 +18,7 @@ issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/iss
 reason_min_length="${reason_min_length:-"8"}"
 grep_timeout="${grep_timeout:-5}"
 to_review=()
+curl_args=(--user-agent "openqa-label-known-issues")
 
 out="${REPORT_FILE:-$(mktemp)}"
 trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
@@ -55,24 +56,24 @@ handle_unreachable_or_no_log() {
     local testurl=$2
     local out=$3
 
-    if ! curl -s --head "$testurl" -o /dev/null; then
+    if ! curl "${curl_args[@]}" -s --head "$testurl" -o /dev/null; then
         # the page might be gone, try the scheme+host we configured (might be different one though)
         if ! grep -q "$host_url" <<< "$testurl"; then
             echo "'$testurl' is not reachable and 'host_url' parameter does not match '$testurl', can not check further, continuing with next"
             return
         fi
-        if ! curl -s --head "$host_url"; then
+        if ! curl "${curl_args[@]}" -s --head "$host_url"; then
             echo "'$host_url' is not reachable, bailing out"
-            curl --head "$host_url"
+            curl "${curl_args[@]}" --head "$host_url"
         fi
         echo "'$testurl' is not reachable, assuming deleted, continuing with next"
         return
     fi
     # resorting to downloading the job details page instead of the
     # log, overwrites $out
-    if ! curl -s "$testurl" -o "$out"; then
+    if ! curl "${curl_args[@]}" -s "$testurl" -o "$out"; then
         echo "'$testurl' can be reached but not downloaded, bailing out"
-        curl "$testurl"
+        curl "${curl_args[@]}" "$testurl"
         exit 2
     fi
     # if the page is there but not even an autoinst-log.txt exists
@@ -137,7 +138,7 @@ investigate_issue() {
     local reason
     local curl_output
     reason=$(openqa-cli api --host "$host_url" jobs/"$id" | runjq -r '.job.reason')
-    curl_output=$(curl -s -w "%{http_code}" "$testurl/file/autoinst-log.txt" -o "$out")
+    curl_output=$(curl "${curl_args[@]}" -s -w "%{http_code}" "$testurl/file/autoinst-log.txt" -o "$out")
     # combine both the reason and autoinst-log.txt to check known issues
     # against even in case when autoinst-log.txt is missing the details, e.g.
     # see https://progress.opensuse.org/issues/69178
@@ -172,7 +173,7 @@ print_summary() {
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
     client_call="${client_call:-"$client_prefix openqa-cli api --host $host_url"}"
-    issues=$(runcurl -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject)')
+    issues=$(runcurl "${curl_args[@]}" -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject)')
     # shellcheck disable=SC2013
     for testurl in $(cat - | sed 's/ .*$//'); do
         investigate_issue "$testurl"
