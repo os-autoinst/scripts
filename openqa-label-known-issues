@@ -36,12 +36,12 @@ label_on_issue() {
         eval $check || return 1
     else
         grep_output=$(timeout "$grep_timeout" grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
-        if (( "$rc" == 1 )); then
+        if [[ "$rc" == 1 ]]; then
             return 1
-        elif (( "$rc" == 124 )); then
+        elif [[ "$rc" == 124 ]]; then
             echoerr "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
             return $rc
-        elif (( "$rc" != 0 )); then
+        elif [[ "$rc" != 0 ]]; then
             # unexpected error, e.g. "exceeded PCRE's backtracking limit"
             echoerr "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
             return $rc
@@ -173,7 +173,7 @@ print_summary() {
 }
 
 main() {
-    [ "$dry_run" = "1" ] && client_prefix="echo"
+    [[ "$dry_run" = "1" ]] && client_prefix="echo"
     if [[ -z "$client_call" ]]; then
         client_call=(openqa-cli "${client_args[@]}")
         if [[ -n "$client_prefix" ]]; then
