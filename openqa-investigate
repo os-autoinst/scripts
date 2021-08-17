@@ -26,10 +26,11 @@ echoerr() { echo "$@" >&2; }
 
 
 clone() {
-    local id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
-    id=${1:?"Need 'job_id'"}
-    name_suffix=${2+":$2"}
-    refspec=${3+$3}
+    local origin id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
+    origin=${1:?"Need 'origin'"}
+    id=${2:?"Need 'id'"}
+    name_suffix=${3+":$3"}
+    refspec=${4+$4}
     job_data=$(openqa-cli api --json --host "$host_url" jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
@@ -49,7 +50,7 @@ clone() {
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
     clone_settings+=($(echo "$job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="')) || return $?
-    clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$id")
+    clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$origin")
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
     [[ $dry_run = 1 ]] && echo "$out"
     # output is in $out, should change that text to a markdown list entry
@@ -62,7 +63,7 @@ clone() {
 trigger_jobs() {
     id="${1:?"Need 'job_id'"}"
     # for 1. current job/build + current test -> check if reproducible/sporadic
-    clone "$id" 'retry' '' "${@:2}"
+    clone "$id" "$id" 'retry' '' "${@:2}"
 
     job_url="$host_url/tests/$id"
     investigation=$(runcurl "${curl_args[@]}" -s "$job_url"/investigation_ajax) || return $?
@@ -91,7 +92,7 @@ trigger_jobs() {
         # efficient and also needing to know which git repo to use
         #refspec_arg="TEST_GIT_REFSPEC=$last_good_tests"
         refspec_arg=$last_good_tests
-        clone "$id" "last_good_tests:$last_good_tests" "$refspec_arg" "${@:2}"
+        clone "$id" "$id" "last_good_tests:$last_good_tests" "$refspec_arg" "${@:2}"
     fi
 
     # 3. last good job/build + current test -> check for product regression
@@ -104,7 +105,7 @@ trigger_jobs() {
         # here we clone with unspecified test refspec, i.e. this could be a
         # more recent tests version. As an alternative we could explicitly
         # checkout the git version from "first bad"
-        clone "$last_good" "last_good_build:$last_good_build" '' "${@:2}"
+        clone "$id" "$last_good" "last_good_build:$last_good_build" '' "${@:2}"
     fi
 
     # 4. last good job/build + last good test -> check for other problem
@@ -114,7 +115,7 @@ trigger_jobs() {
     elif [[ -z $last_good_build ]]; then
         echo "No product regression expected. Not triggered 'good build+test' as it would be the same as 2., current build + good test"
     else
-        clone "$last_good" "last_good_tests_and_build:$last_good_tests+$last_good_build" "$refspec_arg" "${@:2}"
+        clone "$id" "$last_good" "last_good_tests_and_build:$last_good_tests+$last_good_build" "$refspec_arg" "${@:2}"
     fi
 }
 
