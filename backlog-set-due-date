@@ -1,11 +1,7 @@
 #!/bin/sh -e
 
-# This script sets the due date on tickets in Redmine based on 
-# these conditions:
-# - The priority is not Low
-# - No previous due date set
-# - Not assigned to anyone
-# - only select status, e.g. "In Progress"
+# This script sets the due date on tickets in Redmine based on
+# specified conditions
 #
 # If you want to run this for testing there are two options
 # 1. Run the script without updating the tickets
@@ -20,8 +16,9 @@ ticket_limit="${ticket_limit:-200}"
 host="${host:-"https://progress.opensuse.org"}"
 status="${status:-"In Progress"}"
 duration="${duration:-"14 days"}"
+priority="${priority:-"Low"}"
 issues=$(mktemp)
-jquery=".issues | .[] | select(.priority.name!=\"Low\" and .due_date==null and .assigned_to!=null and .status.name==\"$status\")"
+jquery=".issues | .[] | select(.priority.name!=\"$priority\" and .due_date==null and .assigned_to!=null and .status.name==\"$status\")"
 
 if [ $# -eq 1 ] && [ -f "$1" ] && [ "$dry_run" = "1" ]; then
   jq -r "$jquery" "$1" >"$issues"
