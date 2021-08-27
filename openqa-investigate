@@ -58,6 +58,7 @@ clone() {
     echo "* **$name**: $url"
     clone_id=${out/:*/}; clone_id=${clone_id/*#/}
     $client_call --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
+    $client_call -X POST jobs/"$clone_id"/comments text="This is an investigation job from the original job $host_url/t$origin and cloned from $host_url/t$id"
 }
 
 trigger_jobs() {
