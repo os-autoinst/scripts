@@ -45,9 +45,9 @@ label_on_issue() {
             return $rc
         fi
     fi
-    $client_call -X POST jobs/"$id"/comments text="$comment"
+    "${client_call[@]}" -X POST jobs/"$id"/comments text="$comment"
     if [ "$restart" = "1" ]; then
-        $client_call -X POST jobs/"$id"/restart
+        "${client_call[@]}" -X POST jobs/"$id"/restart
     fi
 }
 
@@ -84,8 +84,8 @@ handle_unreachable_or_no_log() {
         return
     fi
     if hxnormalize -x "$out" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
-        $client_call -X POST jobs/"$id"/comments text='poo#62456 test incompletes after failing in GRU download task on "Inactivity timeout" with no logs'
-        $client_call -X POST jobs/"$id"/restart
+        "${client_call[@]}" -X POST jobs/"$id"/comments text='poo#62456 test incompletes after failing in GRU download task on "Inactivity timeout" with no logs'
+        "${client_call[@]}" -X POST jobs/"$id"/restart
         return
     fi
 }
@@ -137,7 +137,7 @@ investigate_issue() {
     local id="${1##*/}"
     local reason
     local curl_output
-    reason=$($client_call jobs/"$id" | runjq -r '.job.reason')
+    reason=$("${client_call[@]}" jobs/"$id" | runjq -r '.job.reason')
     curl_output=$(curl "${curl_args[@]}" -s -w "%{http_code}" "$testurl/file/autoinst-log.txt" -o "$out")
     # combine both the reason and autoinst-log.txt to check known issues
     # against even in case when autoinst-log.txt is missing the details, e.g.
@@ -172,7 +172,9 @@ print_summary() {
 
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
-    client_call="${client_call:-"$client_prefix openqa-cli api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host $host_url"}"
+    if [[ -z "$client_call" ]]; then
+        client_call=("$client_prefix" openqa-cli api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url")
+    fi
     issues=$(runcurl "${curl_args[@]}" -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject)')
     # shellcheck disable=SC2013
     for testurl in $(cat - | sed 's/ .*$//'); do
