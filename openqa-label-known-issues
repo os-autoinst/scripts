@@ -19,6 +19,7 @@ reason_min_length="${reason_min_length:-"8"}"
 grep_timeout="${grep_timeout:-5}"
 to_review=()
 curl_args=(--user-agent "openqa-label-known-issues")
+client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url")
 
 out="${REPORT_FILE:-$(mktemp)}"
 trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
@@ -137,7 +138,7 @@ investigate_issue() {
     local id="${1##*/}"
     local reason
     local curl_output
-    reason=$("${client_call[@]}" jobs/"$id" | runjq -r '.job.reason')
+    reason=$(openqa-cli "${client_args[@]}" jobs/"$id" | runjq -r '.job.reason')
     curl_output=$(curl "${curl_args[@]}" -s -w "%{http_code}" "$testurl/file/autoinst-log.txt" -o "$out")
     # combine both the reason and autoinst-log.txt to check known issues
     # against even in case when autoinst-log.txt is missing the details, e.g.
@@ -173,7 +174,10 @@ print_summary() {
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
     if [[ -z "$client_call" ]]; then
-        client_call=("$client_prefix" openqa-cli api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url")
+        client_call=(openqa-cli "${client_args[@]}")
+        if [[ -n "$client_prefix" ]]; then
+            client_call=("$client_prefix" "${client_call[@]}")
+        fi
     fi
     issues=$(runcurl "${curl_args[@]}" -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject)')
     # shellcheck disable=SC2013
