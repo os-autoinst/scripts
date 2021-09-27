@@ -3,7 +3,7 @@ set -euo pipefail
 host="${host:-"openqa.opensuse.org"}"
 ssh_host="${ssh_host:-"$host"}"
 scheme="${scheme:-"https"}"
-failed_since="${failed_since:-"(NOW() - interval '24 hour')"}"
+failed_since="${failed_since:-"(timezone('UTC', now()) - interval '24 hour')"}"
 # use an environment variable "group_id" to limit the search to that job group, e.g.
 # "1" for "openSUSE Tumbleweed" on openqa.opensuse.org
 # shellcheck disable=SC2154
