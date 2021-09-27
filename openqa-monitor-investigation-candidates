@@ -29,7 +29,8 @@ query_common_suffix="${query_common_suffix:-"
   result=$result and clone_id is null and$group_query t_finished >= $failed_since$comment_query$exclude_group_query
 "}"
 query="${query:-"
-  $query_common_prefix left join job_group_parents on job_groups.parent_id = job_group_parents.id where $query_common_suffix$exclude_parent_query;
+  $query_common_prefix left join job_group_parents on job_groups.parent_id = job_group_parents.id where $query_common_suffix$exclude_parent_query
+  union all
   $query_common_prefix where job_groups.parent_id is null and $query_common_suffix;
 "}"
 
