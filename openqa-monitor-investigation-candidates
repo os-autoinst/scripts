@@ -17,18 +17,21 @@ exclude_group_query="${exclude_group+" and job_groups.name not similar to '${exc
 # exclude all jobs that match the parent group name specified, e.g.
 # "%Development|Open Build Service%"
 exclude_parent="${exclude_parent:-"%Development|Open Build Service|Others%"}"
-exclude_parent_query="${exclude_parent+" and job_group_parents.name not similar to '${exclude_parent}'"}"
+exclude_parent_query="${exclude_parent+" where job_group_parents.name not similar to '${exclude_parent}'"}"
+result="${result:-'failed'}"
+comment_query="${comment_query:-" and jobs.id not in (select job_id from comments where job_id is not null)"}"
 
 # Define common query parts that we can reuse when we look for both jobs in groups with a parent groups and jobs in groups without a parent group
 query_common_prefix="${query_common_prefix:-"
-  select jobs.id,jobs.test from jobs left join job_groups on jobs.group_id = job_groups.id
+  select jobs.id,jobs.test, job_groups.parent_id from jobs left join job_groups on jobs.group_id = job_groups.id
 "}"
 query_common_suffix="${query_common_suffix:-"
-  result='failed' and clone_id is null and$group_query t_finished >= $failed_since and jobs.id not in (select job_id from comments where job_id is not null)$exclude_group_query
+  result=$result and clone_id is null and$group_query t_finished >= $failed_since$comment_query$exclude_group_query
 "}"
 query="${query:-"
-  $query_common_prefix left join job_group_parents on job_groups.parent_id = job_group_parents.id where $query_common_suffix$exclude_parent_query;
-  $query_common_prefix where job_groups.parent_id is null and $query_common_suffix;
+  with included_jobs as ($query_common_prefix where $query_common_suffix) select included_jobs.id, test from included_jobs left join job_group_parents on parent_id = job_group_parents.id$exclude_parent_query
+  union all
+  select included_jobs.id, test from included_jobs where parent_id is null;
 "}"
 
 # shellcheck disable=SC2029
