@@ -150,6 +150,7 @@ investigate() {
     # have more, ambiguous potential changes that we need to bisect on
 
     out=$(trigger_jobs "$id" "${@:2}")
+    $verbose && echo "$0, id: '$id', out: '$out'"
     [[ $out ]] || return 0
     comment="Automatic investigation jobs:
 
