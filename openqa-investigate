@@ -137,7 +137,13 @@ investigate() {
         [[ ! "$old_name" =~ investigate:retry$ ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
         investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
         origin_job_id=${investigate_origin#$host_url/t}
-        "${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic test"
+        # meanwhile the original job might have been deleted already, handle
+        # gracefully
+        out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic test" 2>/dev/null) || \
+            if [[ $(echo "$out" | runjq .error_status) != "404" ]]; then
+                echo "Unexpected error encountered when posting comments: '$out'"
+                return 2
+            fi
         return 0
     fi
     [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
