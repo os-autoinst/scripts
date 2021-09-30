@@ -46,7 +46,7 @@ clone() {
         repo=${casedir:-'https://github.com/os-autoinst/os-autoinst-distri-opensuse.git'}
         clone_settings+=("CASEDIR=${repo%#*}#${refspec}")
     fi
-    clone_settings+=("${@:4}")
+    [[ -n ${*:5} ]] && clone_settings+=("${@:5}")
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
     clone_settings+=($(echo "$job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="')) || return $?
