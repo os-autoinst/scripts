@@ -1,0 +1,31 @@
+#######################################################
+# This file is used to generate:
+# cpanfile
+# Certain lines in dist/rpm/os-autoinst-scripts-deps.spec
+#
+# After adding, changing or removing dependencies, run:
+#   make update-deps
+#######################################################
+---
+targets:
+  cpanfile: [main]
+  spec: [main]
+main_requires:
+  bash:
+  coreutils:  # date, ln, tail
+  curl:
+  grep:
+  jq:
+  sed:
+  sudo:
+  openQA-client:  # openqa-cli
+  osc:
+  openssh-clients:  # ssh
+  perl: '>= 5.010'
+  perl(Data::Dumper):
+  perl(Getopt::Long):
+  perl(FindBin):
+  perl(Mojo::File):
+  perl(YAML::PP):
+  html-xml-utils:
+  xmlstarlet:
