@@ -3,6 +3,13 @@
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
 
+error-handler() {
+    local line=$1
+    # shellcheck disable=SC2207
+    local c=($(caller))
+    echo "${c[1]}: ERROR: line $line" >&2
+}
+
 # From openqa-cli JSON output filter and return the id/ids of jobs,
 # for example from a query to the 'jobs get' route or the result string of a
 # 'jobs post' or 'isos post'
