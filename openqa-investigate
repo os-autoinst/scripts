@@ -24,7 +24,6 @@ jq_output_limit="${jq_output_limit:-15}"
 curl_args=(--user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
-
 clone() {
     local origin id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
     origin=${1:?"Need 'origin'"}
@@ -141,7 +140,7 @@ investigate() {
         # gracefully
         out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic test" 2>/dev/null) || \
             if [[ $(echo "$out" | runjq .error_status) != "404" ]]; then
-                echo "Unexpected error encountered when posting comments: '$out'"
+                echoerr "Unexpected error encountered when posting comments: '$out'"
                 return 2
             fi
         return 0

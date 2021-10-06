@@ -3,7 +3,7 @@
 # Usage
 # echo https://openqahost/tests/1234 | openqa-label-known-issues
 
-set -o pipefail
+set -o pipefail -o errtrace
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
@@ -22,6 +22,7 @@ curl_args=(--user-agent "openqa-label-known-issues")
 client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url")
 
 out="${REPORT_FILE:-$(mktemp)}"
+trap 'error-handler "$LINENO"' ERR
 trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
 
 echoerr() { echo "$@" >&2; }
@@ -38,11 +39,11 @@ label_on_issue() {
         if (( "$rc" == 1 )); then
             return 1
         elif (( "$rc" == 124 )); then
-            echo "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
+            echoerr "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
             return $rc
         elif (( "$rc" != 0 )); then
             # unexpected error, e.g. "exceeded PCRE's backtracking limit"
-            echo "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
+            echoerr "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
             return $rc
         fi
     fi
