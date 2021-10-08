@@ -8,7 +8,7 @@ pull_request_rules:
       - "#review-requested=0"
       - -label~=^acceptance-tests-needed|not-ready
       - base=master
-      - "status-success=ci / test (pull_request)"
+      - "status-success~=test"
     actions:
       merge:
         method: merge
@@ -17,7 +17,7 @@ pull_request_rules:
       - -label~=^acceptance-tests-needed|not-ready
       - "label=merge-fast"
       - base=master
-      - "status-success=ci / test (pull_request)"
+      - "status-success~=test"
     actions:
       merge:
         method: merge
