@@ -27,7 +27,7 @@ runjq() {
     output=$(echo "$input" | jq "$@" 2>&1)
     rc=$?
     set -e
-    (( "$rc" == 0 )) && echo "$output" && return
+    [[ "$rc" == 0 ]] && echo "$output" && return
     output=$(echo "$output" | head -"$jq_output_limit")
     echo "jq ($(caller)): $output (Input: >>>$input<<<)" >&2
     return $rc
@@ -43,9 +43,9 @@ runcurl() {
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
     rc=$?
     set -e
-    (( "$rc" != 0 )) && echo "curl ($(caller)): Error fetching ($*): $response" >&2 && return 1
+    [[ "$rc" != 0 ]] && echo "curl ($(caller)): Error fetching ($*): $response" >&2 && return 1
     status_code=$(echo "$response" | tail -1)
-    (( "$status_code" != 200 )) && echo "curl ($(caller)): Error fetching url ($*): Got Status $status_code" >&2 && return 1
+    [[ "$status_code" != 200 ]] && echo "curl ($(caller)): Error fetching url ($*): Got Status $status_code" >&2 && return 1
     # remove last line
     body=$(echo "$response" | tac | tail -n+2 | tac)
     echo "$body"
