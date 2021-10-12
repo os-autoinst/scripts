@@ -22,4 +22,8 @@ test-shellcheck:
 .PHONY: test-yaml
 test-yaml:
 	@which yamllint >/dev/null 2>&1 || echo "Command 'yamllint' not found, can not execute YAML syntax checks"
-	yamllint --strict $$(git ls-files "*.yml" "*.yaml")
+	yamllint --strict $$(git ls-files "*.yml" "*.yaml" ":!external/")
+
+.PHONY: update-deps
+update-deps:
+	tools/update-deps --specfile dist/rpm/os-autoinst-scripts-deps.spec
