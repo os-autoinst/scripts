@@ -2,7 +2,11 @@
 all:
 
 .PHONY: test
-test: checkstyle
+test: checkstyle test-unit
+
+.PHONY: test-unit
+test-unit:
+	prove -r test/
 
 .PHONY: test-online
 test-online:
