@@ -4,9 +4,9 @@ host="${host:-"openqa.opensuse.org"}"
 failed_since="${failed_since:-"$(date -I)"}"
 instance_string="${INSTANCE+" and instance='$INSTANCE'"}"
 worker_string="${WORKER+"assigned_worker_id in (select id from workers where (host='$WORKER'$instance_string)) and "}"
-result="${result:-"incomplete"}"
+result="${result:-"result='incomplete'"}"
 additional_filters="${additional_filters+" and $additional_filters"}"
 dry_run="${dry_run:-"0"}"
 [ "$dry_run" = "1" ] && client_prefix="echo"
 # shellcheck disable=SC2029
-for i in $(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"select id from jobs where (${worker_string}result='$result' and clone_id is null and t_finished >= '$failed_since'$additional_filters);\" openqa"); do $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/restart; done
+for i in $(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"select id from jobs where (${worker_string}${result} and clone_id is null and t_finished >= '$failed_since'$additional_filters);\" openqa"); do $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/restart; done
