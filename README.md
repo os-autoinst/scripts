@@ -138,9 +138,8 @@ requests for consideration or create an issue with a code change proposal.
 #### Functional testing
 
 This is done with the [Test::More bash
-library](https://github.com/ingydotnet/test-more-bash). It is included
-into this repository via a
-[git-subrepo](https://github.com/ingydotnet/git-subrepo) under `external/`.
+library](https://github.com/ingydotnet/test-more-bash).
+It will be automatically cloned.
 
 
     # only a few functions from openqa-label-known-issues so far

@@ -4,7 +4,7 @@ set -e
 
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
 
-TEST_MORE_PATH=$dir/../external/test-more-bash
+TEST_MORE_PATH=$dir/../test-more-bash
 BASHLIB="`
     find $TEST_MORE_PATH -type d |
     grep -E '/(bin|lib)$' |
