@@ -17,18 +17,32 @@ progress.opensuse.org within https://progress.opensuse.org/projects/openqav3
 or any subproject of it, commonly
 https://progress.opensuse.org/projects/openqatests/ , openQA jobs can be
 automatically labeled with the corresponding ticket and optionally retriggered
-where it makes sense. For this the subject line of a ticket must include text
-following the format `auto_review:"<search_term>"[:retry]` with
-`<search_term>` being the perl extended regex to search for and an optional
-boolean switch `:retry` after the quoted search term to instruct for
-retriggering the according openQA job. Example: `auto_review:"error 42
-found":retry`. The search terms are crosschecked against the logfiles and
+where it makes sense.
+
+For this the subject line of a ticket must include text following the format
+`auto_review:"<search_term>"[:retry][:force_result:<result>]`
+
+* `<search_term>`: the perl extended regex to search for
+* `:retry`: (optional) boolean switch after the quoted search term to instruct
+   for retriggering the according openQA job.
+* `:force_result:<result>`: (optional) give the job a special label which forces the result
+   to be the given string
+
+Examples:
+* `auto_review:"error 42 found"`.
+* `auto_review:"error 42 found":retry`.
+* `auto_review:"error 42 found":force_result:softfailed`.
+* `auto_review:"error 42 found":retry:force_result:softfailed`.
+
+The search terms are crosschecked against the logfiles and
 "reason" field of the openQA jobs. A multi-line search is possible, for
-example using the `<search_term>` `(?s)something to match earlier.*something
-to match some lines further down`. Other double quotes in the subject line
-than around the search term should be avoided. Also be careful to not specify
-a too generic search term to prevent false matches of job failures unrelated
-to the specified ticket.
+example using the `<search_term>`
+
+  `(?s)something to match earlier.*something to match some lines further down`
+
+Other double quotes in the subject line than around the search term should be
+avoided. Also be careful to not specify a too generic search term to prevent
+false matches of job failures unrelated to the specified ticket.
 
 * [openqa-monitor-incompletes](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-incompletes)
   queries the database of an openQA instance (ssh access is necessary) and
@@ -120,6 +134,21 @@ If this is too much hassle for you feel free to provide incomplete pull
 requests for consideration or create an issue with a code change proposal.
 
 ### Local testing
+
+#### Functional testing
+
+This is done with the [Test::More bash
+library](https://github.com/ingydotnet/test-more-bash).
+It will be automatically cloned.
+
+
+    # only a few functions from openqa-label-known-issues so far
+    make test
+
+#### Style checks
+
+    make checkstyle
+
 #### openqa-label-known-issues
 Generate a list of recent incomplete jobs of your local openQA instance. Here's an example using `psql`:
 
