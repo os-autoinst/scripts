@@ -47,7 +47,7 @@ def call(cmds, dry_run=False):
 
 
 def openqa_clone(cmds, dry_run, include_depends, default_opts=['--skip-chained-deps', '--within-instance'], default_cmds=['_GROUP=0']):
-    if include_depends == True:
+    if include_depends:
       default_opts = ['--within-instance','--parental-inheritance']
     return call(['openqa-clone-job'] + default_opts + cmds + default_cmds, dry_run)
 
