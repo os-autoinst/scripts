@@ -26,6 +26,8 @@ def parse_args():
                         help='The openQA test URL for which to trigger bisection investigation jobs')
     parser.add_argument('--dry-run', action='store_true',
                         help='Do not do any action on openQA')
+    parser.add_argument('--include-depends', action='store_true', default=False,
+                        help='Restart also the jobs on which investigated one is dependant')
     args = parser.parse_args()
     verbose_to_log = {
         0: logging.CRITICAL,
@@ -44,7 +46,9 @@ def call(cmds, dry_run=False):
     return subprocess.call((['echo', 'Simulating: '] if dry_run else []) + cmds)
 
 
-def openqa_clone(cmds, dry_run, default_opts=['--skip-chained-deps', '--within-instance'], default_cmds=['_GROUP=0']):
+def openqa_clone(cmds, dry_run, include_depends, default_opts=['--skip-chained-deps', '--within-instance'], default_cmds=['_GROUP=0']):
+    if include_depends == True:
+      default_opts = ['--within-instance','--parental-inheritance']
     return call(['openqa-clone-job'] + default_opts + cmds + default_cmds, dry_run)
 
 
@@ -71,7 +75,7 @@ def main():
         new = ','.join(bad - set([issue]))
         log.debug("New set of OS_TEST_ISSUES='%s'" % new)
         test_name = test + ':investigate:bisect_without_%s' % issue
-        openqa_clone([args.url, 'OS_TEST_ISSUES=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run)
+        openqa_clone([args.url, 'OS_TEST_ISSUES=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run, args.include_depends)
 
 
 if __name__ == '__main__':
