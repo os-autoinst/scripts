@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--dry-run', action='store_true',
                         help='Do not do any action on openQA')
     parser.add_argument('--include-depends', action='store_true', default=False,
-                        help='Restart also the jobs on which investigated one is dependant')
+                        help='Restart also the jobs on which the investigated one depends')
     args = parser.parse_args()
     verbose_to_log = {
         0: logging.CRITICAL,
