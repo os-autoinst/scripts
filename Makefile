@@ -2,14 +2,7 @@
 all:
 
 .PHONY: test
-test: checkstyle test-unit
-
-.PHONY: test-unit
-test-unit: test-more-bash
-	prove -r test/
-
-test-more-bash:
-	git clone https://github.com/ingydotnet/test-more-bash.git --depth 1 -b 0.0.5
+test: checkstyle
 
 .PHONY: test-online
 test-online:

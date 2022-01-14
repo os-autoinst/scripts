@@ -27,6 +27,28 @@ trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
 
 echoerr() { echo "$@" >&2; }
 
+label_on_issue() {
+    local id=$1 search_term=$2 comment=$3 restart=$4
+    local rc=0 grep_output
+    local grep_opts="${grep_opts:-"-qPzo"}"
+    # shellcheck disable=SC2086
+    grep_output=$(timeout "$grep_timeout" grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
+    if [[ "$rc" == 1 ]]; then
+        return 1
+    elif [[ "$rc" == 124 ]]; then
+        echoerr "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
+        return $rc
+    elif [[ "$rc" != 0 ]]; then
+        # unexpected error, e.g. "exceeded PCRE's backtracking limit"
+        echoerr "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
+        return $rc
+    fi
+    "${client_call[@]}" -X POST jobs/"$id"/comments text="$comment"
+    if [ "$restart" = "1" ]; then
+        "${client_call[@]}" -X POST jobs/"$id"/restart
+    fi
+}
+
 handle_unreachable_or_no_log() {
     local id=$1
     local testurl=$2
@@ -68,23 +90,21 @@ handle_unreachable_or_no_log() {
 
 label_on_issues_from_issue_tracker() {
     local id=$1
-    # Iterate over all progress issues that have the search term included
-    # 1. line: issue id
-    # 2. line: subject
+    # query progress.o.o for all subjects with
+    # 'issue_marker:"<search_term>"[:retry]' with <search_term> being the
+    # perl extended regex to search for and an optional boolean switch
+    # ':retry' after the quoted search term to instruct for retriggering
+    # the according openQA job. The search terms are crosschecked against
+    # the logfiles of the openQA jobs against these issues.
+    #
+    # Detailed explanation:
+    # it is possible to search for issues with a subject search term, e.g.:
+    # curl -s "https://progress.opensuse.org/projects/openqav3/issues.json?subject=~merge%20keys" | jq '.issues | .[] | .id'
+    # this reads out all progress issues that have the search term included and
+    # splice each line with a call to label_on_issue
     echo "$issues" | (while read -r issue; do
         read -r subject
-        after=${subject#*\"}
-        search=${after%\"*}
-        force_result=''
-        label="poo#$issue $subject"
-        if [[ ${#search} -ge $min_search_term ]]; then
-            if [[ $after =~ :force_result:([a-z_]+) ]]; then
-                force_result=${BASH_REMATCH[1]}
-            fi
-            label_on_issue "$id" "$search" "$label" "${after//*\":retry*/1}" "$force_result" && break
-        fi
-        done
-    )
+        after=${subject#*\"} && search=${after%\"*} && [[ ${#search} -ge $min_search_term ]] && label_on_issue "$id" "$search" "poo#$issue $subject" "${after//*\":retry*/1}" && break; done)
 }
 
 label_on_issues_without_tickets() {
@@ -156,7 +176,6 @@ main() {
             client_call=("$client_prefix" "${client_call[@]}")
         fi
     fi
-    # search for issues with a subject search term
     issues=$(runcurl "${curl_args[@]}" -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject)')
     # shellcheck disable=SC2013
     for testurl in $(cat - | sed 's/ .*$//'); do

@@ -3,10 +3,6 @@
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
 
-client_call=()
-
-warn() { echo "$@" >&2; }
-
 error-handler() {
     local line=$1
     # shellcheck disable=SC2207
@@ -55,38 +51,3 @@ runcurl() {
     echo "$body"
 }
 
-comment_on_job() {
-    local id=$1 comment=$2 force_result=${3:-''}
-    if [[ -n $force_result ]]; then
-        comment="label:force_result:$force_result:$comment"
-    fi
-    "${client_call[@]}" -X POST jobs/"$id"/comments text="$comment"
-}
-
-search_log() {
-    local id=$1 search_term=$2 out=$3 grep_timeout=${4:-5}
-    local rc=0 grep_output
-    local grep_opts="${grep_opts:-"-qPzo"}"
-    # shellcheck disable=SC2086
-    grep_output=$(timeout "$grep_timeout" grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
-    if [[ "$rc" == 1 ]]; then
-        return 1
-    elif [[ "$rc" == 124 ]]; then
-        warn "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
-        return $rc
-    elif [[ "$rc" != 0 ]]; then
-        # unexpected error, e.g. "exceeded PCRE's backtracking limit"
-        warn "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
-        return $rc
-    fi
-}
-
-label_on_issue() {
-    local id=$1 search_term=$2 label=$3 restart=${4:-''} force_result=${5:-''}
-    local out=${out:?}
-    search_log "$id" "$search_term" "$out" || return
-    comment_on_job "$id" "$label" "$force_result"
-    if [ "$restart" = "1" ]; then
-        "${client_call[@]}" -X POST jobs/"$id"/restart
-    fi
-}
