@@ -3,6 +3,8 @@
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
 
+enable_force_result=${enable_force_result:-false}
+
 client_call=()
 
 warn() { echo "$@" >&2; }
@@ -57,7 +59,7 @@ runcurl() {
 
 comment_on_job() {
     local id=$1 comment=$2 force_result=${3:-''}
-    if [[ -n $force_result ]]; then
+    if $enable_force_result && [[ -n $force_result ]]; then
         comment="label:force_result:$force_result:$comment"
     fi
     "${client_call[@]}" -X POST jobs/"$id"/comments text="$comment"

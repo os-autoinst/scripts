@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 12
+plan tests 14
 
 source _common
 
@@ -49,6 +49,16 @@ rc=0
 client_output=''
 out=$logfile1
 label_on_issue 123 'foo.*bar' Label 1 softfailed || rc=$?
+expected="client_call -X POST jobs/123/comments text=Label
+client_call -X POST jobs/123/restart
+"
+is "$rc" 0 'successful label_on_issue'
+is "$client_output" "$expected" 'label_on_issue with restart and disabled force_result'
+
+rc=0
+client_output=''
+out=$logfile1
+enable_force_result=true label_on_issue 123 'foo.*bar' Label 1 softfailed || rc=$?
 expected="client_call -X POST jobs/123/comments text=label:force_result:softfailed:Label
 client_call -X POST jobs/123/restart
 "
