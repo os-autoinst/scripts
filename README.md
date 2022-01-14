@@ -22,6 +22,8 @@ where it makes sense.
 For this the subject line of a ticket must include text following the format
 `auto_review:"<search_term>"[:retry][:force_result:<result>]`
 
+Note that the `force_result` feature is disabled by default.
+
 * `<search_term>`: the perl extended regex to search for
 * `:retry`: (optional) boolean switch after the quoted search term to instruct
    for retriggering the according openQA job.
