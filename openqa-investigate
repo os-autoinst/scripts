@@ -24,39 +24,49 @@ jq_output_limit="${jq_output_limit:-15}"
 curl_args=(--user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
+declare -a handled_job_ids
+
 clone() {
-    local origin id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
+    local origin id name_suffix refspec job_data name base_prio restart_settings casedir repo out url handled_ids
     origin=${1:?"Need 'origin'"}
     id=${2:?"Need 'id'"}
     name_suffix=${3+":$3"}
     refspec=${4+$4}
+
+    # check whether the job has already been handled as part of restarting another job and skip if that's the case
+    local handled_job=${handled_job_ids["$id"]:-}
+    [[ $handled_job ]] && return 0
+
+    # query data from original job, make parameters for new job
     job_data=$(openqa-cli "${client_args[@]}" --json jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
-    unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
-    [[ $unsupported_cluster_jobs != 0 ]] \
-        && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
-    name="$(echo "$job_data" | runjq -r '.job.test'):investigate$name_suffix" || return $?
+    local suffix=:investigate$name_suffix
+    name="$(echo "$job_data" | runjq -r '.job.test')$suffix" || return $?
     base_prio=$(echo "$job_data" | runjq -r '.job.priority') || return $?
-    clone_settings=("TEST=$name" '_GROUP_ID=0' 'BUILD=')
+    restart_settings=("set=TEST+=$suffix" 'set=_GROUP_ID=0' 'set=BUILD=')
     if [[ $refspec ]]; then
         casedir=$(echo "$job_data" | runjq -r '.job.settings.CASEDIR') || return $?
         [[ $casedir == null ]] && casedir=''
         repo=${casedir:-'https://github.com/os-autoinst/os-autoinst-distri-opensuse.git'}
-        clone_settings+=("CASEDIR=${repo%#*}#${refspec}")
+        restart_settings+=("set=CASEDIR=${repo%#*}#${refspec}")
     fi
-    [[ -n ${*:5} ]] && clone_settings+=("${@:5}")
+    [[ -n ${*:5} ]] && restart_settings+=("${@:5}")
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
-    clone_settings+=($(echo "$job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="')) || return $?
-    clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$origin")
-    out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
+    restart_settings+=($(echo "$job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | "set=" + . + "="')) || return $?
+    restart_settings+=("set=OPENQA_INVESTIGATE_ORIGIN=$host_url/t$origin")
+
+    # clone job, possibly restarting dependencies
+    out=$("${client_call[@]}" -X POST "jobs/$id/restart" 'clone=0' "prio=$((base_prio + prio_add))" "${restart_settings[@]}")
+    handled_ids=$(echo "$out" | runjq '.result[] | keys[] | tonumber')
+    urls=$(echo "$out" | runjq -r '.test_url[] | values[]')
     [[ $dry_run = 1 ]] && echo "$out"
-    # output is in $out, should change that text to a markdown list entry
-    url=$(echo "$out" | sed -n 's/^Created job.*-> //p')
-    echo "* **$name**: $url"
-    clone_id=${out/:*/}; clone_id=${clone_id/*#/}
-    "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
+
+    # keep track of handled jobs
+    for job_id in "${handled_ids[@]}"; do handled_job_ids["$job_id"]=1; done
+    # print name/urls
+    for url in "${urls[@]}"; do echo "* **$name**: $url"; done
 }
 
 trigger_jobs() {
