@@ -59,8 +59,8 @@ clone() {
 
     # clone job, possibly restarting dependencies
     out=$("${client_call[@]}" -X POST "jobs/$id/restart" 'clone=0' "prio=$((base_prio + prio_add))" "${restart_settings[@]}")
-    handled_ids=$(echo "$out" | runjq '.result[] | keys[] | tonumber')
-    urls=$(echo "$out" | runjq -r '.test_url[] | values[]')
+    mapfile -t handled_ids < <(echo "$out" | runjq '.result[] | keys[] | tonumber')
+    mapfile -t urls < <(echo "$out" | runjq -r '.test_url[] | values[]')
     [[ $dry_run = 1 ]] && echo "$out"
 
     # keep track of handled jobs
