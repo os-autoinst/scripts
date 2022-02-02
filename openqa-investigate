@@ -24,7 +24,7 @@ jq_output_limit="${jq_output_limit:-15}"
 curl_args=(--user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
-declare -a handled_job_ids
+declare -A handled_job_ids
 
 clone() {
     local origin id name_suffix refspec job_data name base_prio restart_settings casedir repo out url handled_ids
