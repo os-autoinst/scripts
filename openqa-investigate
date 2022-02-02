@@ -64,9 +64,15 @@ clone() {
     [[ $dry_run = 1 ]] && echo "$out"
 
     # keep track of handled jobs
-    for job_id in "${handled_ids[@]}"; do handled_job_ids["$job_id"]=1; done
-    # print name/urls
-    for url in "${urls[@]}"; do echo "* **$name**: $host_url${url/tests\//t}"; done
+    if [[ ${handled_ids[*]} ]]; then
+        for job_id in "${handled_ids[@]}"; do handled_job_ids["$job_id"]=1; done
+        # print name/urls
+        for url in "${urls[@]}"; do echo "* **$name**: $host_url${url/tests\//t}"; done
+    else
+        errors=$(echo "$out" | runjq -r '.errors[]')
+        echoerr "Unable to restart $id: ${errors:-no error message returned}"
+        return 2
+    fi
 }
 
 trigger_jobs() {
