@@ -66,7 +66,7 @@ clone() {
     # keep track of handled jobs
     for job_id in "${handled_ids[@]}"; do handled_job_ids["$job_id"]=1; done
     # print name/urls
-    for url in "${urls[@]}"; do echo "* **$name**: $url"; done
+    for url in "${urls[@]}"; do echo "* **$name**: $host_url${url/tests\//t}"; done
 }
 
 trigger_jobs() {
