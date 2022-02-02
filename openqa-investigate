@@ -183,7 +183,7 @@ main() {
     client_prefix=''
     [ "$dry_run" = "1" ] && client_prefix="echo"
     set +u
-    if [[ -z "$client_call" ]]; then
+    if [[ -z "${client_call[*]}" ]]; then
         client_call=(openqa-cli "${client_args[@]}")
         if [[ -n "$client_prefix" ]]; then
             client_call=("$client_prefix" "${client_call[@]}")
