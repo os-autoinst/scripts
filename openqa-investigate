@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+. "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
@@ -59,14 +59,20 @@ clone() {
 
     # clone job, possibly restarting dependencies
     out=$("${client_call[@]}" -X POST "jobs/$id/restart" 'clone=0' "prio=$((base_prio + prio_add))" "${restart_settings[@]}")
-    handled_ids=$(echo "$out" | runjq '.result[] | keys[] | tonumber')
-    urls=$(echo "$out" | runjq -r '.test_url[] | values[]')
+    mapfile -t handled_ids < <(echo "$out" | runjq '.result[] | keys[] | tonumber')
+    mapfile -t urls < <(echo "$out" | runjq -r '.test_url[] | values[]')
     [[ $dry_run = 1 ]] && echo "$out"
 
     # keep track of handled jobs
-    for job_id in "${handled_ids[@]}"; do handled_job_ids["$job_id"]=1; done
-    # print name/urls
-    for url in "${urls[@]}"; do echo "* **$name**: $host_url${url/tests\//t}"; done
+    if [[ ${handled_ids[*]} ]]; then
+        for job_id in "${handled_ids[@]}"; do handled_job_ids["$job_id"]=1; done
+        # print name/urls
+        for url in "${urls[@]}"; do echo "* **$name**: $host_url${url/tests\//t}"; done
+    else
+        errors=$(echo "$out" | runjq -r '.errors[]')
+        echoerr "Unable to restart $id: ${errors:-no error message returned}"
+        return 2
+    fi
 }
 
 trigger_jobs() {
@@ -145,7 +151,7 @@ investigate() {
     if [[ "$old_name" =~ ":investigate:" ]]; then
         [[ ! "$old_name" =~ investigate:retry$ ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
         investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
-        origin_job_id=${investigate_origin#$host_url/t}
+        origin_job_id=${investigate_origin#"$host_url/t"}
         # meanwhile the original job might have been deleted already, handle
         # gracefully
         out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic test" 2>/dev/null) || \
@@ -177,7 +183,7 @@ main() {
     client_prefix=''
     [ "$dry_run" = "1" ] && client_prefix="echo"
     set +u
-    if [[ -z "$client_call" ]]; then
+    if [[ -z "${client_call[*]}" ]]; then
         client_call=(openqa-cli "${client_args[@]}")
         if [[ -n "$client_prefix" ]]; then
             client_call=("$client_prefix" "${client_call[@]}")
@@ -193,4 +199,4 @@ main() {
     exit "$error_count"
 }
 
-main "$@"
+caller 0 >/dev/null || main "$@"
