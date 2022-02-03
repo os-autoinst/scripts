@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 2
+plan tests 4
 
 source openqa-investigate
 
@@ -21,11 +21,14 @@ cli_rc=1
 openqa-cli() {
     return $cli_rc
 }
+client_call=openqa-cli
 
 rc=0
-clone 41 42 || rc=$?
+out=$(clone 41 42  2>&1 > /dev/null) || rc=$?
 is "$rc" 1 'fails when unable to query job data'
+is "$out" "unable to query job data for 42: no response" 'query error on stderr'
 
 cli_rc=0
-clone 41 42 || rc=$?
+out=$(clone 41 42 2>&1 > /dev/null) || rc=$?
 is "$rc" 2 'fails when no jobs could be restarted'
+is "$out" "Unable to restart 42: no error message returned" 'restart error on stderr'
