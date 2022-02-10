@@ -19,6 +19,7 @@ exclude_name_regex="${exclude_name_regex:-":investigate:"}"
 exclude_no_group="${exclude_no_group:-"true"}"
 # exclude_group_regex checks a combined string "<parent job group name> / <job group name>"
 exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
+consider_parallel_and_directly_chained_clusters=${consider_parallel_and_directly_chained_clusters:-}
 client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
 jq_output_limit="${jq_output_limit:-15}"
 curl_args=(--user-agent "openqa-investigate")
@@ -27,7 +28,7 @@ echoerr() { echo "$@" >&2; }
 declare -A handled_job_ids
 
 clone() {
-    local origin id name_suffix refspec job_data name base_prio restart_settings casedir repo out url handled_ids
+    local origin id name_suffix refspec job_data name base_prio restart_settings casedir repo out url handled_ids unsupported_cluster_jobs
     origin=${1:?"Need 'origin'"}
     id=${2:?"Need 'id'"}
     name_suffix=${3+":$3"}
@@ -41,6 +42,11 @@ clone() {
     job_data=$(openqa-cli "${client_args[@]}" --json jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: ${job_data:-no response}" && return 1
+    if ! [[ $consider_parallel_and_directly_chained_clusters ]]; then
+        unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
+        [[ $unsupported_cluster_jobs != 0 ]] \
+            && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
+    fi
     local suffix=:investigate$name_suffix
     name="$(echo "$job_data" | runjq -r '.job.test')$suffix" || return $?
     base_prio=$(echo "$job_data" | runjq -r '.job.priority') || return $?
