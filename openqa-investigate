@@ -46,6 +46,8 @@ clone() {
         unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
         [[ $unsupported_cluster_jobs != 0 ]] \
             && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
+        # avoid restarting too many jobs
+        restart_settings+=('skip_parents=1')
     fi
     local suffix=:investigate$name_suffix
     name="$(echo "$job_data" | runjq -r '.job.test')$suffix" || return $?
