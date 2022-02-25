@@ -6,10 +6,13 @@ import re
 import requests
 import subprocess
 import sys
-from urllib.parse import urljoin, urlparse
+import json
+from urllib.parse import urljoin, urlparse, urlunparse
 
 logging.basicConfig()
 log = logging.getLogger(sys.argv[0] if __name__ == '__main__' else __name__)
+GOOD = '-'
+BAD = '+'
 
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -47,34 +50,49 @@ def call(cmds, dry_run=False):
 def openqa_clone(cmds, dry_run, default_opts=['--skip-chained-deps', '--within-instance'], default_cmds=['_GROUP=0']):
     return call(['openqa-clone-job'] + default_opts + cmds + default_cmds, dry_run)
 
+def fetch_url(url, request_type='text'):
+    try:
+        content = requests.get(url.geturl())
+        content.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        log.error("Error while fetching %s: %s"% (url.geturl(), str(e)))
+        raise(e)
+    raw = content.content
+    if request_type == 'json':
+        try:
+            content = content.json()
+        except json.decoder.JSONDecodeError as e:
+            log.error("Error while decoding JSON from %s -> >>%s<<: %s" % (url.geturl(), raw, str(e)))
+            raise(e)
+    return content
 
-def main():
-    args = parse_args()
-    investigation_url = urljoin(args.url + '/', 'investigation_ajax')
-    log.debug('Retrieving investigation info from %s' % investigation_url)
-    out = requests.get(investigation_url)
-    log.debug('Received investigation info: %s' % out)
-    investigation = out.json()
-    os_test_issues = [line for line in investigation['diff_to_last_good'].split('\n') if 'OS_TEST_ISSUES' in line]
-    if len(os_test_issues) != 2:
-        return
-    good, bad = [set(re.compile(': "([^"]*)",').search(line).group(1).split(',')) for line in os_test_issues]
-    removed, added = list(good - bad), list(bad - good)
-    log.debug('removed: %s, added: %s' % (removed, added))
+def main(args):
     parsed_url = urlparse(args.url)
-    test_url = urljoin(parsed_url.geturl(), '/api/v1/jobs/' + parsed_url.path.lstrip('/tests/'))
-    log.debug('Retrieving additional job data from %s' % test_url)
-    test_data = requests.get(test_url)
+    investigation_url = urlparse(urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path + '/investigation_ajax', '', '', '')))
+    log.debug('Retrieving investigation info from %s' % investigation_url.geturl())
+    investigation = fetch_url(investigation_url, request_type='json')
+    log.debug('Received investigation info: %s' % investigation)
+    changes = { GOOD: set(), BAD: set() }
+    for line in investigation['diff_to_last_good'].split('\n'):
+        search = re.compile('([+-]) +"OS_TEST_ISSUES" *: "([^"]*)",').search(line)
+        if search:
+            changes[search.group(1)] = set(search.group(2).split(','))
+    if not changes[BAD] or not changes[GOOD]:
+        return
+    removed, added = list(changes[GOOD] - changes[BAD]), list(changes[BAD] - changes[GOOD])
+    log.debug('removed: %s, added: %s' % (removed, added))
+    test_url = urlparse(urlunparse((parsed_url.scheme, parsed_url.netloc, '/api/v1/jobs/' + parsed_url.path.lstrip('/tests/'), '', '', '')))
+    log.debug('Retrieving additional job data from %s' % test_url.geturl())
+    test_data = fetch_url(test_url, request_type='json')
     log.debug('Received job data: %s' % test_data)
-    test = test_data.json()['job']['settings']['TEST']
+    test = test_data['job']['settings']['TEST']
     log.debug("Found test name '%s'" % test)
-    for issue in added:
+    for issue in sorted(added):
         log.info("Triggering one bisection job without issue '%s'" % issue)
-        new = ','.join(bad - set([issue]))
+        new = ','.join(sorted(list(changes[BAD] - set([issue]))))
         log.debug("New set of OS_TEST_ISSUES='%s'" % new)
         test_name = test + ':investigate:bisect_without_%s' % issue
         openqa_clone([args.url, 'OS_TEST_ISSUES=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run)
 
-
 if __name__ == '__main__':
-    main()
+    main(parse_args())

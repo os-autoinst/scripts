@@ -1,0 +1,4 @@
+{
+  "diff_packages_to_last_good": "Diff of packages not available",
+  "diff_to_last_good": "+   \"OS_TEST_ISSUES\" : \"21637,21770,21926,21954,22030,22077,22085,22192\",\n-   \"WORKER_ID\" : 984,\n+   \"WORKER_ID\" : 1800,\n+   \"WORKER_INSTANCE\" : 18,"
+}
