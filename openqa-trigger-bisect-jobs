@@ -56,6 +56,8 @@ def main():
     log.debug('Received investigation info: %s' % out)
     investigation = out.json()
     os_test_issues = [line for line in investigation['diff_to_last_good'].split('\n') if 'OS_TEST_ISSUES' in line]
+    if len(os_test_issues) != 2:
+        return
     good, bad = [set(re.compile(': "([^"]*)",').search(line).group(1).split(',')) for line in os_test_issues]
     removed, added = list(good - bad), list(bad - good)
     log.debug('removed: %s, added: %s' % (removed, added))
