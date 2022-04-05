@@ -1,0 +1,4 @@
+#!/bin/bash
+for testurl in $(cat - | sed 's/ .*$//'); do
+    echo "$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt" >&2
+done
