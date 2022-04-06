@@ -84,6 +84,16 @@ def main(args):
     test_url = urlparse(urlunparse((parsed_url.scheme, parsed_url.netloc, '/api/v1/jobs/' + parsed_url.path.lstrip('/tests/'), '', '', '')))
     log.debug('Retrieving additional job data from %s' % test_url.geturl())
     test_data = fetch_url(test_url, request_type='json')
+
+    job = test_data['job']
+    children = job['children'] if 'children' in job else []
+    parents = job['parents'] if 'parents' in job else []
+    if ('Parallel' in children and len(children['Parallel']) \
+        or 'Directly chained' in children and len(children['Directly chained']) \
+        or 'Parallel' in parents and len(parents['Parallel']) \
+        or 'Directly chained' in parents and len(parents['Directly chained'])):
+        return
+
     log.debug('Received job data: %s' % test_data)
     test = test_data['job']['settings']['TEST']
     log.debug("Found test name '%s'" % test)
