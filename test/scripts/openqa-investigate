@@ -1,0 +1,4 @@
+#!/bin/bash
+for testurl in $(cat - | sed 's/ .*$//'); do
+    echo "$testurl | openqa-investigate"
+done

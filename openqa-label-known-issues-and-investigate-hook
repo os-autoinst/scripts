@@ -10,4 +10,14 @@ id="${1:?"Need 'job_id'"}"
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
-echo "$host_url/tests/$id" | "$(dirname "$0")"/openqa-label-known-issues 3>&1 1>/dev/null 2>&3- | sed -n 's/\(\S*\) : Unknown issue, to be reviewed.*$/\1/p' | "$(dirname "$0")"/openqa-investigate
+dirname=$(dirname "$0")
+script_dir=${script_dir:-$dirname}
+
+investigate-and-bisect() {
+    read -r test
+    echo "$test" | "$script_dir/openqa-investigate"
+    "$script_dir/openqa-trigger-bisect-jobs" --url "$test"
+}
+
+echo "$host_url/tests/$id" | "$script_dir/openqa-label-known-issues" 3>&1 1>/dev/null 2>&3- | sed -n 's/\(\S*\) : Unknown issue, to be reviewed.*$/\1/p' | investigate-and-bisect
+
