@@ -41,11 +41,14 @@ def parse_args():
     log.setLevel(logging_level)
     return args
 
-
+client_args = ['openqa-cli', 'api', '--header', 'User-Agent: openqa-trigger-bisect-jobs (https://github.com/os-autoinst/scripts)']
 def call(cmds, dry_run=False):
     log.debug('call: %s' % cmds)
-    return subprocess.call((['echo', 'Simulating: '] if dry_run else []) + cmds)
+    return subprocess.check_output((['echo', 'Simulating: '] if dry_run else []) + cmds).decode('utf-8')
 
+def openqa_comment(id, host, comment, dry_run):
+    args = client_args + ['--host', host, '-X', 'POST', 'jobs/' + str(id) + '/comments', 'text=' + comment]
+    return call(args, dry_run)
 
 def openqa_clone(cmds, dry_run, default_opts=['--skip-chained-deps', '--within-instance'], default_cmds=['_GROUP=0']):
     return call(['openqa-clone-job'] + default_opts + cmds + default_cmds, dry_run)
@@ -97,12 +100,21 @@ def main(args):
     log.debug('Received job data: %s' % test_data)
     test = test_data['job']['settings']['TEST']
     log.debug("Found test name '%s'" % test)
+    created = ""
     for issue in sorted(added):
         log.info("Triggering one bisection job without issue '%s'" % issue)
         new = ','.join(sorted(list(changes[BAD] - set([issue]))))
         log.debug("New set of OS_TEST_ISSUES='%s'" % new)
         test_name = test + ':investigate:bisect_without_%s' % issue
-        openqa_clone([args.url, 'OS_TEST_ISSUES=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run)
+        out = openqa_clone([args.url, 'OS_TEST_ISSUES=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run)
+        search = re.compile('Created job .*(http\\S+/t[0-9]+)$').search(out)
+        if search:
+            log.info('Created ' + search.group(1))
+            created += "* **%s**: %s\n" % (test_name, search.group(1))
 
+    if len(created):
+        comment = 'Automatic bisect jobs:\n\n' + created
+        host = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
+        res = openqa_comment(job['id'], host, comment, args.dry_run)
 if __name__ == '__main__':
     main(parse_args())
