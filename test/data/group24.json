@@ -1,0 +1,8 @@
+[
+  {
+    "default_priority": 50,
+    "description": "Responsible maintainer, MAILTO: dummy@example.com.dummy end of line\r\n\r\nTests for openQA within openQA using the test repository [os-autoinst-distri-openQA](https://github.com/os-autoinst/os-autoinst-distri-openQA)\r\n\r\nTesting the packages as provided by [devel:openQA](https://build.opensuse.org/project/show/devel:openQA)",
+    "id": 24,
+    "name": "openQA"
+  }
+]

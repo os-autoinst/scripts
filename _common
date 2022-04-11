@@ -6,6 +6,7 @@
 enable_force_result=${enable_force_result:-false}
 
 client_call=()
+client_args=()
 
 warn() { echo "$@" >&2; }
 
@@ -92,3 +93,25 @@ label_on_issue() {
         "${client_call[@]}" -X POST jobs/"$id"/restart
     fi
 }
+
+handle_unknown() {
+    local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6
+    local group_data group_description group_mailto header
+    to_review+=("$testurl ${reason:0:50}")
+    header="$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
+    warn "$header"
+    warn -e "Likely the error is within this log excerpt, last lines before shutdown:\n  # --- 8< ---"
+    # Look for different termination points with likely context
+    (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1 >&2
+    warn "  # --- >8 ---"
+
+    if "$email_unreviewed"; then
+        group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
+        group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
+        group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
+        if [[ -n "$group_mailto" ]]; then
+            echo "$header"$'\n'"Reason: $reason" | mutt -s "Unknown issue to be reviewed (Group $group_id)" -e "my_hdr From: openqa-label-known-issues <$from_email>" "$group_mailto"
+        fi
+    fi
+}
+
