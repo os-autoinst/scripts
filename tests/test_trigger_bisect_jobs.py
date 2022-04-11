@@ -103,6 +103,10 @@ def test_problems():
     openqa.main(args)
     openqa.openqa_clone.assert_not_called()
 
+    args.url = 'http://openqa.opensuse.org/tests/100'
+    openqa.main(args)
+    openqa.openqa_clone.assert_not_called()
+
 def test_directly_chained():
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value='')

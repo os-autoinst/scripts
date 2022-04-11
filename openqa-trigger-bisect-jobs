@@ -76,6 +76,8 @@ def main(args):
     investigation = fetch_url(investigation_url, request_type='json')
     log.debug('Received investigation info: %s' % investigation)
     changes = { GOOD: set(), BAD: set() }
+    if 'diff_to_last_good' not in investigation:
+        return
     for line in investigation['diff_to_last_good'].split('\n'):
         search = re.compile('([+-]) +"OS_TEST_ISSUES" *: "([^"]*)",').search(line)
         if search:
