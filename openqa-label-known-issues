@@ -17,6 +17,8 @@ issue_marker="${issue_marker:-"auto_review%3A"}"
 issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/issues.json?limit=200&subproject_id=*&subject=~${issue_marker}"}"
 reason_min_length="${reason_min_length:-"8"}"
 grep_timeout="${grep_timeout:-5}"
+email_unreviewed=${email_unreviewed:-true}
+from_email=${from_email:-openqa-label-known-issues@open.qa}
 to_review=()
 curl_args=(--user-agent "openqa-label-known-issues")
 client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url")
@@ -101,21 +103,13 @@ label_on_issues_without_tickets() {
     false
 }
 
-handle_unknown() {
-    local testurl=$1 out=$2 reason=$3
-    to_review+=("$testurl ${reason:0:50}")
-    echoerr "$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
-    echoerr -e "Likely the error is within this log excerpt, last lines before shutdown:\n  # --- 8< ---"
-    # Look for different termination points with likely context
-    (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1 >&2
-    echoerr "  # --- >8 ---"
-}
-
 investigate_issue() {
     local id="${1##*/}"
     local reason
     local curl_output
-    reason=$(openqa-cli "${client_args[@]}" jobs/"$id" | runjq -r '.job.reason')
+    job_data=$(openqa-cli "${client_args[@]}" jobs/"$id")
+    reason=$(echo "$job_data" | runjq -r '.job.reason')
+    group_id=$(echo "$job_data" | runjq -r '.job.group_id')
     curl_output=$(curl "${curl_args[@]}" -s -w "%{http_code}" "$testurl/file/autoinst-log.txt" -o "$out")
     # combine both the reason and autoinst-log.txt to check known issues
     # against even in case when autoinst-log.txt is missing the details, e.g.
@@ -134,7 +128,7 @@ investigate_issue() {
     # subject line
     elif label_on_issues_without_tickets "$id"; then return
     else
-        handle_unknown "$testurl" "$out" "$reason"
+        handle_unknown "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email"
     fi
 }
 

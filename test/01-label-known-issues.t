@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 14
+plan tests 15
 
 source _common
 
@@ -81,3 +81,16 @@ label_on_issue 123 'foo bar' Label || rc=$?
 is "$rc" 1 'label_on_issue did not find search term'
 is "$client_output" "" 'label_on_issue with restart and force_result'
 
+mutt() {
+    local s=$1 subject=$2 e=$3 header=$4 recv=$5
+    echo "$subject,$header,$recv"
+}
+openqa-cli() {
+    cat "$dir/data/group24.json"
+}
+from_email=foo@bar
+client_args=(api --host http://localhost)
+testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
+group_id=24
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>/dev/null) || true
+is "$out" 'Unknown issue to be reviewed (Group 24),my_hdr From: openqa-label-known-issues <foo@bar>,dummy@example.com.dummy' "mutt called like expected"
