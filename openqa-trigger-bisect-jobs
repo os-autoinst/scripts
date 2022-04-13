@@ -82,6 +82,9 @@ def main(args):
         search = re.compile('([+-]) +"OS_TEST_ISSUES" *: "([^"]*)",').search(line)
         if search:
             changes[search.group(1)] = set(search.group(2).split(','))
+    if len(changes[BAD]) <= 1:
+        # no value in triggering single-incident bisections
+        return
     if not changes[BAD] or not changes[GOOD]:
         return
     removed, added = list(changes[GOOD] - changes[BAD]), list(changes[BAD] - changes[GOOD])
