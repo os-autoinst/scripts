@@ -138,7 +138,7 @@ investigate() {
         origin_job_id=${investigate_origin#"$host_url/t"}
         # meanwhile the original job might have been deleted already, handle
         # gracefully
-        out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic test" 2>/dev/null) || \
+        out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic failure" 2>/dev/null) || \
             if [[ $(echo "$out" | runjq .error_status) != "404" ]]; then
                 echoerr "Unexpected error encountered when posting comments: '$out'"
                 return 2
