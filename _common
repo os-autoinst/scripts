@@ -105,7 +105,7 @@ handle_unknown() {
     (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1 >&2
     warn "  # --- >8 ---"
 
-    if "$email_unreviewed"; then
+    if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
         group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
         group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
