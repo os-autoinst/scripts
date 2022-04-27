@@ -110,7 +110,7 @@ handle_unknown() {
         group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
         group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
         if [[ -n "$group_mailto" ]]; then
-            echo "$header"$'\n'"Reason: $reason" | HOME=/tmp mutt -s "Unknown issue to be reviewed (Group $group_id)" -e "my_hdr From: openqa-label-known-issues <$from_email>" "$group_mailto"
+            echo "$header"$'\n'"Reason: $reason" | mailx -s "Unknown issue to be reviewed (Group $group_id)" -r "openqa-label-known-issues <$from_email>" "$group_mailto"
         fi
     fi
 }
