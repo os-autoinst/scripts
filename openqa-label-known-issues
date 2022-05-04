@@ -75,12 +75,13 @@ label_on_issues_from_issue_tracker() {
     # 2. line: subject
     echo "$issues" | (while read -r issue; do
         read -r subject
+        read -r tracker
         after=${subject#*\"}
         search=${after%\"*}
         force_result=''
         label="poo#$issue $subject"
         if [[ ${#search} -ge $min_search_term ]]; then
-            if [[ $after =~ :force_result:([a-z_]+) ]]; then
+            if [[ $tracker == 'openqa-force-result' && $after =~ :force_result:([a-z_]+) ]]; then
                 force_result=${BASH_REMATCH[1]}
             fi
             label_on_issue "$id" "$search" "$label" "${after//*\":retry*/1}" "$force_result" && break
@@ -151,7 +152,7 @@ main() {
         fi
     fi
     # search for issues with a subject search term
-    issues=$(runcurl "${curl_args[@]}" -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject)')
+    issues=$(runcurl "${curl_args[@]}" -s "$issue_query" | runjq -r '.issues | .[] | (.id,.subject,.tracker.name)')
     # shellcheck disable=SC2013
     for testurl in $(cat - | sed 's/ .*$//'); do
         investigate_issue "$testurl"
