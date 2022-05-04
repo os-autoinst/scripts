@@ -83,7 +83,7 @@ is "$client_output" "" 'label_on_issue with restart and force_result'
 
 mailx() {
     local s=$1 subject=$2 e=$3 header=$4 recv=$5
-    echo "$subject,$header,$recv"
+    echo "$subject,$header,$recv" >&2
 }
 openqa-cli() {
     cat "$dir/data/group24.json"
@@ -92,7 +92,7 @@ from_email=foo@bar
 client_args=(api --host http://localhost)
 testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
 group_id=24
-out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>/dev/null) || true
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
 is "$out" 'Unknown issue to be reviewed (Group 24),openqa-label-known-issues <foo@bar>,dummy@example.com.dummy' "mailx called like expected"
-out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>/dev/null) || true
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
 is "$out" '' "mailx not called for group_id null"

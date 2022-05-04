@@ -37,20 +37,20 @@ handle_unreachable_or_no_log() {
     if ! curl "${curl_args[@]}" -s --head "$testurl" -o /dev/null; then
         # the page might be gone, try the scheme+host we configured (might be different one though)
         if ! grep -q "$host_url" <<< "$testurl"; then
-            echo "'$testurl' is not reachable and 'host_url' parameter does not match '$testurl', can not check further, continuing with next"
+            echoerr "'$testurl' is not reachable and 'host_url' parameter does not match '$testurl', can not check further, continuing with next"
             return
         fi
         if ! curl "${curl_args[@]}" -s --head "$host_url"; then
-            echo "'$host_url' is not reachable, bailing out"
+            echoerr "'$host_url' is not reachable, bailing out"
             curl "${curl_args[@]}" --head "$host_url"
         fi
-        echo "'$testurl' is not reachable, assuming deleted, continuing with next"
+        echoerr "'$testurl' is not reachable, assuming deleted, continuing with next"
         return
     fi
     # resorting to downloading the job details page instead of the
     # log, overwrites $out
     if ! curl "${curl_args[@]}" -s "$testurl" -o "$out"; then
-        echo "'$testurl' can be reached but not downloaded, bailing out"
+        echoerr "'$testurl' can be reached but not downloaded, bailing out"
         curl "${curl_args[@]}" "$testurl"
         exit 2
     fi
@@ -58,7 +58,7 @@ handle_unreachable_or_no_log() {
     # then the job might be too old and logs are already deleted.
     # Checking timestamp
     if [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
-        echo "'$testurl' does not have autoinst-log.txt but is rather old, ignoring"
+        echoerr "'$testurl' does not have autoinst-log.txt but is rather old, ignoring"
         return
     fi
     if hxnormalize -x "$out" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
@@ -139,7 +139,7 @@ print_summary() {
     for job in "${to_review[@]}"; do
         msg+="\n - $job"
     done
-    echoerr -e "$msg"
+    echo -e "$msg"
 }
 
 main() {
