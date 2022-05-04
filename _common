@@ -102,7 +102,7 @@ handle_unknown() {
     echo "$header"
     echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n  # --- 8< ---"
     # Look for different termination points with likely context
-    (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1 >&2
+    (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1
     echo "  # --- >8 ---"
 
     if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
