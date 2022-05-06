@@ -60,6 +60,8 @@ client_output=''
 out=$logfile1
 enable_force_result=true label_on_issue 123 'foo.*bar' Label 1 softfailed || rc=$?
 expected="client_call -X POST jobs/123/comments text=label:force_result:softfailed:Label
+
+Label
 client_call -X POST jobs/123/restart
 "
 is "$rc" 0 'successful label_on_issue'
