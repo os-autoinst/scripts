@@ -67,6 +67,23 @@ https://raw.githubusercontent.com/os-autoinst/scripts/master/openqa-query-for-jo
 for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
 ```
 
+### Unknown issues
+
+If none of your configured searches above are matching, you can configure a
+notification for those failed jobs, for example to an email address or a
+Slack channel.
+
+Just put the following into the description of the Job Group:
+
+    MAILTO: some-email@address.example,other@address.example
+
+Each Slack channel has its own email address which you can find out by clicking
+on the title and then on "Integrations".
+
+The email will have the subject "Unknown issue to be reviewed (Group 123)".
+It will contain the link to the job and a small log excerpt, possibly
+already pointing to the error.
+
 ### openqa-investigate - Automatic investigation jobs with failure analysis in openQA
 
 openQA can be configured to automatically trigger investigation jobs whenever
