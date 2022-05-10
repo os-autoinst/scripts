@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 16
+plan tests 18
 
 source _common
 
@@ -86,7 +86,8 @@ mailx() {
     echo "$subject,$header,$recv" >&2
 }
 openqa-cli() {
-    cat "$dir/data/group24.json"
+    local id=$(basename "$4")
+    cat "$dir/data/group$id.json"
 }
 from_email=foo@bar
 client_args=(api --host http://localhost)
@@ -94,5 +95,14 @@ testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
 group_id=24
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
 is "$out" 'Unknown issue to be reviewed (Group 24),openqa-label-known-issues <foo@bar>,dummy@example.com.dummy' "mailx called like expected"
+
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
 is "$out" '' "mailx not called for group_id null"
+
+group_id=25
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
+is "$out" '' "mailx not called for no email address and no fallback address"
+
+notification_address=fallback@example.com
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" 2>&1 >/dev/null) || true
+is "$out" 'Unknown issue to be reviewed (Group 25),openqa-label-known-issues <foo@bar>,fallback@example.com' "mailx called like expected with fallback address"

@@ -71,7 +71,7 @@ for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
 
 If none of your configured searches above are matching, you can configure a
 notification for those failed jobs, for example to an email address or a
-Slack channel.
+Slack channel. You can also configure a [fallback address](#Configuration).
 
 Just put the following into the description of the Job Group:
 
@@ -82,7 +82,8 @@ on the title and then on "Integrations".
 
 The email will have the subject "Unknown issue to be reviewed (Group 123)".
 It will contain the link to the job and a small log excerpt, possibly
-already pointing to the error.
+already pointing to the error. The sender email address can be
+[configured](#Configuration).
 
 ### openqa-investigate - Automatic investigation jobs with failure analysis in openQA
 
@@ -136,6 +137,13 @@ following scripts are provided:
   found, "openqa-investigate". Compare to section
   "Combine auto-review and openqa-investigate"
 
+### Configuration
+
+`openqa-label-known-issues-and-investigate-hook` recognizes the following
+environment variables:
+* `notification_address` - If set, unknown issues will be sent to this address
+   unless a job group has an address configured
+* `from_email` - The From address for notification emails
 
 ## Contribute
 
