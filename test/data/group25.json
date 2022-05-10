@@ -1,0 +1,8 @@
+[
+  {
+    "default_priority": 50,
+    "description": "Just a description without a MAILTO address to notify",
+    "id": 25,
+    "name": "Lala"
+  }
+]

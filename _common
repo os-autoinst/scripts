@@ -95,7 +95,7 @@ label_on_issue() {
 }
 
 handle_unknown() {
-    local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6
+    local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-}
     local group_data group_description group_mailto header
     to_review+=("$testurl ${reason:0:50}")
     header="$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
@@ -109,6 +109,7 @@ handle_unknown() {
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
         group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
         group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
+        group_mailto=${group_mailto:-$notification_address}
         if [[ -n "$group_mailto" ]]; then
             echo "$header"$'\n'"Reason: $reason" | mailx -s "Unknown issue to be reviewed (Group $group_id)" -r "openqa-label-known-issues <$from_email>" "$group_mailto"
         fi

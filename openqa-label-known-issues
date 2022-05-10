@@ -18,6 +18,7 @@ issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/iss
 reason_min_length="${reason_min_length:-"8"}"
 grep_timeout="${grep_timeout:-5}"
 email_unreviewed=${email_unreviewed:-true}
+notification_address=${notification_address:-}
 from_email=${from_email:-openqa-label-known-issues@open.qa}
 to_review=()
 curl_args=(--user-agent "openqa-label-known-issues")
@@ -129,7 +130,7 @@ investigate_issue() {
     # subject line
     elif label_on_issues_without_tickets "$id"; then return
     else
-        handle_unknown "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email"
+        handle_unknown "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address"
     fi
 }
 
