@@ -1,0 +1,11 @@
+{
+  "job": {
+    "id": 123457,
+    "test": "job-within-group",
+    "state": "done",
+    "result": "failed",
+    "settings": {"OS_TEST_ISSUES": "", "TEST": "foo"},
+    "group": "some-group",
+    "parent_group": "some-parent-group"
+  }
+}
