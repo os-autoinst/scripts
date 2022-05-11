@@ -144,6 +144,7 @@ environment variables:
 * `notification_address` - If set, unknown issues will be sent to this address
    unless a job group has an address configured
 * `from_email` - The From address for notification emails
+* `force_result` - If set to `1` tickets in the `openqa-force-result` can override job results
 
 ## Contribute
 
