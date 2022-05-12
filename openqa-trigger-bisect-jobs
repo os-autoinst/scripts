@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import re
 import requests
 import subprocess
@@ -101,6 +102,14 @@ def main(args):
         or 'Parallel' in parents and len(parents['Parallel']) \
         or 'Directly chained' in parents and len(parents['Directly chained'])):
         return
+
+    exclude_group_regex = os.environ.get('exclude_group_regex', '')
+    if len(exclude_group_regex) > 0:
+        full_group = job.get('group', '')
+        if 'parent_group' in job:
+            full_group = "%s / %s" % (job['parent_group'], full_group)
+        if re.compile(exclude_group_regex).search(full_group):
+            return
 
     log.debug('Received job data: %s' % test_data)
     test = test_data['job']['settings']['TEST']

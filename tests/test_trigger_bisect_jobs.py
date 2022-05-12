@@ -21,6 +21,9 @@ spec = importlib.util.spec_from_loader(loader.name, loader)
 openqa = importlib.util.module_from_spec(spec)
 loader.exec_module(openqa)
 
+# should only affect test_exclude_group_regex() as it does not match other tests
+os.environ['exclude_group_regex'] = 's.*parent?-group / some-.*'
+
 def args_factory():
     args = Namespace()
     args.dry_run = False
@@ -113,6 +116,15 @@ def test_directly_chained():
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
 
     args.url = 'http://openqa.opensuse.org/tests/123456'
+    openqa.main(args)
+    openqa.openqa_clone.assert_not_called()
+
+def test_exclude_group_regex():
+    args = args_factory()
+    openqa.openqa_clone = MagicMock(return_value='')
+    openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
+
+    args.url = 'http://openqa.opensuse.org/tests/123457'
     openqa.main(args)
     openqa.openqa_clone.assert_not_called()
 
