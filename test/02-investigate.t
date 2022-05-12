@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 6
+plan tests 10
 
 host=localhost
 url=https://localhost
@@ -41,6 +41,8 @@ is "$out" "unable to clone job 42: it is part of a parallel or directly chained 
 openqa-cli() {
     if [[ "$1 $2" == "--json jobs/24" ]]; then
         echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
+    elif [[ "$1 $2" == "--json jobs/27" ]]; then
+        echo '{"job": { "test": "vim", "clone_id" : 28 } }'
     else
         echo '{"result": [{ "25": "foo", "26": "bar" }], "test_url": [{"25": "/tests/25", "26": "/tests/26"}] } '
     fi
@@ -53,3 +55,12 @@ is "$rc" 0 "Successful clone"
 testlabel="vim:investigate"
 is "$out" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
 
+rc=0
+out=$(investigate 27 2>&1) || rc=$?
+is "$rc" 0 'success regardless of actually triggered jobs'
+is "$out" "Job already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
+
+rc=0
+out=$(force=true investigate 27 2>&1) || rc=$?
+is "$rc" 0 'still success'
+like "$out" "exclude_no_group is set, skipping investigation"
