@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+. "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
@@ -183,4 +183,4 @@ main() {
     exit "$error_count"
 }
 
-main "$@"
+caller 0 >/dev/null || main "$@"
