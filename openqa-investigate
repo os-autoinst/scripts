@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+. "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
@@ -19,6 +19,7 @@ exclude_name_regex="${exclude_name_regex:-":investigate:"}"
 exclude_no_group="${exclude_no_group:-"true"}"
 # exclude_group_regex checks a combined string "<parent job group name> / <job group name>"
 exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
+force=${force:-false}
 client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
 jq_output_limit="${jq_output_limit:-15}"
 curl_args=(--user-agent "openqa-investigate")
@@ -145,6 +146,11 @@ investigate() {
             fi
         return 0
     fi
+    clone="$(echo "$job_data" | runjq -r '.job.clone_id')" || return $?
+    if ! "$force" && [[ "$clone" != "null" ]]; then
+        echoerr "Job already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
+        return 0
+    fi
     [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
     group="$(echo "$job_data" | runjq -r '.job.parent_group + " / " + .job.group')" || return $?
     [[ "$group" = " / " ]] && [[ "$exclude_no_group" = "true" ]] && echo "Job w/o job group, \$exclude_no_group is set, skipping investigation" && return 0
@@ -183,4 +189,4 @@ main() {
     exit "$error_count"
 }
 
-main "$@"
+caller 0 >/dev/null || main "$@"
