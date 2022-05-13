@@ -61,7 +61,9 @@ runcurl() {
 comment_on_job() {
     local id=$1 comment=$2 force_result=${3:-''}
     if $enable_force_result && [[ -n $force_result ]]; then
-        comment="label:force_result:$force_result:$comment"
+        comment="label:force_result:$force_result:$comment
+
+$comment"
     fi
     "${client_call[@]}" -X POST jobs/"$id"/comments text="$comment"
 }
