@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 18
+plan tests 19
 
 source _common
 
@@ -85,7 +85,11 @@ is "$client_output" "" 'label_on_issue with restart and force_result'
 
 mailx() {
     local s=$1 subject=$2 e=$3 header=$4 recv=$5
-    echo "$subject,$header,$recv" >&2
+    local body='' line
+    while read -r line; do
+        body="$body NL $line"
+    done
+    echo "$subject,$header,$recv,$body" >&2
 }
 openqa-cli() {
     local id=$(basename "$4")
@@ -96,15 +100,16 @@ client_args=(api --host http://localhost)
 testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
 group_id=24
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
-is "$out" 'Unknown issue to be reviewed (Group 24),openqa-label-known-issues <foo@bar>,dummy@example.com.dummy' "mailx called like expected"
+like "$out" 'Unknown issue to be reviewed .Group 24.,openqa-label-known-issues <foo@bar>,dummy@example.com.dummy,' "mailx called like expected"
+like "$out" '8<.*Backend process died.*>8' 'Log excerpt in mail'
 
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
 is "$out" '' "mailx not called for group_id null"
 
 group_id=25
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
-is "$out" '' "mailx not called for no email address and no fallback address"
+like "$out" '' "mailx not called for no email address and no fallback address"
 
 notification_address=fallback@example.com
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" 2>&1 >/dev/null) || true
-is "$out" 'Unknown issue to be reviewed (Group 25),openqa-label-known-issues <foo@bar>,fallback@example.com' "mailx called like expected with fallback address"
+like "$out" 'Unknown issue to be reviewed .Group 25.,openqa-label-known-issues <foo@bar>,fallback@example.com' "mailx called like expected with fallback address"

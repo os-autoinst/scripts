@@ -96,16 +96,19 @@ label_on_issue() {
     fi
 }
 
+snip_start="  # --- 8< ---"$'\n'
+snip_end="  # --- >8 ---"
 handle_unknown() {
     local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-}
-    local group_data group_description group_mailto header
+    local group_data group_description group_mailto header excerpt=$snip_start
     to_review+=("$testurl ${reason:0:50}")
     header="$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
     echo "$header"
-    echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n  # --- 8< ---"
+    echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n$snip_start"
     # Look for different termination points with likely context
-    (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1
-    echo "  # --- >8 ---"
+    excerpt+=$( (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1)
+    excerpt+=$'\n'"$snip_end"
+    echo "$excerpt"
 
     if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
@@ -113,7 +116,7 @@ handle_unknown() {
         group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
         group_mailto=${group_mailto:-$notification_address}
         if [[ -n "$group_mailto" ]]; then
-            echo "$header"$'\n'"Reason: $reason" | mailx -s "Unknown issue to be reviewed (Group $group_id)" -r "openqa-label-known-issues <$from_email>" "$group_mailto"
+            echo "$header"$'\n'"Reason: $reason"$'\n'"$excerpt" | mailx -s "Unknown issue to be reviewed (Group $group_id)" -r "openqa-label-known-issues <$from_email>" "$group_mailto"
         fi
     fi
 }
