@@ -43,7 +43,7 @@ example using the `<search_term>`
   `(?s)something to match earlier.*something to match some lines further down`
 
 Other double quotes in the subject line than around the search term should be
-avoided. Also be careful to not specify a too generic search term to prevent
+avoided. Also **avoid generic search terms** to prevent
 false matches of job failures unrelated to the specified ticket.
 
 * [openqa-monitor-incompletes](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-incompletes)
