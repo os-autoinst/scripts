@@ -100,7 +100,7 @@ snip_start="  # --- 8< ---"$'\n'
 snip_end="  # --- >8 ---"
 handle_unknown() {
     local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-}
-    local group_data group_description group_mailto header excerpt=$snip_start
+    local group_data group_name group_description group_mailto header excerpt=$snip_start
     to_review+=("$testurl ${reason:0:50}")
     header="$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
     echo "$header"
@@ -116,7 +116,8 @@ handle_unknown() {
         group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
         group_mailto=${group_mailto:-$notification_address}
         if [[ -n "$group_mailto" ]]; then
-            echo "$header"$'\n'"Reason: $reason"$'\n'"$excerpt" | mailx -s "Unknown issue to be reviewed (Group $group_id)" -r "openqa-label-known-issues <$from_email>" "$group_mailto"
+            group_name=$(echo "$group_data" | runjq -r '.[0].name')
+            echo "$header"$'\n'"Reason: $reason"$'\n'"$excerpt" | mailx -s "Unreviewed issue (Group $group_id $group_name)" -r "openqa-label-known-issues <$from_email>" "$group_mailto"
         fi
     fi
 }
