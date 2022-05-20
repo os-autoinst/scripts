@@ -100,7 +100,7 @@ client_args=(api --host http://localhost)
 testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
 group_id=24
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
-like "$out" 'Unknown issue to be reviewed .Group 24.,openqa-label-known-issues <foo@bar>,dummy@example.com.dummy,' "mailx called like expected"
+like "$out" 'Unreviewed issue .Group 24 openQA.,openqa-label-known-issues <foo@bar>,dummy@example.com.dummy,' "mailx called like expected"
 like "$out" '8<.*Backend process died.*>8' 'Log excerpt in mail'
 
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
@@ -112,4 +112,4 @@ like "$out" '' "mailx not called for no email address and no fallback address"
 
 notification_address=fallback@example.com
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" 2>&1 >/dev/null) || true
-like "$out" 'Unknown issue to be reviewed .Group 25.,openqa-label-known-issues <foo@bar>,fallback@example.com' "mailx called like expected with fallback address"
+like "$out" 'Unreviewed issue .Group 25 Lala.,openqa-label-known-issues <foo@bar>,fallback@example.com' "mailx called like expected with fallback address"
