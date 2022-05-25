@@ -26,6 +26,7 @@ main_requires:
   perl(Getopt::Long):
   perl(FindBin):
   perl(Mojo::File):
+  perl(Text::Markdown):
   perl(YAML::PP):
   html-xml-utils:
   xmlstarlet:

@@ -8,6 +8,7 @@ requires 'Data::Dumper';
 requires 'FindBin';
 requires 'Getopt::Long';
 requires 'Mojo::File';
+requires 'Text::Markdown';
 requires 'YAML::PP';
 
 on 'test' => sub {
