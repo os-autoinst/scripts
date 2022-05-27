@@ -12,6 +12,8 @@ requires 'Text::Markdown';
 requires 'YAML::PP';
 
 on 'test' => sub {
+    requires 'Test::Most';
+    requires 'Test::Warnings';
 
 };
 
