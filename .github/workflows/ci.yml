@@ -1,6 +1,5 @@
 ---
 name: ci
-# yamllint disable-line rule:truthy
 on: [push, pull_request]
 jobs:
   test:
@@ -12,6 +11,9 @@ jobs:
           pip install pytest mocker pytest-mock
           python --version
           pytest --version
+      - run: |
+          sudo apt-get install cpanminus
+          sudo cpanm -n -M https://cpan.metacpan.org --installdeps .
       - name: unit- and integration tests
         run: |
          make test-unit

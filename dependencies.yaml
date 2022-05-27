@@ -8,8 +8,11 @@
 #######################################################
 ---
 targets:
-  cpanfile: [main]
-  spec: [main]
+  cpanfile: [main, test]
+  spec:     [main, test]
+  cpanfile-targets:
+    # target: cpanfile target type (default main)
+    test: test
 main_requires:
   bash:
   coreutils:  # date, ln, tail
@@ -30,3 +33,6 @@ main_requires:
   perl(YAML::PP):
   html-xml-utils:
   xmlstarlet:
+test_requires:
+  perl(Test::Warnings):
+  perl(Test::Most):

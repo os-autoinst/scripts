@@ -6,7 +6,7 @@ test: checkstyle test-unit
 
 .PHONY: test-unit
 test-unit: test-more-bash
-	prove -r test/
+	prove -r test/ xt/
 	py.test
 
 test-more-bash:

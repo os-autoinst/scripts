@@ -26,6 +26,8 @@ BuildArch:      noarch
 Url:            https://github.com/os-autoinst/scripts
 # The following line is generated from dependencies.yaml
 %define main_requires bash coreutils curl grep html-xml-utils jq openQA-client openssh-clients osc perl >= 5.010 perl(Data::Dumper) perl(FindBin) perl(Getopt::Long) perl(Mojo::File) perl(Text::Markdown) perl(YAML::PP) sed sudo xmlstarlet
+# The following line is generated from dependencies.yaml
+%define test_requires perl(Test::Most) perl(Test::Warnings)
 Requires:       %main_requires
 Suggests:       salt
 Suggests:       postgresql
