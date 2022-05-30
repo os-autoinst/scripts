@@ -7,6 +7,7 @@ enable_force_result=${enable_force_result:-false}
 
 client_call=()
 client_args=()
+markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown)
 
 warn() { echo "$@" >&2; }
 
@@ -96,18 +97,19 @@ label_on_issue() {
     fi
 }
 
-snip_start="  # --- 8< ---"$'\n'
-snip_end="  # --- >8 ---"
+snip_start="    # --- 8< ---"$'\n'
+snip_end="    # --- >8 ---"
 handle_unknown() {
-    local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-}
-    local group_data group_name group_description group_mailto header excerpt=$snip_start
+    local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-} job_data=${8:-}
+    local group_data group_name group_description group_mailto header email excerpt=$snip_start
+    local job_name job_result job_info
     to_review+=("$testurl ${reason:0:50}")
-    header="$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
-    echo "$header"
-    echo -e "Likely the error is within this log excerpt, last lines before shutdown:\n$snip_start"
+    header="[$testurl]($testurl): Unknown issue, to be reviewed"$'\n'"-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
+    excerpt="Likely the error is within this log excerpt, last lines before shutdown:"$'\n'$'\n'"$snip_start"
     # Look for different termination points with likely context
-    excerpt+=$( (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/  # /' | head -n -1)
+    excerpt+=$( (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/    # /' | head -n -1 | sed 's/\x1b\[[0-9;]*m//g')
     excerpt+=$'\n'"$snip_end"
+    echo "$header"
     echo "$excerpt"
 
     if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
@@ -117,8 +119,54 @@ handle_unknown() {
         group_mailto=${group_mailto:-$notification_address}
         if [[ -n "$group_mailto" ]]; then
             group_name=$(echo "$group_data" | runjq -r '.[0].name')
-            echo "$header"$'\n'"Reason: $reason"$'\n'"$excerpt" | mailx -s "Unreviewed issue (Group $group_id $group_name)" -r "openqa-label-known-issues <$from_email>" "$group_mailto"
+            job_name=$(echo "$job_data" | runjq -r '.job.name')
+            job_result=$(echo "$job_data" | runjq -r '.job.result')
+            job_info="* Name: $job_name
+* Result: $job_result
+* Reason: $reason"
+            email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$job_info"$'\n'$'\n'"$excerpt"
+            subject="Unreviewed issue (Group $group_id $group_name)"
+            email=$(multipart-from-markdown "$email" "$group_mailto" "openqa-label-known-issues <$from_email>" "$subject")
+            send-email "$group_mailto" "$email"
         fi
     fi
 }
 
+send-email() {
+    local mailto=$1 email=$2
+    echo "$email" | /usr/sbin/sendmail -t "$mailto"
+}
+
+multipart-from-markdown() {
+    local plain=$1 to_email=$2 from=$3 subject=$4
+    local email md body header boundary
+    md=$(echo "$plain" | $markdown_cmd)
+    boundary="_000_DB6PR0401MB2565_"
+    header='Content-Type: multipart/alternative; boundary="'"$boundary"'"'
+    body="--$boundary"'
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+'"$plain
+
+--$boundary"'
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body>
+'"$md"'
+</body></html>
+
+'"--$boundary--"
+
+    email="To: $to_email
+From: $from
+Subject: $subject
+$header
+
+$body
+"
+
+    echo "$email"
+
+}

@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 19
+plan tests 25
 
 source _common
 
@@ -83,13 +83,10 @@ label_on_issue 123 'foo bar' Label || rc=$?
 is "$rc" 1 'label_on_issue did not find search term'
 is "$client_output" "" 'label_on_issue with restart and force_result'
 
-mailx() {
-    local s=$1 subject=$2 e=$3 header=$4 recv=$5
-    local body='' line
-    while read -r line; do
-        body="$body NL $line"
-    done
-    echo "$subject,$header,$recv,$body" >&2
+send-email() {
+    local mailto=$1 email=$2
+    echo "$mailto" >&2
+    echo "$email" >&2
 }
 openqa-cli() {
     local id=$(basename "$4")
@@ -99,17 +96,24 @@ from_email=foo@bar
 client_args=(api --host http://localhost)
 testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
 group_id=24
-out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
-like "$out" 'Unreviewed issue .Group 24 openQA.,openqa-label-known-issues <foo@bar>,dummy@example.com.dummy,' "mailx called like expected"
+job_data='{"job": {"name": "foo", "result": "failed"}}'
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "" "$job_data" 2>&1 >/dev/null) || true
+like "$out" 'Subject: Unreviewed issue .Group 24 openQA.' "send-email subject like expected"
+like "$out" 'From: openqa-label-known-issues <foo@bar>' "send-email from called like expected"
+like "$out" 'To: dummy@example.com.dummy' "send-email to like expected"
 like "$out" '8<.*Backend process died.*>8' 'Log excerpt in mail'
+like "$out" 'Content-Type: text/html' 'mail has text part'
+like "$out" 'Content-Type: text/plain' 'mail has HTML part'
+like "$out" '<li>Name: foo' 'mail contains job name'
 
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
-is "$out" '' "mailx not called for group_id null"
+is "$out" '' "send-email not called for group_id null"
 
 group_id=25
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
-like "$out" '' "mailx not called for no email address and no fallback address"
+like "$out" '' "send-email not called for no email address and no fallback address"
 
 notification_address=fallback@example.com
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" 2>&1 >/dev/null) || true
-like "$out" 'Unreviewed issue .Group 25 Lala.,openqa-label-known-issues <foo@bar>,fallback@example.com' "mailx called like expected with fallback address"
+like "$out" 'To: fallback@example.com' "send-email to like expected"
+like "$out" 'Subject: Unreviewed issue .Group 25 Lala.' "send-email subject like expected"
