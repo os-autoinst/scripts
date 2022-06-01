@@ -100,7 +100,7 @@ label_on_issue() {
 snip_start="    # --- 8< ---"$'\n'
 snip_end="    # --- >8 ---"
 handle_unknown() {
-    local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-} job_data=${8:-}
+    local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-} job_data=${8:-} dry_run=${9:-}
     local group_data group_name group_description group_mailto header email excerpt=$snip_start
     local job_name job_result job_info
     to_review+=("$testurl ${reason:0:50}")
@@ -134,6 +134,10 @@ handle_unknown() {
 
 send-email() {
     local mailto=$1 email=$2
+    if [[ $dry_run == 1 ]]; then
+        echo "Would send email to '$mailto':"$'\n'"$email"
+        return
+    fi
     echo "$email" | /usr/sbin/sendmail -t "$mailto"
 }
 
