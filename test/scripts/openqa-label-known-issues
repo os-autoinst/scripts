@@ -1,4 +1,4 @@
 #!/bin/bash
 for testurl in $(cat - | sed 's/ .*$//'); do
-    echo "$testurl : Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
+    echo "[$testurl]($testurl): Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
 done
