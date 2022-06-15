@@ -19,5 +19,5 @@ investigate-and-bisect() {
     "$script_dir/openqa-trigger-bisect-jobs" --url "$test"
 }
 
-echo "$host_url/tests/$id" | "$script_dir/openqa-label-known-issues" | sed -n 's/\(\S*\) : Unknown issue, to be reviewed.*$/\1/p' | investigate-and-bisect
+echo "$host_url/tests/$id" | "$script_dir/openqa-label-known-issues" | sed -n 's/\[\([^]]*\)\].*Unknown issue, to be reviewed.*/\1/p' | investigate-and-bisect
 
