@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 10
+plan tests 18
 
 host=localhost
 url=https://localhost
@@ -36,13 +36,24 @@ cli_rc=0
 consider_parallel_and_directly_chained_clusters=1
 out=$(clone 41 42 2>&1 > /dev/null) || rc=$?
 is "$rc" 2 'fails when no jobs could be restarted'
-is "$out" "unable to clone job 42: it is part of a parallel or directly chained cluster (not supported)" 'restart error on stderr'
+is "$out" "Unable to clone job 42: it is part of a directly chained cluster (not supported)" 'restart error on stderr'
 
 openqa-cli() {
     if [[ "$1 $2" == "--json jobs/24" ]]; then
         echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
     elif [[ "$1 $2" == "--json jobs/27" ]]; then
         echo '{"job": { "test": "vim", "clone_id" : 28 } }'
+    elif [[ $@ == '--apibase  --json tests/27/dependencies_ajax' ]]; then
+        echo '{"cluster":{}, "edges":[], "nodes":[{"id":27,"state":"done","result":"passed"}]}'
+    elif [[ $@ == '--apibase  --json tests/28/dependencies_ajax' ]]; then
+        echo '{"cluster":{}, "edges":[], "nodes":[{"id":28,"state":"done","result":"failed"}]}'
+    elif [[ $@ == '--apibase  --json tests/29/dependencies_ajax' ]]; then
+        echo '{"cluster":{"cluster_foo":[28],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"done","result":"failed"},{"id":29,"state":"done","result":"passed"}]}'
+    elif [[ $@ == '--apibase  --json tests/30/dependencies_ajax' ]]; then
+        echo '{"cluster":{"cluster_foo":[28,30],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"uploading","result":"none"},{"id":30,"state":"done","result":"passed"}]}'
+    elif [[ $@ == '--apibase  --json tests/31/dependencies_ajax' ]]; then
+        # job with cancelled job in the cluster (should be treated like a done job) that is incomplete (should be treated like failed)
+        echo '{"cluster":{"cluster_foo":[28,31],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"cancelled","result":"none"},{"id":31,"state":"done","result":"incomplete"}]}'
     else
         echo '{"result": [{ "25": "foo", "26": "bar" }], "test_url": [{"25": "/tests/25", "26": "/tests/26"}] } '
     fi
@@ -62,5 +73,25 @@ is "$out" "Job already has a clone, skipping investigation. Use the env variable
 
 rc=0
 out=$(force=true investigate 27 2>&1) || rc=$?
-is "$rc" 0 'still success'
+is "$rc" 0 'still success when job is skipped (because it has passed)'
+like "$out" "Skip investigation of job 27: job is not failed/incomplete/timeout_exceeded, same counts for whole job cluster"
+
+rc=0
+out=$(force=true investigate 28 2>&1) || rc=$?
+is "$rc" 0 'still success when job is skipped (because of exclude_no_group)'
 like "$out" "exclude_no_group is set, skipping investigation"
+
+rc=0
+out=$(investigate 29 2>&1) || rc=$?
+is "$rc" 0 'still success when job is skipped (because it has passed and only unrelated dependencies from other cluster failed)'
+like "$out" "Skip investigation of job 29: job is not failed/incomplete/timeout_exceeded, same counts for whole job cluster"
+
+rc=0
+out=$(investigate 30 2>&1) || rc=$?
+is "$rc" 142 'investigation postponed because other job in cluster is not done'
+like "$out" "Postponing to investigate job 30: waiting until pending dependencies have finished"
+
+rc=0
+out=$(force=true investigate 31 2>&1) || rc=$?
+is "$rc" 0 'success when job is skipped (because of exclude_no_group and job w/o group)'
+like "$out" 'Job w/o job group, \$exclude_no_group is set, skipping investigation'

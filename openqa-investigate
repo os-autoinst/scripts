@@ -26,7 +26,7 @@ curl_args=(--user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
 clone() {
-    local origin id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
+    local origin id name_suffix refspec job_data unsupported_cluster_jobs parallel_parents pending_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
     origin=${1:?"Need 'origin'"}
     id=${2:?"Need 'id'"}
     name_suffix=${3+":$3"}
@@ -34,9 +34,19 @@ clone() {
     job_data=$(openqa-cli "${client_args[@]}" --json jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
-    unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
+
+    # fail on jobs with directly chained dependencies (not supported)
+    unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
     [[ $unsupported_cluster_jobs != 0 ]] \
-        && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
+        && echoerr "Unable to clone job $id: it is part of a directly chained cluster (not supported)" && return 2
+
+    # fail on parallel children (not supported)
+    # note: We already skip the investigation for parallel children to handle it together with the parent. However, the last good job
+    #       of the parallel parent might be a parallel child so we still need to check whether we have a parallel child.
+    parallel_parents=$(echo "$job_data" | runjq -r '(.job.parents["Parallel"] | length)') || return $?
+    [[ $parallel_parents != 0 ]] \
+        && echoerr "Unable to clone job $id: it is a parallel child; the structure of the parallel cluster might have changed since the last good (not supported)" && return 2
+
     name="$(echo "$job_data" | runjq -r '.job.test'):investigate$name_suffix" || return $?
     base_prio=$(echo "$job_data" | runjq -r '.job.priority') || return $?
     clone_settings=("TEST=$name" '_GROUP_ID=0' 'BUILD=')
@@ -119,6 +129,37 @@ trigger_jobs() {
     fi
 }
 
+check_dependencies_to_determine_whether_to_skip_or_postpone() {
+    local id=$1 job_data=$2 parallel_parents dependency_data pending_cluster_jobs cluster_jobs relevant_cluster_results
+
+    # skip parallel children (will be handled together with parallel parent)
+    # note: For this to work, this script needs to be executed for all job results (so we won't miss the investigation in case the parallel parent has passed).
+    parallel_parents=$(echo "$job_data" | runjq -r '(.job.parents["Parallel"] | length)') || return $?
+    [[ $parallel_parents != 0 ]] \
+        && echoerr "Skipping investigation of job $id: Investigation will be done on the parallel parent" && return 0
+
+    # postpone if not all dependencies are done/cancelled
+    # note: This "AJAX" route is normally used to render the dependencies tab in the web UI.
+    dependency_data=$(openqa-cli "${client_args[@]}" --apibase '' --json tests/"$id"/dependencies_ajax)
+    pending_cluster_jobs=$(echo "$dependency_data" | runjq -r '[.nodes[] | select(.state != "done" and .state != "cancelled")] | length') || return $?
+    [[ $pending_cluster_jobs != 0 ]] \
+        && echoerr "Postponing to investigate job $id: waiting until pending dependencies have finished" && return 142
+
+    # determine number of jobs in cluster with relevant result
+    # note: The "$id, …" is to always also consider the job itself (even if it is just a single job and therefore not in a cluster).
+    cluster_jobs=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | unique") || return $?
+    # shellcheck disable=SC2016
+    relevant_cluster_results=$(echo "$dependency_data" | runjq --argjson cluster_jobs "$cluster_jobs" -r '[.nodes[] | select([.id] | inside($cluster_jobs)) | .result | select(inside("failed", "incomplete", "timeout_exceeded"))] | length') || return $?
+
+    # skip investigation if no jobs with relevant results are part of the cluster
+    # note: We need to run the investigate script for all jobs (see note from before) and therefore rely on checking the job/cluster result here.
+    [[ $relevant_cluster_results == 0 ]] \
+        && echoerr "Skip investigation of job $id: job is not failed/incomplete/timeout_exceeded, same counts for whole job cluster" && return 0
+
+    # do not skip the job
+    return 255
+}
+
 # crosscheck
 # 1. current job/build + current test -> check if reproducible/sporadic
 # 2. current job/build + last good test (+ last good needles) -> check for
@@ -151,6 +192,10 @@ investigate() {
         echoerr "Job already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
         return 0
     fi
+
+    check_dependencies_to_determine_whether_to_skip_or_postpone "$id" "$job_data"; rc=$?
+    [[ $rc != 255 ]] && return $rc
+
     [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
     group="$(echo "$job_data" | runjq -r '.job.parent_group + " / " + .job.group')" || return $?
     [[ "$group" = " / " ]] && [[ "$exclude_no_group" = "true" ]] && echo "Job w/o job group, \$exclude_no_group is set, skipping investigation" && return 0
