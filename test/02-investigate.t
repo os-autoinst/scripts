@@ -52,8 +52,8 @@ openqa-cli() {
     elif [[ $@ == '--apibase  --json tests/30/dependencies_ajax' ]]; then
         echo '{"cluster":{"cluster_foo":[28,30],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"uploading","result":"none"},{"id":30,"state":"done","result":"passed"}]}'
     elif [[ $@ == '--apibase  --json tests/31/dependencies_ajax' ]]; then
-        # job with cancelled job in the cluster (should be treated like a done job) that is incomplete (should be treated like failed)
-        echo '{"cluster":{"cluster_foo":[28,31],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"cancelled","result":"none"},{"id":31,"state":"done","result":"incomplete"}]}'
+        # job with cancelled job in the cluster (should be treated like a done job)
+        echo '{"cluster":{"cluster_foo":[28,31],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"cancelled","result":"none"},{"id":31,"state":"done","result":"failed"}]}'
     else
         echo '{"result": [{ "25": "foo", "26": "bar" }], "test_url": [{"25": "/tests/25", "26": "/tests/26"}] } '
     fi

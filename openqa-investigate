@@ -149,7 +149,7 @@ check_dependencies_to_determine_whether_to_skip_or_postpone() {
     # note: The "$id, …" is to always also consider the job itself (even if it is just a single job and therefore not in a cluster).
     cluster_jobs=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | unique") || return $?
     # shellcheck disable=SC2016
-    relevant_cluster_results=$(echo "$dependency_data" | runjq --argjson cluster_jobs "$cluster_jobs" -r '[.nodes[] | select([.id] | inside($cluster_jobs)) | .result | select(inside("failed", "incomplete", "timeout_exceeded"))] | length') || return $?
+    relevant_cluster_results=$(echo "$dependency_data" | runjq --argjson cluster_jobs "$cluster_jobs" -r '[.nodes[] | select([.id] | inside($cluster_jobs)) | .result | select(inside("failed"))] | length') || return $?
 
     # skip investigation if no jobs with relevant results are part of the cluster
     # note: We need to run the investigate script for all jobs (see note from before) and therefore rely on checking the job/cluster result here.
