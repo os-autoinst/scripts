@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 18
+plan tests 24
 
 host=localhost
 url=https://localhost
@@ -43,6 +43,20 @@ openqa-cli() {
         echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
     elif [[ "$1 $2" == "--json jobs/27" ]]; then
         echo '{"job": { "test": "vim", "clone_id" : 28 } }'
+    elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
+        echo '{"id": 1234}'
+    elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
+        touch comment_1234_updated
+    elif [[ $@ == '-X DELETE jobs/30/comments/1234' ]]; then
+        touch comment_1234_deleted
+    elif [[ $@ == $'-X POST jobs/31/comments text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
+        touch comment_for_job_31_created
+    elif [[ $@ == "-X GET jobs/30/comments" ]]; then
+        echo '[{"id": 1234, "text":"Starting investigation for 31"},{"id": 1235, "text":"unrelated comment"}]'
+    elif [[ $@ == "-X POST jobs/32/comments text=Starting investigation for job 32" ]]; then
+        echo '{"id": 1237}'
+    elif [[ $@ == "-X GET jobs/32/comments" ]]; then
+        echo '[{"id": 1236, "text":"Starting investigation for job 32"},{"id": 1237, "text":"Starting investigation for job 32"}]'
     elif [[ $@ == '--apibase  --json tests/27/dependencies_ajax' ]]; then
         echo '{"cluster":{}, "edges":[], "nodes":[{"id":27,"state":"done","result":"passed"}]}'
     elif [[ $@ == '--apibase  --json tests/28/dependencies_ajax' ]]; then
@@ -72,19 +86,9 @@ is "$rc" 0 'success regardless of actually triggered jobs'
 is "$out" "Job already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
 
 rc=0
-out=$(force=true investigate 27 2>&1) || rc=$?
-is "$rc" 0 'still success when job is skipped (because it has passed)'
-like "$out" "Skip investigation of job 27: job is not failed/incomplete/timeout_exceeded, same counts for whole job cluster"
-
-rc=0
 out=$(force=true investigate 28 2>&1) || rc=$?
 is "$rc" 0 'still success when job is skipped (because of exclude_no_group)'
 like "$out" "exclude_no_group is set, skipping investigation"
-
-rc=0
-out=$(investigate 29 2>&1) || rc=$?
-is "$rc" 0 'still success when job is skipped (because it has passed and only unrelated dependencies from other cluster failed)'
-like "$out" "Skip investigation of job 29: job is not failed/incomplete/timeout_exceeded, same counts for whole job cluster"
 
 rc=0
 out=$(investigate 30 2>&1) || rc=$?
@@ -95,3 +99,38 @@ rc=0
 out=$(force=true investigate 31 2>&1) || rc=$?
 is "$rc" 0 'success when job is skipped (because of exclude_no_group and job w/o group)'
 like "$out" 'Job w/o job group, \$exclude_no_group is set, skipping investigation'
+
+# test syncing via investigation comment; we're first
+rc=0
+out=$(force=true sync_via_investigation_comment 31 30 2>&1) || rc=$?
+is "$rc" 255 'do not skip if we own first investigation comment'
+like "$out" '1234' 'comment ID returned'
+
+# test syncing via investigation comment; we're second
+rc=0
+out=$(force=true sync_via_investigation_comment 32 32 2>&1) || rc=$?
+is "$rc" 0 'skip with success if we do not own first investigation comment'
+like "$out" '' 'no output when skipping'
+
+# delete certain files used to trace whether API calls happened
+for trace_file in comment_1234_updated comment_for_job_31_created comment_1234_deleted; do
+    [[ -f $trace_file ]] && unlink "$trace_file"
+done
+
+# test finalizing investigation comment when no investigation jobs were needed
+rc=0
+out=$(force=true finalize_investigation_comment 31 30 1234 '' 2>&1) || rc=$?
+is "$rc" 0 'success if no investigation jobs needed to be created after all'
+[[ -f comment_1234_deleted ]] && comment_1234_deleted=1 || comment_1234_deleted=0
+[[ -f comment_for_job_31_created ]] && comment_for_job_31_created=1 || comment_for_job_31_created=0
+is "$comment_1234_deleted" 1 'comment on job 30 deleted'
+is "$comment_for_job_31_created" 0 'no comment on job 31 created'
+
+# test finalizing investigation comment when investigation jobs had been created
+rc=0
+out=$(force=true finalize_investigation_comment 31 30 1234 'foo' 2>&1) || rc=$?
+is "$rc" 0 'success if we write an investigation comment'
+[[ -f comment_1234_updated ]] && comment_1234_updated=1 || comment_1234_updated=0
+[[ -f comment_for_job_31_created ]] && comment_for_job_31_created=1 || comment_for_job_31_created=0
+is "$comment_1234_updated" 1 'comment on job 30 updated'
+is "$comment_for_job_31_created" 1 'comment on job 31 created as well'
