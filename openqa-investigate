@@ -26,7 +26,7 @@ curl_args=(--user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
 clone() {
-    local origin id name_suffix refspec job_data unsupported_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
+    local origin id name_suffix refspec job_data unsupported_cluster_jobs pending_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
     origin=${1:?"Need 'origin'"}
     id=${2:?"Need 'id'"}
     name_suffix=${3+":$3"}
@@ -34,12 +34,15 @@ clone() {
     job_data=$(openqa-cli "${client_args[@]}" --json jobs/"$id")
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
-    unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Parallel"] | length) + (.job.parents["Parallel"] | length) + (.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
+
+    # fail on jobs with directly chained dependencies (not supported)
+    unsupported_cluster_jobs=$(echo "$job_data" | runjq -r '(.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
     [[ $unsupported_cluster_jobs != 0 ]] \
-        && echoerr "unable to clone job $id: it is part of a parallel or directly chained cluster (not supported)" && return 2
+        && echoerr "Unable to clone job $id: it is part of a directly chained cluster (not supported)" && return 2
+
     name="$(echo "$job_data" | runjq -r '.job.test'):investigate$name_suffix" || return $?
     base_prio=$(echo "$job_data" | runjq -r '.job.priority') || return $?
-    clone_settings=("TEST=$name" '_GROUP_ID=0' 'BUILD=')
+    clone_settings=("TEST+=:investigate$name_suffix" '_GROUP_ID=0' 'BUILD=')
     if [[ $refspec ]]; then
         casedir=$(echo "$job_data" | runjq -r '.job.settings.CASEDIR') || return $?
         [[ $casedir == null ]] && casedir=''
@@ -119,6 +122,57 @@ trigger_jobs() {
     fi
 }
 
+query_dependency_data_or_postpone() {
+    local id=$1 job_data=$2 dependency_data pending_cluster_jobs
+
+    # postpone if not all dependencies are done/cancelled
+    # note: This "AJAX" route is normally used to render the dependencies tab in the web UI.
+    dependency_data=$(openqa-cli "${client_args[@]}" --apibase '' --json tests/"$id"/dependencies_ajax)
+    pending_cluster_jobs=$(echo "$dependency_data" | runjq -r '[.nodes[] | select(.state != "done" and .state != "cancelled")] | length') || return $?
+    [[ $pending_cluster_jobs != 0 ]] \
+        && echoerr "Postponing to investigate job $id: waiting until pending dependencies have finished" && return 142
+
+    # do not skip the job
+    echo "$dependency_data"
+    return 255
+}
+
+sync_via_investigation_comment() {
+    local id=$1 first_cluster_job_id=$2
+
+    comment_id=$("${client_call[@]}" -X POST jobs/"$first_cluster_job_id"/comments text="Starting investigation for job $id" | runjq -r '.id') || return $?
+    first_comment_id=$("${client_call[@]}" -X GET jobs/"$first_cluster_job_id"/comments | runjq -r '[.[] | select(.text | contains("investigation"))] | sort_by(.id) | first | .id') || return $?
+
+    # delete comment again in case a concurrent job could start the investigation before us
+    if [[ $comment_id != "$first_comment_id" ]]; then
+        echoerr "Skipping investigation of job $id: job cluster is already being investigated, see comment on job $first_cluster_job_id"
+        "${client_call[@]}" -X DELETE jobs/"$first_cluster_job_id"/comments/"$comment_id" && return 0
+    fi
+
+    echo "$comment_id"
+    return 255
+}
+
+finalize_investigation_comment() {
+    local id=$1 first_cluster_job_id=$2 comment_id=$3 comment_text=$4
+
+    # delete comment again if there were no investigation jobs needed after all
+    if ! [[ $comment_text ]]; then
+        "${client_call[@]}" -X DELETE jobs/"$first_cluster_job_id"/comments/"$comment_id"
+        return 0
+    fi
+
+    local comment="Automatic investigation jobs for job $id:
+
+$comment_text"
+    "${client_call[@]}" -X PUT jobs/"$first_cluster_job_id"/comments/"$comment_id" text="$comment"
+
+    # also write a comment on the job we're actually investigating
+    if [[ $first_cluster_job_id != "$id" ]]; then
+        "${client_call[@]}" -X POST jobs/"$id"/comments text="$comment"
+    fi
+}
+
 # crosscheck
 # 1. current job/build + current test -> check if reproducible/sporadic
 # 2. current job/build + last good test (+ last good needles) -> check for
@@ -151,6 +205,14 @@ investigate() {
         echoerr "Job already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
         return 0
     fi
+
+    # determine dependency data or postpone if cluster not done
+    dependency_data=$(query_dependency_data_or_postpone "$id" "$job_data"); rc=$?
+    [[ $rc != 255 ]] && return $rc
+
+    # determine the job in the cluster with the lowest ID to use that for commenting/synchronization
+    first_cluster_job_id=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | sort | first") || return $?
+
     [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
     group="$(echo "$job_data" | runjq -r '.job.parent_group + " / " + .job.group')" || return $?
     [[ "$group" = " / " ]] && [[ "$exclude_no_group" = "true" ]] && echo "Job w/o job group, \$exclude_no_group is set, skipping investigation" && return 0
@@ -160,13 +222,13 @@ investigate() {
     # method instead for we are just working based on supplied job which can
     # have more, ambiguous potential changes that we need to bisect on
 
+    # sync by writing initial investigation comment (edited later)
+    comment_id=$(sync_via_investigation_comment "$id" "$first_cluster_job_id"); rc=$?
+    [[ $rc != 255 ]] && return $rc
+
     out=$(trigger_jobs "$id" "${@:2}")
     $verbose && echo "$0, id: '$id', out: '$out'"
-    [[ $out ]] || return 0
-    comment="Automatic investigation jobs:
-
-$out"
-    "${client_call[@]}" -X POST jobs/"$id"/comments text="$comment"
+    finalize_investigation_comment "$id" "$first_cluster_job_id" "$comment_id" "$out"
 }
 
 main() {
@@ -180,7 +242,7 @@ main() {
         fi
     fi
     set -u
-    clone_call="${clone_call:-"$client_prefix openqa-clone-job --skip-chained-deps --within-instance"}"
+    clone_call="${clone_call:-"$client_prefix openqa-clone-job --skip-chained-deps --max-depth 0 --parental-inheritance --within-instance"}"
     error_count=0
     # shellcheck disable=SC2013
     for i in $(cat - | sed 's/ .*$//'); do
