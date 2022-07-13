@@ -1,6 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
 
-set -o pipefail
+set -eo pipefail
 
 # "hook script" intended to be called by openQA instances taking a job ID as
 # parameter and forwarding a complete job URL to "openqa-label-known-issues"
