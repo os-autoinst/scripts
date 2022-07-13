@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 24
+plan tests 26
 
 host=localhost
 url=https://localhost
@@ -94,6 +94,11 @@ rc=0
 out=$(investigate 30 2>&1) || rc=$?
 is "$rc" 142 'investigation postponed because other job in cluster is not done'
 like "$out" "Postponing to investigate job 30: waiting until pending dependencies have finished"
+
+rc=0
+out=$(echo 30 | main 2>&1) || rc=$?
+is "$rc" 142 'return code (for postponing) passed by main function'
+like "$out" "Postponing to investigate job 30: waiting until pending dependencies have finished" 'output passed by main function'
 
 rc=0
 out=$(force=true investigate 31 2>&1) || rc=$?
