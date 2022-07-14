@@ -123,14 +123,16 @@ trigger_jobs() {
 }
 
 query_dependency_data_or_postpone() {
-    local id=$1 job_data=$2 dependency_data pending_cluster_jobs
+    local id=$1 job_data=$2 dependency_data pending_cluster_jobs cluster_jobs
 
     # postpone if not all dependencies are done/cancelled
     # note: This "AJAX" route is normally used to render the dependencies tab in the web UI.
     dependency_data=$(openqa-cli "${client_args[@]}" --apibase '' --json tests/"$id"/dependencies_ajax)
-    pending_cluster_jobs=$(echo "$dependency_data" | runjq -r '[.nodes[] | select(.state != "done" and .state != "cancelled")] | length') || return $?
+    cluster_jobs=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | unique") || return $?
+    # shellcheck disable=SC2016
+    pending_cluster_jobs=$(echo "$dependency_data" | runjq --argjson cluster_jobs "$cluster_jobs" -r '[.nodes[] | select([.id] | inside($cluster_jobs)) | select([.state] | inside(["done", "cancelled"]) | not)] | length') || return $?
     [[ $pending_cluster_jobs != 0 ]] \
-        && echoerr "Postponing to investigate job $id: waiting until pending dependencies have finished" && return 142
+        && echoerr "Postponing to investigate job $id: waiting until $pending_cluster_jobs pending parallel job(s) finished" && return 142
 
     # do not skip the job
     echo "$dependency_data"
