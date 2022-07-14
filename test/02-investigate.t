@@ -83,7 +83,7 @@ is "$out" "* **$testlabel**: " "Expected markdown output of job urls for unsuppo
 rc=0
 out=$(investigate 27 2>&1) || rc=$?
 is "$rc" 0 'success regardless of actually triggered jobs'
-is "$out" "Job already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
+is "$out" "Job 27 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
 
 rc=0
 out=$(force=true investigate 28 2>&1) || rc=$?
