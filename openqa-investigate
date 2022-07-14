@@ -195,14 +195,14 @@ investigate() {
         # gracefully
         out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic failure" 2>/dev/null) || \
             if [[ $(echo "$out" | runjq .error_status) != "404" ]]; then
-                echoerr "Unexpected error encountered when posting comments: '$out'"
+                echoerr "Unexpected error encountered when posting comments on job $origin_job_id after investigation job $id failed: '$out'"
                 return 2
             fi
         return 0
     fi
     clone="$(echo "$job_data" | runjq -r '.job.clone_id')" || return $?
     if ! "$force" && [[ "$clone" != "null" ]]; then
-        echoerr "Job already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
+        echoerr "Job $id already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
         return 0
     fi
 
