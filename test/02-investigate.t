@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 26
+plan tests 27
 
 host=localhost
 url=https://localhost
@@ -65,6 +65,8 @@ openqa-cli() {
         echo '{"cluster":{"cluster_foo":[28],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"done","result":"failed"},{"id":29,"state":"done","result":"passed"}]}'
     elif [[ $@ == '--apibase  --json tests/30/dependencies_ajax' ]]; then
         echo '{"cluster":{"cluster_foo":[28,30],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"uploading","result":"none"},{"id":30,"state":"done","result":"passed"}]}'
+    elif [[ $@ == '--apibase  --json tests/32/dependencies_ajax' ]]; then
+        echo '{"cluster":{"cluster_foo":[28,32],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"cancelled","result":"none"},{"id":32,"state":"done","result":"failed"},{"id":29,"state":"running","result":"running"}]}'
     elif [[ $@ == '--apibase  --json tests/31/dependencies_ajax' ]]; then
         # job with cancelled job in the cluster (should be treated like a done job)
         echo '{"cluster":{"cluster_foo":[28,31],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"cancelled","result":"none"},{"id":31,"state":"done","result":"failed"}]}'
@@ -93,12 +95,16 @@ like "$out" "exclude_no_group is set, skipping investigation"
 rc=0
 out=$(investigate 30 2>&1) || rc=$?
 is "$rc" 142 'investigation postponed because other job in cluster is not done'
-like "$out" "Postponing to investigate job 30: waiting until pending dependencies have finished"
+is "$out" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished"
 
 rc=0
 out=$(echo 30 | main 2>&1) || rc=$?
 is "$rc" 142 'return code (for postponing) passed by main function'
-like "$out" "Postponing to investigate job 30: waiting until pending dependencies have finished" 'output passed by main function'
+is "$out" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished" 'output passed by main function'
+
+rc=0
+out=$(investigate 32 2>&1) || rc=$?
+is "$rc" 0 'investigation not postponed if other job in dependency tree not done but cluster itself is done'
 
 rc=0
 out=$(force=true investigate 31 2>&1) || rc=$?
