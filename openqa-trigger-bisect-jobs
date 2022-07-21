@@ -78,8 +78,10 @@ def main(args):
     changes = { GOOD: set(), BAD: set() }
     if 'diff_to_last_good' not in investigation:
         return
+    diff_to_last_good = investigation['diff_to_last_good'].split('\n')
+    test_issues_re = re.compile('([+-]) +"(.*_TEST_ISSUES)" *: "([^"]*)",')
     for line in investigation['diff_to_last_good'].split('\n'):
-        search = re.compile('([+-]) +"OS_TEST_ISSUES" *: "([^"]*)",').search(line)
+        search = .search(line)
         if search:
             changes[search.group(1)] = set(search.group(2).split(','))
     if len(changes[BAD]) <= 1:
