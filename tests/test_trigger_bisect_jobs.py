@@ -76,6 +76,8 @@ def test_triggers():
         call(['https://openqa.opensuse.org/tests/7848818', 'OS_TEST_ISSUES=21770,21926,21954,22030,22077,22085,22192', 'TEST=foo:investigate:bisect_without_21637', 'OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818'], False),
         call(['https://openqa.opensuse.org/tests/7848818', 'OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22192', 'TEST=foo:investigate:bisect_without_22085', 'OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818'], False),
         call(['https://openqa.opensuse.org/tests/7848818', 'OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22085', 'TEST=foo:investigate:bisect_without_22192', 'OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818'], False),
+        call(['https://openqa.opensuse.org/tests/7848818', 'CRAZY_TEST_ISSUES=1,4', 'TEST=foo:investigate:bisect_without_3', 'OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818'], False),
+        call(['https://openqa.opensuse.org/tests/7848818', 'CRAZY_TEST_ISSUES=1,3', 'TEST=foo:investigate:bisect_without_4', 'OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818'], False),
     ]
     openqa.openqa_clone.assert_has_calls(calls)
     comment = """Automatic bisect jobs:
@@ -83,6 +85,8 @@ def test_triggers():
 * **foo:investigate:bisect_without_21637**: https://openqa.opensuse.org/t234567
 * **foo:investigate:bisect_without_22085**: https://openqa.opensuse.org/t234567
 * **foo:investigate:bisect_without_22192**: https://openqa.opensuse.org/t234567
+* **foo:investigate:bisect_without_3**: https://openqa.opensuse.org/t234567
+* **foo:investigate:bisect_without_4**: https://openqa.opensuse.org/t234567
 """
     openqa.openqa_comment.assert_called_once_with(7848818, 'https://openqa.opensuse.org', comment, False)
 
@@ -139,3 +143,14 @@ def test_network_problems():
     except requests.exceptions.ConnectionError as e:
         assert(True)
 
+def test_issue_types():
+    investigation = """
+    - "OS_TEST_ISSUES": "1,2,3,4",
+    + "OS_TEST_ISSUES": "1,2,3,4,5",
+    - "OTHER_TEST_ISSUES": "23",
+    + "OTHER_TEST_ISSUES": "24",
+    + "DUMMY_TEST_ISSUES": "25,26,27",
+    """
+    changes = openqa.find_changed_issues(investigation)
+    exp = {'OS_TEST_ISSUES': {'-': {'1', '3', '2', '4'}, '+': {'2', '5', '4', '1', '3'}}}
+    assert(changes == exp)

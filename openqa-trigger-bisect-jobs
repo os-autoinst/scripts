@@ -70,26 +70,37 @@ def fetch_url(url, request_type='text'):
             raise(e)
     return content
 
+def find_changed_issues(investigation):
+    changes = {}
+    for line in investigation.split('\n'):
+        search = re.compile('([+-]) +"([A-Z_]+_TEST_ISSUES)" *: "([^"]*)",').search(line)
+        if search:
+            issue_var = search.group(2)
+            if not changes.get(issue_var):
+                changes[issue_var] = {}
+            changes[issue_var][search.group(1)] = set(search.group(3).split(','))
+    for key in list(changes):
+        if not changes[key].get(BAD) or not changes[key].get(GOOD):
+            del changes[key]
+            continue
+        if len(changes[key][BAD]) <= 1:
+            # no value in triggering single-incident bisections
+            del changes[key]
+            continue
+    return changes
+
 def main(args):
     parsed_url = urlparse(args.url)
     investigation_url = urlparse(urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path + '/investigation_ajax', '', '', '')))
     log.debug('Retrieving investigation info from %s' % investigation_url.geturl())
     investigation = fetch_url(investigation_url, request_type='json')
     log.debug('Received investigation info: %s' % investigation)
-    changes = { GOOD: set(), BAD: set() }
     if 'diff_to_last_good' not in investigation:
         return
-    for line in investigation['diff_to_last_good'].split('\n'):
-        search = re.compile('([+-]) +"OS_TEST_ISSUES" *: "([^"]*)",').search(line)
-        if search:
-            changes[search.group(1)] = set(search.group(2).split(','))
-    if len(changes[BAD]) <= 1:
-        # no value in triggering single-incident bisections
+    all_changes = find_changed_issues(investigation['diff_to_last_good'])
+    if not all_changes:
         return
-    if not changes[BAD] or not changes[GOOD]:
-        return
-    removed, added = list(changes[GOOD] - changes[BAD]), list(changes[BAD] - changes[GOOD])
-    log.debug('removed: %s, added: %s' % (removed, added))
+
     test_url = urlparse(urlunparse((parsed_url.scheme, parsed_url.netloc, '/api/v1/jobs/' + parsed_url.path.lstrip('/tests/'), '', '', '')))
     log.debug('Retrieving additional job data from %s' % test_url.geturl())
     test_data = fetch_url(test_url, request_type='json')
@@ -115,16 +126,20 @@ def main(args):
     test = test_data['job']['settings']['TEST']
     log.debug("Found test name '%s'" % test)
     created = ""
-    for issue in sorted(added):
-        log.info("Triggering one bisection job without issue '%s'" % issue)
-        new = ','.join(sorted(list(changes[BAD] - set([issue]))))
-        log.debug("New set of OS_TEST_ISSUES='%s'" % new)
-        test_name = test + ':investigate:bisect_without_%s' % issue
-        out = openqa_clone([args.url, 'OS_TEST_ISSUES=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run)
-        search = re.compile('Created job .*(http\\S+/t[0-9]+)$').search(out)
-        if search:
-            log.info('Created ' + search.group(1))
-            created += "* **%s**: %s\n" % (test_name, search.group(1))
+    for key in all_changes:
+        changes = all_changes[key]
+        removed, added = list(changes[GOOD] - changes[BAD]), list(changes[BAD] - changes[GOOD])
+        log.debug('[%s] removed: %s, added: %s' % (key, removed, added))
+        for issue in sorted(added):
+            log.info("[%s] Triggering one bisection job without issue '%s'" % (key, issue))
+            new = ','.join(sorted(list(changes[BAD] - set([issue]))))
+            log.debug("New set of %s='%s'" % (key, new))
+            test_name = test + ':investigate:bisect_without_%s' % issue
+            out = openqa_clone([args.url, key + '=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run)
+            search = re.compile('Created job .*(http\\S+/t[0-9]+)$').search(out)
+            if search:
+                log.info('Created ' + search.group(1))
+                created += "* **%s**: %s\n" % (test_name, search.group(1))
 
     if len(created):
         comment = 'Automatic bisect jobs:\n\n' + created
