@@ -1,0 +1,13 @@
+{
+  "job": {
+    "id": 123456,
+    "clone_id": 123459,
+    "result": "failed",
+    "settings": {
+      "OS_TEST_ISSUES": "21637,21770,21926,21954,22030,22077,22085,22192",
+      "TEST": "foo"
+    },
+    "state": "done",
+    "test": "foo"
+  }
+}

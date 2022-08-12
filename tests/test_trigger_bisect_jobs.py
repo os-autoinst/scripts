@@ -123,6 +123,15 @@ def test_directly_chained():
     openqa.main(args)
     openqa.openqa_clone.assert_not_called()
 
+def test_exclude_already_retried():
+    args = args_factory()
+    openqa.openqa_clone = MagicMock(return_value='')
+    openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
+
+    args.url = 'http://openqa.opensuse.org/tests/123458'
+    openqa.main(args)
+    openqa.openqa_clone.assert_not_called()
+
 def test_exclude_group_regex():
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value='')
