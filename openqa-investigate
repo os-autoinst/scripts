@@ -184,6 +184,7 @@ $comment_text"
 #    sources, e.g. infrastructure
 investigate() {
     id="${1##*/}"
+    local rc=0
 
     job_data=$(openqa-cli "${client_args[@]}" --json jobs/"$id")
     # shellcheck disable=SC2181
