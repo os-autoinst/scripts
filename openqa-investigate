@@ -240,9 +240,8 @@ main() {
     set +u
     if [[ -z "${client_call[*]}" ]]; then
         client_call=(openqa-cli "${client_args[@]}")
-        if [[ -n "$client_prefix" ]]; then
-            client_call=("$client_prefix" "${client_call[@]}")
-        fi
+        client_prefix="${client_prefix:-runcli}"
+        client_call=("$client_prefix" "${client_call[@]}")
     fi
     set -u
     clone_call="${clone_call:-"$client_prefix openqa-clone-job --skip-chained-deps --max-depth 0 --parental-inheritance --within-instance"}"

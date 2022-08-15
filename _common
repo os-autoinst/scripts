@@ -25,6 +25,20 @@ job_ids() {
     jq -r '.ids[]' "$@"
 }
 
+# Wrapper around openqa-cli that outputs the api arguments in case of
+# an error, and the calling command and line
+runcli() {
+    local args=("$@")
+    local rc output
+    set +e
+    output=$("${args[@]}" 2>&1)
+    rc=$?
+    set -e
+    [[ "$rc" == 0 ]] && echo "$output" && return
+    warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
+    return $rc
+}
+
 # Wrapper around jq that outputs the first lines of JSON in case
 # jq has a problem with it, and the calling command and line
 runjq() {
@@ -37,7 +51,7 @@ runjq() {
     set -e
     [[ "$rc" == 0 ]] && echo "$output" && return
     output=$(echo "$output" | head -"$jq_output_limit")
-    echo "jq ($(caller)): $output (Input: >>>$input<<<)" >&2
+    echo "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)" >&2
     return $rc
 }
 
