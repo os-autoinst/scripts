@@ -114,6 +114,6 @@ out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_
 like "$out" '' "send-email not called for no email address and no fallback address"
 
 notification_address=fallback@example.com
-out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" 2>&1 >/dev/null) || true
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" "$job_data" 2>&1 >/dev/null) || true
 like "$out" 'To: fallback@example.com' "send-email to like expected"
 like "$out" 'Subject: Unreviewed issue .Group 25 Lala.' "send-email subject like expected"
