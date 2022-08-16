@@ -134,7 +134,7 @@ trigger_jobs() {
 
     # 3. last good job/build + current test -> check for product regression
     if ! echo "$investigation" | grep -q '\<BUILD\>'; then
-        echo "Current job has same build as last good, product regression unlikely. Skipping product regression investigation job."
+        echo -e "\nCurrent job has same build as last good, product regression unlikely. Skipping product regression investigation job."
         last_good_build=''
     else
         vars_last_good=${vars_last_good:-$(runcurl "${curl_args[@]}" -sS "$host_url/tests/$last_good"/file/vars.json)} || return $?
@@ -148,9 +148,9 @@ trigger_jobs() {
     # 4. last good job/build + last good test -> check for other problem
     #    sources, e.g. infrastructure
     if [[ -z $last_good_tests ]]; then
-        echo "No test regression expected. Not triggered 'good build+test' as it would be the same as 3., good build + current test"
+        echo -e "\nNo test regression expected. Not triggered 'good build+test' as it would be the same as 3., good build + current test"
     elif [[ -z $last_good_build ]]; then
-        echo "No product regression expected. Not triggered 'good build+test' as it would be the same as 2., current build + good test"
+        echo -e "\nNo product regression expected. Not triggered 'good build+test' as it would be the same as 2., current build + good test"
     else
         clone "$id" "$last_good" "last_good_tests_and_build:$last_good_tests+$last_good_build" "$refspec_arg" "${@:2}"
     fi
