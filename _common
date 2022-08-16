@@ -131,7 +131,9 @@ handle_unknown() {
         group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
         group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
         group_mailto=${group_mailto:-$notification_address}
-        if [[ -n "$group_mailto" ]]; then
+        # Avoid sending notifications for jobs that were restarted
+        clone_id="$(echo "$job_data" | runjq -r '.job.clone_id')"
+        if [[ -n "$group_mailto" && "$clone_id" == 'null' ]]; then
             group_name=$(echo "$group_data" | runjq -r '.[0].name')
             job_name=$(echo "$job_data" | runjq -r '.job.name')
             job_result=$(echo "$job_data" | runjq -r '.job.result')
