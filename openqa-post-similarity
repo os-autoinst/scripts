@@ -53,7 +53,7 @@ def read_id_msg(logger, testdir):
         all_dirs = [testdir + item for item in all_dirs]
         logs = [item + '/autoinst-log.txt' for item in all_dirs]
 
-        for path in logs:
+        for path in tqdm(logs, desc='Processing testresults directory', unit='test'):
             read_errors(path)
         id_msg_json = json.dumps(id_msg, sort_keys=False, indent=4, separators=(',', ':'))
         with open("id_msg.json", "w") as f:
@@ -67,7 +67,7 @@ def read_id_msg(logger, testdir):
         all_dirs = os.listdir(testdir)
         checked_dirs = list(id_msg.keys())
         unchecked_dirs = [i for i in all_dirs if i not in checked_dirs]
-        for job_id in unchecked_dirs:
+        for job_id in tqdm(unchecked_dirs, desc='Processing testresults directory', unit='test'):
             path = testdir + job_id + "/autoinst-log.txt"
             read_errors(path)
         id_msg_json = json.dumps(id_msg, sort_keys=False, indent=4, separators=(',', ':'))
@@ -81,7 +81,7 @@ def cal_distance(logger, output, number):
     global result
     if output:
         f = open("distance_result.txt", "w")
-    for index, (key1, value1) in enumerate(id_msg.items()):
+    for index, (key1, value1) in enumerate(tqdm(id_msg.items(), desc='Calculating message distance', unit="error")):
         calculate = {}
         for key2, value2 in id_msg.items():
             if key1 == key2:
@@ -110,7 +110,7 @@ def cal_distance(logger, output, number):
 # Post the results in comments by OpenQA_Client
 def post(server, number):  
     client = OpenQA_Client(server)
-    for origin, matched in result.items():
+    for origin, matched in tqdm(result.items(), desc='Posting comments', unit="comment"):
         data = {'bugrefs': []}
         text = "Top " + str(number) + " similar failures:\r\n"
         for job_id in matched:
