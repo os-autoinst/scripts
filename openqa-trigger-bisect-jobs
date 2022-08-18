@@ -11,74 +11,118 @@ import json
 from urllib.parse import urljoin, urlparse, urlunparse
 
 logging.basicConfig()
-log = logging.getLogger(sys.argv[0] if __name__ == '__main__' else __name__)
-GOOD = '-'
-BAD = '+'
+log = logging.getLogger(sys.argv[0] if __name__ == "__main__" else __name__)
+GOOD = "-"
+BAD = "+"
 
 
-class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+class CustomFormatter(
+    argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter
+):
     """Preserve multi-line __doc__ and provide default arguments in help strings."""
 
     pass
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=CustomFormatter)
-    parser.add_argument('-v', '--verbose',
-                        help='Increase verbosity level, specify multiple times to increase verbosity', action='count', default=1)
-    parser.add_argument('--url', required=True,
-                        help='The openQA test URL for which to trigger bisection investigation jobs')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='Do not do any action on openQA')
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=CustomFormatter
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        help="Increase verbosity level, specify multiple times to increase verbosity",
+        action="count",
+        default=1,
+    )
+    parser.add_argument(
+        "--url",
+        required=True,
+        help="The openQA test URL for which to trigger bisection investigation jobs",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Do not do any action on openQA"
+    )
     args = parser.parse_args()
     verbose_to_log = {
         0: logging.CRITICAL,
         1: logging.ERROR,
         2: logging.WARN,
         3: logging.INFO,
-        4: logging.DEBUG
+        4: logging.DEBUG,
     }
     logging_level = logging.DEBUG if args.verbose > 4 else verbose_to_log[args.verbose]
     log.setLevel(logging_level)
     return args
 
-client_args = ['openqa-cli', 'api', '--header', 'User-Agent: openqa-trigger-bisect-jobs (https://github.com/os-autoinst/scripts)']
+
+client_args = [
+    "openqa-cli",
+    "api",
+    "--header",
+    "User-Agent: openqa-trigger-bisect-jobs (https://github.com/os-autoinst/scripts)",
+]
+
+
 def call(cmds, dry_run=False):
-    log.debug('call: %s' % cmds)
-    return subprocess.check_output((['echo', 'Simulating: '] if dry_run else []) + cmds).decode('utf-8')
+    log.debug("call: %s" % cmds)
+    return subprocess.check_output(
+        (["echo", "Simulating: "] if dry_run else []) + cmds
+    ).decode("utf-8")
+
 
 def openqa_comment(id, host, comment, dry_run):
-    args = client_args + ['--host', host, '-X', 'POST', 'jobs/' + str(id) + '/comments', 'text=' + comment]
+    args = client_args + [
+        "--host",
+        host,
+        "-X",
+        "POST",
+        "jobs/" + str(id) + "/comments",
+        "text=" + comment,
+    ]
     return call(args, dry_run)
 
-def openqa_clone(cmds, dry_run, default_opts=['--skip-chained-deps', '--within-instance'], default_cmds=['_GROUP=0']):
-    return call(['openqa-clone-job'] + default_opts + cmds + default_cmds, dry_run)
 
-def fetch_url(url, request_type='text'):
+def openqa_clone(
+    cmds,
+    dry_run,
+    default_opts=["--skip-chained-deps", "--within-instance"],
+    default_cmds=["_GROUP=0"],
+):
+    return call(["openqa-clone-job"] + default_opts + cmds + default_cmds, dry_run)
+
+
+def fetch_url(url, request_type="text"):
     try:
         content = requests.get(url.geturl())
         content.raise_for_status()
     except requests.exceptions.RequestException as e:
-        log.error("Error while fetching %s: %s"% (url.geturl(), str(e)))
-        raise(e)
+        log.error("Error while fetching %s: %s" % (url.geturl(), str(e)))
+        raise (e)
     raw = content.content
-    if request_type == 'json':
+    if request_type == "json":
         try:
             content = content.json()
         except json.decoder.JSONDecodeError as e:
-            log.error("Error while decoding JSON from %s -> >>%s<<: %s" % (url.geturl(), raw, str(e)))
-            raise(e)
+            log.error(
+                "Error while decoding JSON from %s -> >>%s<<: %s"
+                % (url.geturl(), raw, str(e))
+            )
+            raise (e)
     return content
+
 
 def find_changed_issues(investigation):
     changes = {}
-    for line in investigation.split('\n'):
-        search = re.compile('([+-]) +"([A-Z_]+_TEST_ISSUES)" *: "([^"]*)",').search(line)
+    for line in investigation.split("\n"):
+        search = re.compile('([+-]) +"([A-Z_]+_TEST_ISSUES)" *: "([^"]*)",').search(
+            line
+        )
         if search:
             issue_var = search.group(2)
             if not changes.get(issue_var):
                 changes[issue_var] = {}
-            changes[issue_var][search.group(1)] = set(search.group(3).split(','))
+            changes[issue_var][search.group(1)] = set(search.group(3).split(","))
     for key in list(changes):
         if not changes[key].get(BAD) or not changes[key].get(GOOD):
             del changes[key]
@@ -89,69 +133,115 @@ def find_changed_issues(investigation):
             continue
     return changes
 
+
 def main(args):
     parsed_url = urlparse(args.url)
-    investigation_url = urlparse(urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path + '/investigation_ajax', '', '', '')))
-    log.debug('Retrieving investigation info from %s' % investigation_url.geturl())
-    investigation = fetch_url(investigation_url, request_type='json')
-    log.debug('Received investigation info: %s' % investigation)
-    if 'diff_to_last_good' not in investigation:
+    investigation_url = urlparse(
+        urlunparse(
+            (
+                parsed_url.scheme,
+                parsed_url.netloc,
+                parsed_url.path + "/investigation_ajax",
+                "",
+                "",
+                "",
+            )
+        )
+    )
+    log.debug("Retrieving investigation info from %s" % investigation_url.geturl())
+    investigation = fetch_url(investigation_url, request_type="json")
+    log.debug("Received investigation info: %s" % investigation)
+    if "diff_to_last_good" not in investigation:
         return
-    all_changes = find_changed_issues(investigation['diff_to_last_good'])
+    all_changes = find_changed_issues(investigation["diff_to_last_good"])
     if not all_changes:
         return
 
-    test_url = urlparse(urlunparse((parsed_url.scheme, parsed_url.netloc, '/api/v1/jobs/' + parsed_url.path.lstrip('/tests/'), '', '', '')))
-    log.debug('Retrieving additional job data from %s' % test_url.geturl())
-    test_data = fetch_url(test_url, request_type='json')
-    job = test_data['job']
-    search = re.compile(':investigate:').search(job['test'])
+    test_url = urlparse(
+        urlunparse(
+            (
+                parsed_url.scheme,
+                parsed_url.netloc,
+                "/api/v1/jobs/" + parsed_url.path.lstrip("/tests/"),
+                "",
+                "",
+                "",
+            )
+        )
+    )
+    log.debug("Retrieving additional job data from %s" % test_url.geturl())
+    test_data = fetch_url(test_url, request_type="json")
+    job = test_data["job"]
+    search = re.compile(":investigate:").search(job["test"])
     if search:
-        log.info("Job %d (%s) is already an investigation, skipping bisection" % (job['id'], job['test']))
+        log.info(
+            "Job %d (%s) is already an investigation, skipping bisection"
+            % (job["id"], job["test"])
+        )
         return
 
-    if job.get('clone_id') is not None:
-        log.info("Job %d already has a clone, skipping bisection" % job['id'])
+    if job.get("clone_id") is not None:
+        log.info("Job %d already has a clone, skipping bisection" % job["id"])
         return
 
-    children = job['children'] if 'children' in job else []
-    parents = job['parents'] if 'parents' in job else []
-    if ('Parallel' in children and len(children['Parallel']) \
-        or 'Directly chained' in children and len(children['Directly chained']) \
-        or 'Parallel' in parents and len(parents['Parallel']) \
-        or 'Directly chained' in parents and len(parents['Directly chained'])):
+    children = job["children"] if "children" in job else []
+    parents = job["parents"] if "parents" in job else []
+    if (
+        "Parallel" in children
+        and len(children["Parallel"])
+        or "Directly chained" in children
+        and len(children["Directly chained"])
+        or "Parallel" in parents
+        and len(parents["Parallel"])
+        or "Directly chained" in parents
+        and len(parents["Directly chained"])
+    ):
         return
 
-    exclude_group_regex = os.environ.get('exclude_group_regex', '')
+    exclude_group_regex = os.environ.get("exclude_group_regex", "")
     if len(exclude_group_regex) > 0:
-        full_group = job.get('group', '')
-        if 'parent_group' in job:
-            full_group = "%s / %s" % (job['parent_group'], full_group)
+        full_group = job.get("group", "")
+        if "parent_group" in job:
+            full_group = "%s / %s" % (job["parent_group"], full_group)
         if re.compile(exclude_group_regex).search(full_group):
             return
 
-    log.debug('Received job data: %s' % test_data)
-    test = job['settings']['TEST']
+    log.debug("Received job data: %s" % test_data)
+    test = job["settings"]["TEST"]
     log.debug("Found test name '%s'" % test)
     created = ""
     for key in all_changes:
         changes = all_changes[key]
-        removed, added = list(changes[GOOD] - changes[BAD]), list(changes[BAD] - changes[GOOD])
-        log.debug('[%s] removed: %s, added: %s' % (key, removed, added))
+        removed, added = list(changes[GOOD] - changes[BAD]), list(
+            changes[BAD] - changes[GOOD]
+        )
+        log.debug("[%s] removed: %s, added: %s" % (key, removed, added))
         for issue in sorted(added):
-            log.info("[%s] Triggering one bisection job without issue '%s'" % (key, issue))
-            new = ','.join(sorted(list(changes[BAD] - set([issue]))))
+            log.info(
+                "[%s] Triggering one bisection job without issue '%s'" % (key, issue)
+            )
+            new = ",".join(sorted(list(changes[BAD] - set([issue]))))
             log.debug("New set of %s='%s'" % (key, new))
-            test_name = test + ':investigate:bisect_without_%s' % issue
-            out = openqa_clone([args.url, key + '=' + new, 'TEST=' + test_name, 'OPENQA_INVESTIGATE_ORIGIN=' + args.url], args.dry_run)
-            search = re.compile('Created job .*(http\\S+/t[0-9]+)$').search(out)
+            test_name = test + ":investigate:bisect_without_%s" % issue
+            out = openqa_clone(
+                [
+                    args.url,
+                    key + "=" + new,
+                    "TEST=" + test_name,
+                    "OPENQA_INVESTIGATE_ORIGIN=" + args.url,
+                ],
+                args.dry_run,
+            )
+            search = re.compile("Created job .*(http\\S+/t[0-9]+)$").search(out)
             if search:
-                log.info('Created ' + search.group(1))
+                log.info("Created " + search.group(1))
                 created += "* **%s**: %s\n" % (test_name, search.group(1))
 
     if len(created):
-        comment = 'Automatic bisect jobs:\n\n' + created
-        host = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
-        res = openqa_comment(job['id'], host, comment, args.dry_run)
-if __name__ == '__main__':
+        comment = "Automatic bisect jobs:\n\n" + created
+        host = urlunparse((parsed_url.scheme, parsed_url.netloc, "", "", "", ""))
+        res = openqa_comment(job["id"], host, comment, args.dry_run)
+
+
+if __name__ == "__main__":
     main(parse_args())
