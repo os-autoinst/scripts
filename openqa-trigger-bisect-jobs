@@ -105,6 +105,10 @@ def main(args):
     log.debug('Retrieving additional job data from %s' % test_url.geturl())
     test_data = fetch_url(test_url, request_type='json')
     job = test_data['job']
+    search = re.compile(':investigate:').search(job['test'])
+    if search:
+        log.info("Job %d (%s) is already an investigation, skipping bisection" % (job['id'], job['test']))
+        return
 
     if job.get('clone_id') is not None:
         log.info("Job %d already has a clone, skipping bisection" % job['id'])
