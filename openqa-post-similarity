@@ -28,7 +28,7 @@ result = {}
 # Maybe there are multiple errors in a single autoinst-log.txt
 # I think some different code may trigger the same bug.
 # The first line is the most important, so I focus on the first lines of the errors.
-def log_set():
+def init_logging():
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -209,7 +209,7 @@ if __name__ == '__main__':
     parser.add_argument("--geometry", default="1920x1080", type=str, help="Chart resolution (e.g. 1920x1080)")
     parser.add_argument("--save", default="./similarity.html", type=str, help="Path and name to save the chart (e.g. ./similarity.html)")
     args = parser.parse_args()
-    logger = log_set()
+    logger = init_logging()
     read_id_msg(logger=logger, testdir=args.dir)
     cal_distance(logger=logger, output=args.output, number=args.number)
     if args.post:
