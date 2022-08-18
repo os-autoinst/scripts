@@ -141,6 +141,15 @@ def test_exclude_group_regex():
     openqa.main(args)
     openqa.openqa_clone.assert_not_called()
 
+def test_exclude_investigated():
+    args = args_factory()
+    openqa.openqa_clone = MagicMock(return_value='')
+    openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
+
+    args.url = 'http://openqa.opensuse.org/tests/123460'
+    openqa.main(args)
+    openqa.openqa_clone.assert_not_called()
+
 def test_network_problems():
     args = args_factory()
     args.url = 'http://doesnotexist.openqa.opensuse.org/tests/12345'
