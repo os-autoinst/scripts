@@ -1,5 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
+from curses.ascii import isdigit
 import os
 import Levenshtein
 from http import client
@@ -9,6 +10,8 @@ import argparse
 import logging
 from tqdm import tqdm
 import sys
+from pyecharts import options as opts
+from pyecharts.charts import Graph
 
 """
 This script scans all autoinst-log.txt files in the testresults directory searching
@@ -119,6 +122,79 @@ def post(server, number):
         client.openqa_request('POST', 'jobs/' + origin + '/comments', data)
 
 
+def dict_slice(adict, s, e):
+    keys = adict.keys()
+    d_slice = {}
+    for k in list(keys)[s:e]:
+        d_slice[k] = adict[k]
+    return d_slice
+
+
+def draw(logger, points, geometry, save_path):
+    resolution = geometry.split("x")
+    if len(resolution) != 2:
+        logger.warning("Wrong geometry format")
+        return
+    for item in resolution:
+        if not isdigit(item):
+            logger.warning("Wrong geometry format")
+            return
+
+    msg_number = {}
+    for err_id, msg in id_msg.items():
+        if msg in msg_number:
+            msg_number[msg] += 1
+        else:
+            msg_number[msg] = 1
+    cut = dict_slice(msg_number, 0, points)
+
+    nodes_data = []
+    for msg, freq in cut.items():
+        nodes_data.append(opts.GraphNode(name=msg, symbol_size=freq))
+    
+    links_data = []
+    max_distance = 0
+    min_distance = float("inf")
+    for key1 in cut.keys():
+        for key2 in cut.keys():
+            if key1 == key2:
+                continue
+            L = Levenshtein.distance(key1, key2)
+            if L > max_distance:
+                max_distance = L
+            if L < min_distance:
+                min_distance = L
+    for key1 in cut.keys():
+        for key2 in cut.keys():
+            if key1 == key2:
+                continue
+            L = Levenshtein.distance(key1, key2)
+            if L < (max_distance + min_distance) / 2:
+                links_data.append(opts.GraphLink(source=key1, target=key2, value=Levenshtein.distance(key1, key2)))
+    c = (
+        Graph(init_opts=opts.InitOpts(height=resolution[0]+"px", width=resolution[1]+"px"))
+        .add(
+            "",
+            nodes_data,
+            links_data,
+            repulsion=400,
+            edge_length=[10, 1000],
+            layout="force",
+            gravity=0.01,
+            edge_label=opts.LabelOpts(
+                is_show=False, position="middle", formatter="{b} : {c}"
+            ),
+            label_opts=opts.LabelOpts(
+                is_show=False,
+            ),
+        )
+        .set_global_opts(
+            title_opts=opts.TitleOpts(title="Levenshtein distance")
+        )
+        .render(save_path)
+    )
+        
+
 if __name__ == '__main__':
     help_message = "This script scans all autoinst-log.txt files in the testresults directory searching for error " \
                    "messages. Then it " \
@@ -128,8 +204,15 @@ if __name__ == '__main__':
     parser.add_argument("-s", "--server", default="http://127.0.0.1:9526", type=str, help="OpenQA server URL")
     parser.add_argument("-n", "--number", default=10, type=int, help="Number of similar errors")
     parser.add_argument("-d", "--dir", default="/var/lib/openqa/testresults/", type=str, help="Directory of OpenQA test results")
+    parser.add_argument("-p", "--post", action="store_true", help="Whether post similarity to openQA website")
+    parser.add_argument("-c", "--chart", required='--geometry' in sys.argv or '--save' in sys.argv, default=0, type=int, help="Number of points in chart (If the number is 0, the chart won't be drawn)")
+    parser.add_argument("--geometry", default="1920x1080", type=str, help="Chart resolution (e.g. 1920x1080)")
+    parser.add_argument("--save", default="./similarity.html", type=str, help="Path and name to save the chart (e.g. ./similarity.html)")
     args = parser.parse_args()
     logger = log_set()
     read_id_msg(logger=logger, testdir=args.dir)
     cal_distance(logger=logger, output=args.output, number=args.number)
-    post(server=args.server, number=args.number)
+    if args.post:
+        post(server=args.server, number=args.number)
+    if args.chart != 0:
+        draw(logger=logger, points=args.chart, geometry=args.geometry, save_path=args.save)
