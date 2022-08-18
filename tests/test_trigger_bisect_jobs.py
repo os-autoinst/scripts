@@ -38,7 +38,7 @@ def mocked_fetch_url(url, request_type="text"):
         path = path[len(url.scheme) + 3 :]
         path = "tests/data/python-requests/" + path
         with open(path, "r") as request:
-            raw = content = request.read()
+            content = request.read()
     if request_type == "json":
         try:
             content = json.loads(content)
@@ -112,6 +112,7 @@ def test_triggers():
                 "OS_TEST_ISSUES=21770,21926,21954,22030,22077,22085,22192",
                 "TEST=foo:investigate:bisect_without_21637",
                 "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
             ],
             False,
         ),
@@ -121,6 +122,7 @@ def test_triggers():
                 "OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22192",
                 "TEST=foo:investigate:bisect_without_22085",
                 "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
             ],
             False,
         ),
@@ -130,6 +132,7 @@ def test_triggers():
                 "OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22085",
                 "TEST=foo:investigate:bisect_without_22192",
                 "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
             ],
             False,
         ),
@@ -139,6 +142,7 @@ def test_triggers():
                 "CRAZY_TEST_ISSUES=1,4",
                 "TEST=foo:investigate:bisect_without_3",
                 "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
             ],
             False,
         ),
@@ -148,6 +152,7 @@ def test_triggers():
                 "CRAZY_TEST_ISSUES=1,3",
                 "TEST=foo:investigate:bisect_without_4",
                 "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
             ],
             False,
         ),
@@ -244,15 +249,19 @@ def test_network_problems():
 
 
 def test_issue_types():
-    investigation = """
-    - "OS_TEST_ISSUES": "1,2,3,4",
-    + "OS_TEST_ISSUES": "1,2,3,4,5",
-    - "OTHER_TEST_ISSUES": "23",
-    + "OTHER_TEST_ISSUES": "24",
-    + "DUMMY_TEST_ISSUES": "25,26,27",
-    """
+    investigation = '- "OS_TEST_ISSUES": "1,2,3,4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
     changes = openqa.find_changed_issues(investigation)
     exp = {
         "OS_TEST_ISSUES": {"-": {"1", "3", "2", "4"}, "+": {"2", "5", "4", "1", "3"}}
     }
     assert changes == exp
+
+    investigation_repos = '- "OS_TEST_ISSUES": "1,2,3,4",\n- "OS_TEST_REPOS": "h:1,h:2,h:3,h:4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n+ "OS_TEST_REPOS": "h:1,h:2,h:3,h:4,h:5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
+    changes_repos = openqa.find_changed_issues(investigation_repos)
+    exp_repos = {
+        "OS_TEST_REPOS": {
+            "-": {"h:1", "h:3", "h:2", "h:4"},
+            "+": {"h:2", "h:5", "h:4", "h:1", "h:3"},
+        }
+    }
+    assert changes_repos == exp_repos
