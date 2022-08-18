@@ -2,17 +2,14 @@
 tests for openqa-trigger-bisect-jobs
 """
 
-import sys
-import os.path
-import pytest
+from argparse import Namespace
 import importlib.machinery
 import importlib.util
-import requests
 import json
+import os.path
+from unittest.mock import MagicMock, call
 
-from argparse import Namespace
-from unittest.mock import call, MagicMock
-from urllib.parse import urljoin, urlparse, urlunparse
+import requests
 
 rootpath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
