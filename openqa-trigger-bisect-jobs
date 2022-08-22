@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
+from functools import total_ordering
+import hashlib
 import json
 import logging
 import os
@@ -23,6 +25,40 @@ class CustomFormatter(
     """Preserve multi-line __doc__ and provide default arguments in help strings."""
 
     pass
+
+
+@total_ordering
+class Incident:
+    def __init__(self, inc: str) -> None:
+        self.incident = inc
+        self._incident_id = None
+
+    @property
+    def incident_id(self):
+        if self._incident_id:
+            return self._incident_id
+
+        try:
+            self._incident_id = self.incident.split("/")[6]
+        except IndexError:
+            self._incident_id = self.incident
+
+        return self._incident_id
+
+    def __str__(self):
+        return self.incident
+
+    def __eq__(self, __o) -> bool:
+        return self.incident_id == __o.incident_id
+
+    def __gt__(self, __o) -> bool:
+        return int(self.incident_id) > int(__o.incident_id)
+
+    def __hash__(self) -> int:
+        return int(hashlib.md5(self.incident.encode()).hexdigest(), base=16)
+
+    def __repr__(self) -> str:
+        return f"<Incident -> {self.incident}"
 
 
 def parse_args():
@@ -112,6 +148,7 @@ def fetch_url(url, request_type="text"):
             raise (e)
     return content
 
+
 def find_changed_issues(investigation):
     changes = {}
     pattern = re.compile(
@@ -124,9 +161,9 @@ def find_changed_issues(investigation):
             issue_var = search.group("key")
             if not changes.get(issue_var):
                 changes[issue_var] = {}
-            changes[issue_var][search.group("diff")] = set(
-                search.group("var").split(",")
-            )
+            changes[issue_var][search.group("diff")] = {
+                Incident(i) for i in search.group("var").split(",")
+            }
 
     for key in list(changes):
         if not changes[key].get(BAD) or not changes[key].get(GOOD):
@@ -164,6 +201,7 @@ def main(args):
     if "diff_to_last_good" not in investigation:
         return
     all_changes = find_changed_issues(investigation["diff_to_last_good"])
+
     if not all_changes:
         return
 
@@ -219,35 +257,52 @@ def main(args):
     log.debug("Received job data: %s" % test_data)
     test = job["settings"]["TEST"]
     log.debug("Found test name '%s'" % test)
+
     created = ""
     pattern = re.compile(r"Created\sjob\s.* (http.+\/t\d+)$")
+    added = []
     for key in all_changes:
         changes = all_changes[key]
-        removed, added = list(changes[GOOD] - changes[BAD]), list(
+        removed_key, added_key = list(changes[GOOD] - changes[BAD]), list(
             changes[BAD] - changes[GOOD]
         )
-        log.debug("[%s] removed: %s, added: %s" % (key, removed, added))
-        for issue in sorted(added):
-            log.info(
-                "[%s] Triggering one bisection job without issue '%s'" % (key, issue)
-            )
-            new = ",".join(sorted(list(changes[BAD] - set([issue]))))
-            log.debug("New set of %s='%s'" % (key, new))
-            test_name = test + ":investigate:bisect_without_%s" % issue
-            out = openqa_clone(
-                [
-                    args.url,
-                    key + "=" + new,
-                    "TEST=" + test_name,
-                    "OPENQA_INVESTIGATE_ORIGIN=" + args.url,
-                    "MAINT_TEST_REPO="
-                ],
-                args.dry_run,
-            )
-            search = re.match(pattern, out)
-            if search:
-                log.info("Created " + search.group(1))
-                created += "* **%s**: %s\n" % (test_name, search.group(1))
+        log.debug("[%s] removed: %s, added: %s" % (key, removed_key, added_key))
+        added += added_key
+
+    # whole sort is to simplify testability of code
+    for issue in sorted(list({i.incident_id for i in added}), key=int):
+        line = {}
+        log.info("Triggering one bisection job without issue '%s'" % issue)
+        for key in all_changes:
+            # use only VARS where is incident present in BAD
+            if [i for i in all_changes[key][BAD] if i.incident_id == issue]:
+                line[key] = ",".join(
+                    str(i)
+                    for i in sorted(list(all_changes[key][BAD]))
+                    if i.incident_id != issue
+                )
+                log.debug("New set of %s='%s'" % (key, line[key]))
+
+        test_name = test + ":investigate:bisect_without_%s" % issue
+        params = (
+            [args.url]
+            + [k + "=" + v for k, v in line.items()]
+            + [
+                "TEST=" + test_name,
+                "OPENQA_INVESTIGATE_ORIGIN=" + args.url,
+                "MAINT_TEST_REPO=",
+            ]
+        )
+
+        out = openqa_clone(
+            params,
+            args.dry_run,
+        )
+
+        search = re.match(pattern, out)
+        if search:
+            log.info("Created " + search.group(1))
+            created += "* **%s**: %s\n" % (test_name, search.group(1))
 
     if len(created):
         comment = "Automatic bisect jobs:\n\n" + created
