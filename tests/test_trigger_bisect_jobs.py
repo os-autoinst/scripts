@@ -23,6 +23,8 @@ loader.exec_module(openqa)
 # should only affect test_exclude_group_regex() as it does not match other tests
 os.environ["exclude_group_regex"] = "s.*parent?-group / some-.*"
 
+Incident = openqa.Incident
+
 
 def args_factory():
     args = Namespace()
@@ -109,37 +111,8 @@ def test_triggers():
         call(
             [
                 "https://openqa.opensuse.org/tests/7848818",
-                "OS_TEST_ISSUES=21770,21926,21954,22030,22077,22085,22192",
-                "TEST=foo:investigate:bisect_without_21637",
-                "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
-                "MAINT_TEST_REPO=",
-            ],
-            False,
-        ),
-        call(
-            [
-                "https://openqa.opensuse.org/tests/7848818",
-                "OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22192",
-                "TEST=foo:investigate:bisect_without_22085",
-                "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
-                "MAINT_TEST_REPO=",
-            ],
-            False,
-        ),
-        call(
-            [
-                "https://openqa.opensuse.org/tests/7848818",
-                "OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22085",
-                "TEST=foo:investigate:bisect_without_22192",
-                "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
-                "MAINT_TEST_REPO=",
-            ],
-            False,
-        ),
-        call(
-            [
-                "https://openqa.opensuse.org/tests/7848818",
                 "CRAZY_TEST_ISSUES=1,4",
+                "COMMON_TEST_ISSUES=1,4,21637,21770,21926,21954,22030,22077,22085,22192",
                 "TEST=foo:investigate:bisect_without_3",
                 "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
                 "MAINT_TEST_REPO=",
@@ -150,24 +123,53 @@ def test_triggers():
             [
                 "https://openqa.opensuse.org/tests/7848818",
                 "CRAZY_TEST_ISSUES=1,3",
+                "COMMON_TEST_ISSUES=1,3,21637,21770,21926,21954,22030,22077,22085,22192",
                 "TEST=foo:investigate:bisect_without_4",
                 "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
                 "MAINT_TEST_REPO=",
             ],
             False,
         ),
+        call(
+            [
+                "https://openqa.opensuse.org/tests/7848818",
+                "OS_TEST_ISSUES=21770,21926,21954,22030,22077,22085,22192",
+                "COMMON_TEST_ISSUES=1,3,4,21770,21926,21954,22030,22077,22085,22192",
+                "TEST=foo:investigate:bisect_without_21637",
+                "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
+            ],
+            False,
+        ),
+        call(
+            [
+                "https://openqa.opensuse.org/tests/7848818",
+                "OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22192",
+                "COMMON_TEST_ISSUES=1,3,4,21637,21770,21926,21954,22030,22077,22192",
+                "TEST=foo:investigate:bisect_without_22085",
+                "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
+            ],
+            False,
+        ),
+        call(
+            [
+                "https://openqa.opensuse.org/tests/7848818",
+                "OS_TEST_ISSUES=21637,21770,21926,21954,22030,22077,22085",
+                "COMMON_TEST_ISSUES=1,3,4,21637,21770,21926,21954,22030,22077,22085",
+                "TEST=foo:investigate:bisect_without_22192",
+                "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
+                "MAINT_TEST_REPO=",
+            ],
+            False,
+        ),
     ]
-    openqa.openqa_clone.assert_has_calls(calls)
-    comment = """Automatic bisect jobs:
-
-* **foo:investigate:bisect_without_21637**: https://openqa.opensuse.org/t234567
-* **foo:investigate:bisect_without_22085**: https://openqa.opensuse.org/t234567
-* **foo:investigate:bisect_without_22192**: https://openqa.opensuse.org/t234567
-* **foo:investigate:bisect_without_3**: https://openqa.opensuse.org/t234567
-* **foo:investigate:bisect_without_4**: https://openqa.opensuse.org/t234567
-"""
+    assert sorted(calls) == sorted(openqa.openqa_clone.call_args_list)
     openqa.openqa_comment.assert_called_once_with(
-        7848818, "https://openqa.opensuse.org", comment, False
+        7848818,
+        "https://openqa.opensuse.org",
+        "Automatic bisect jobs:\n\n* **foo:investigate:bisect_without_3**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_4**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_21637**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_22085**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_22192**: https://openqa.opensuse.org/t234567\n",
+        False,
     )
 
 
@@ -252,16 +254,31 @@ def test_issue_types():
     investigation = '- "OS_TEST_ISSUES": "1,2,3,4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
     changes = openqa.find_changed_issues(investigation)
     exp = {
-        "OS_TEST_ISSUES": {"-": {"1", "3", "2", "4"}, "+": {"2", "5", "4", "1", "3"}}
+        "OS_TEST_ISSUES": {
+            "-": {Incident("1"), Incident("3"), Incident("2"), Incident("4")},
+            "+": {
+                Incident("2"),
+                Incident("5"),
+                Incident("4"),
+                Incident("1"),
+                Incident("3"),
+            },
+        }
     }
     assert changes == exp
 
-    investigation_repos = '- "OS_TEST_ISSUES": "1,2,3,4",\n- "OS_TEST_REPOS": "h:1,h:2,h:3,h:4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n+ "OS_TEST_REPOS": "h:1,h:2,h:3,h:4,h:5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
+    investigation_repos = '- "OS_TEST_ISSUES": "1,2,3,4",\n- "OS_TEST_REPOS": "1,2,3,4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n+ "OS_TEST_REPOS": "1,2,3,4,5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
     changes_repos = openqa.find_changed_issues(investigation_repos)
     exp_repos = {
         "OS_TEST_REPOS": {
-            "-": {"h:1", "h:3", "h:2", "h:4"},
-            "+": {"h:2", "h:5", "h:4", "h:1", "h:3"},
+            "-": {Incident("1"), Incident("3"), Incident("2"), Incident("4")},
+            "+": {
+                Incident("2"),
+                Incident("5"),
+                Incident("4"),
+                Incident("1"),
+                Incident("3"),
+            },
         }
     }
     assert changes_repos == exp_repos
