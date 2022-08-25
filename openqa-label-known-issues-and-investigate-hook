@@ -14,9 +14,12 @@ dirname=$(dirname "$0")
 script_dir=${script_dir:-$dirname}
 
 investigate-and-bisect() {
+    local rc=0 test
     read -r test
-    echo "$test" | "$script_dir/openqa-investigate"
-    "$script_dir/openqa-trigger-bisect-jobs" --url "$test"
+    echo "$test" | "$script_dir/openqa-investigate" || rc=$?
+    [[ "$rc" -eq 142 ]] && return "$rc"
+    "$script_dir/openqa-trigger-bisect-jobs" --url "$test" || rc=$?
+    return "$rc"
 }
 
 echo "$host_url/tests/$id" | "$script_dir/openqa-label-known-issues" | sed -n 's/\[\([^]]*\)\].*Unknown issue, to be reviewed.*/\1/p' | investigate-and-bisect
