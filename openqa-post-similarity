@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+
+from curses.ascii import isdigit
+import os
+import Levenshtein
+from http import client
+from openqa_client.client import OpenQA_Client
+import json
+import argparse
+import logging
+from tqdm import tqdm
+import sys
+from pyecharts import options as opts
+from pyecharts.charts import Graph
+
+"""
+This script scans all autoinst-log.txt files in the testresults directory searching
+for error messages. Then it computes the Levenshtein distance and posts the
+results as openQA comments.
+"""
+
+id_msg = {}
+result = {}
+
+
+# I used a JSON file to store some intermediate computation results to reduce time cost.
+# This part finds error messages in autoinst-log.txt
+# Maybe there are multiple errors in a single autoinst-log.txt
+# I think some different code may trigger the same bug.
+# The first line is the most important, so I focus on the first lines of the errors.
+def init_logging():
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+    return logger
+
+
+def read_errors(path):
+    global id_msg
+    with open(path, 'r') as f:
+        text = f.read()
+        anchor = 0
+        begin = text.find("Test died", anchor)
+        while begin != -1:
+            anchor = begin + 1
+            end = text.find("\n", begin)
+            id_msg[path.split("/")[-2]] = text[begin:end]
+            begin = text.find("Test died", anchor)
+
+
+def read_id_msg(logger, testdir):
+    global id_msg
+    if not os.path.exists("id_msg.json"):
+        logger.info("id_msg.json does not exist.")
+        all_dirs = os.listdir(testdir)
+        all_dirs = [testdir + item for item in all_dirs]
+        logs = [item + '/autoinst-log.txt' for item in all_dirs]
+
+        for path in tqdm(logs, desc='Processing testresults directory', unit='test'):
+            read_errors(path)
+        id_msg_json = json.dumps(id_msg, sort_keys=False, indent=4, separators=(',', ':'))
+        with open("id_msg.json", "w") as f:
+            f.write(id_msg_json)
+
+    # If there exists the JSON file
+    else:
+        logger.info("id_msg.json exists.")
+        with open("id_msg.json", "r") as f:
+            id_msg = json.load(f)
+        all_dirs = os.listdir(testdir)
+        checked_dirs = list(id_msg.keys())
+        unchecked_dirs = [i for i in all_dirs if i not in checked_dirs]
+        for job_id in tqdm(unchecked_dirs, desc='Processing testresults directory', unit='test'):
+            path = testdir + job_id + "/autoinst-log.txt"
+            read_errors(path)
+        id_msg_json = json.dumps(id_msg, sort_keys=False, indent=4, separators=(',', ':'))
+        with open("id_msg.json", "w") as f:
+            f.write(id_msg_json)
+
+
+# Compute the Levenshtein result and save it.
+# Saving the result in a file may be unnecessary.
+def cal_distance(logger, output, number):
+    global result
+    if output:
+        f = open("distance_result.txt", "w")
+    for index, (key1, value1) in enumerate(tqdm(id_msg.items(), desc='Calculating message distance', unit="error")):
+        calculate = {}
+        for key2, value2 in id_msg.items():
+            if key1 == key2:
+                continue
+            calculate[key2] = Levenshtein.distance(value1, value2)
+        calculate_sorted = sorted(calculate.items(), key=lambda x: x[1], reverse=False)
+        if output:
+            f.write("Index: " + str(index) + "\n")
+            f.write("Original error message:\n")
+            f.write("Job ID: " + key1 + "\n")
+            f.write(value1 + "\n")
+            f.write("matched error message (top " + str(number) + "):\n")
+        matched_results = []
+        for i in range(number):
+            if output:
+                f.write("Job ID: " + calculate_sorted[i][0] + "\n")
+                f.write(id_msg[calculate_sorted[i][0]] + "\n")
+            matched_results.append(calculate_sorted[i][0])
+        if output:
+            f.write("\n")
+        result[key1] = matched_results
+    if output:
+        logger.info("Distance file output.")
+        f.close()
+
+# Post the results in comments by OpenQA_Client
+def post(server, number):  
+    client = OpenQA_Client(server)
+    for origin, matched in tqdm(result.items(), desc='Posting comments', unit="comment"):
+        data = {'bugrefs': []}
+        text = "Top " + str(number) + " similar failures:\r\n"
+        for job_id in matched:
+            text += "[" + job_id + "](https://openqa.opensuse.org/tests/" + job_id + ")\r\n"
+        data['text'] = text
+        client.openqa_request('POST', 'jobs/' + origin + '/comments', data)
+
+
+def dict_slice(adict, s, e):
+    keys = adict.keys()
+    d_slice = {}
+    for k in list(keys)[s:e]:
+        d_slice[k] = adict[k]
+    return d_slice
+
+
+def draw(logger, points, geometry, save_path):
+    resolution = geometry.split("x")
+    if len(resolution) != 2:
+        logger.warning("Wrong geometry format")
+        return
+    for item in resolution:
+        if not isdigit(item):
+            logger.warning("Wrong geometry format")
+            return
+
+    msg_number = {}
+    for err_id, msg in id_msg.items():
+        if msg in msg_number:
+            msg_number[msg] += 1
+        else:
+            msg_number[msg] = 1
+    cut = dict_slice(msg_number, 0, points)
+
+    nodes_data = []
+    for msg, freq in cut.items():
+        nodes_data.append(opts.GraphNode(name=msg, symbol_size=freq))
+    
+    links_data = []
+    max_distance = 0
+    min_distance = float("inf")
+    for key1 in cut.keys():
+        for key2 in cut.keys():
+            if key1 == key2:
+                continue
+            L = Levenshtein.distance(key1, key2)
+            if L > max_distance:
+                max_distance = L
+            if L < min_distance:
+                min_distance = L
+    for key1 in cut.keys():
+        for key2 in cut.keys():
+            if key1 == key2:
+                continue
+            L = Levenshtein.distance(key1, key2)
+            if L < (max_distance + min_distance) / 2:
+                links_data.append(opts.GraphLink(source=key1, target=key2, value=Levenshtein.distance(key1, key2)))
+    c = (
+        Graph(init_opts=opts.InitOpts(height=resolution[0]+"px", width=resolution[1]+"px"))
+        .add(
+            "",
+            nodes_data,
+            links_data,
+            repulsion=400,
+            edge_length=[10, 1000],
+            layout="force",
+            gravity=0.01,
+            edge_label=opts.LabelOpts(
+                is_show=False, position="middle", formatter="{b} : {c}"
+            ),
+            label_opts=opts.LabelOpts(
+                is_show=False,
+            ),
+        )
+        .set_global_opts(
+            title_opts=opts.TitleOpts(title="Levenshtein distance")
+        )
+        .render(save_path)
+    )
+        
+
+if __name__ == '__main__':
+    help_message = "This script scans all autoinst-log.txt files in the testresults directory searching for error " \
+                   "messages. Then it " \
+                   "computes the Levenshtein distance and posts the results as openQA comments. "
+    parser = argparse.ArgumentParser(description=help_message)
+    parser.add_argument("-o", "--output", action="store_true", help="Whether outputs the results into a txt file")
+    parser.add_argument("-s", "--server", default="http://127.0.0.1:9526", type=str, help="OpenQA server URL")
+    parser.add_argument("-n", "--number", default=10, type=int, help="Number of similar errors")
+    parser.add_argument("-d", "--dir", default="/var/lib/openqa/testresults/", type=str, help="Directory of OpenQA test results")
+    parser.add_argument("-p", "--post", action="store_true", help="Whether post similarity to openQA website")
+    parser.add_argument("-c", "--chart", required='--geometry' in sys.argv or '--save' in sys.argv, default=0, type=int, help="Number of points in chart (If the number is 0, the chart won't be drawn)")
+    parser.add_argument("--geometry", default="1920x1080", type=str, help="Chart resolution (e.g. 1920x1080)")
+    parser.add_argument("--save", default="./similarity.html", type=str, help="Path and name to save the chart (e.g. ./similarity.html)")
+    args = parser.parse_args()
+    logger = init_logging()
+    read_id_msg(logger=logger, testdir=args.dir)
+    cal_distance(logger=logger, output=args.output, number=args.number)
+    if args.post:
+        post(server=args.server, number=args.number)
+    if args.chart != 0:
+        draw(logger=logger, points=args.chart, geometry=args.geometry, save_path=args.save)
