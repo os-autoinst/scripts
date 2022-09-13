@@ -8,6 +8,7 @@ enable_force_result=${enable_force_result:-false}
 client_call=()
 client_args=()
 markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown)
+openqa_cli=""
 
 warn() { echo "$@" >&2; }
 
@@ -190,3 +191,46 @@ $body
     echo "$email"
 
 }
+
+latest_published_tw_builds() {
+    local latest_builds group_id=$1
+    latest_builds=("$(runcurl -s "$tw_openqa_host/group_overview/$group_id.json" \
+        | jq -r '([.build_results[] | select(.tag.description=="published") | select(.version=="Tumbleweed") | .build] | sort | reverse)[]')")
+    echo "${latest_builds[@]}"
+}
+
+get_image() {
+    local image name=$1
+    image=$($openqa_cli api --host "$tw_openqa_host" assets \
+        | jq -r "[.assets[] | select(.name | test(\"$name\")) | select(.size != null)] | .[0] | .name")
+    echo "$image"
+}
+
+find_latest_published_tumbleweed_image() {
+    local latest_builds build image=null assetname
+    local tw_group_id=$1 arch=$2 machine=$3 type=$4
+    read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
+    if [[ "${#latest_builds[@]}" -eq 0 ]]; then
+        warn "Unable to find latest published Tumbleweed builds."
+        exit 1
+    fi
+    for build in "${latest_builds[@]}"; do
+        if [[ "$type" = iso ]]; then
+            assetname="Tumbleweed-NET-$arch-Snapshot$build-Media.iso$"
+        else
+            assetname="Tumbleweed-$arch-$build-Tumbleweed\\\\@$machine.*.qcow"
+        fi
+        image=$(get_image "$assetname")
+
+        # This published build has an image available
+        [[ "$image" != null ]] && break
+        # Published but no image available, we'll try and continue
+        echo "Unable to determine $type image for Tumbleweed build '$build' (for architecture '$arch' and machine '$machine')."
+    done
+    # No published image available
+    if [[ "$image" = null ]]; then
+        exit 2
+    fi
+    echo "$image"
+}
+
