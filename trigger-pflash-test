@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Trigger test to generate pflash vars image
+#
+# Can be configured by variables.
+
+# shellcheck source=/dev/null
+. "$(dirname "$0")"/_common
+
+dry_run="${dry_run:-"0"}"
+target_host="${target_host:-"openqa.opensuse.org"}"
+target_host_proto="${target_host_proto:-"https"}"
+tw_openqa_host="${tw_openqa_host:-"https://openqa.opensuse.org"}"
+tw_group_id="${tw_group_id:-"1"}"
+openqa_cli="${openqa_cli:-"openqa-cli"}"
+arch="${arch:-"x86_64"}"
+machine="${machine:-"64bit"}"
+client_prefix=${client_prefix:-}
+OPENQA_API_KEY=${OPENQA_API_KEY:-}
+OPENQA_API_SECRET=${OPENQA_API_SECRET:-}
+CLI_ARGS=()
+TRIGGERED_BY=${TRIGGERED_BY:$0}
+if [[ -n "$GITHUB_SERVER_URL" ]]; then
+    TRIGGERED_BY="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/$0"
+fi
+if [[ -n "$TRIGGERED_BY" ]]; then
+    CLI_ARGS+=("TRIGGERED_BY=$TRIGGERED_BY")
+fi
+
+set -xeuo pipefail
+
+main() {
+    local image
+    [[ "$dry_run" = 1 ]] && client_prefix="echo"
+    image=$(find_latest_published_tumbleweed_image "$tw_group_id" "$arch" "$machine" iso)
+
+    ${client_prefix} "${openqa_cli}" \
+        api --host "${target_host_proto}://${target_host}" -X POST jobs \
+        --apikey "$OPENQA_API_KEY" --apisecret "$OPENQA_API_SECRET" \
+        TEST=ovmf-resolution@"$arch" QEMUVGA=qxl UEFI=1 \
+        UEFI_PFLASH_CODE=/usr/share/qemu/ovmf-x86_64-ms-code.bin \
+        UEFI_PFLASH_VARS=/usr/share/qemu/ovmf-x86_64-ms-vars.bin \
+        PUBLISH_PFLASH_VARS=ovmf-x86_64-ms-vars-800x600.qcow2 \
+        DISTRI=openSUSE VERSION=Tumbleweed FLAVOR=NET ARCH="${arch}" \
+        SCHEDULE=tests/boot/tianocore_set_resolution \
+        ISO="$image" \
+        "${CLI_ARGS[@]}"
+}
+
+main

@@ -1,0 +1,21 @@
+---
+name: schedule
+on:
+  push:
+    branches: ['*pflash*']
+  schedule:
+    - cron: '23 5 * * 0'
+  workflow_dispatch:
+
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.opensuse.org/home/okurz/container/containers/tumbleweed:openQA-client
+    env:
+      OPENQA_API_KEY: ${{ secrets.OPENQA_API_KEY }}
+      OPENQA_API_SECRET: ${{ secrets.OPENQA_API_SECRET }}
+    steps:
+      - uses: actions/checkout@v1
+      - run: |
+          ./trigger-pflash-test
