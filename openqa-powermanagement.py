@@ -13,6 +13,7 @@ import subprocess
 
 machine_list_idle = []
 machine_list_offline = []
+machine_list_broken= []
 machine_list_busy= []
 machines_to_power_on = []
 
@@ -74,12 +75,17 @@ for worker in workers_list_data['workers']:
         machine_list_idle.append(worker['host'])
     elif worker['status'] in ['dead']: # Looks like 'dead' means 'offline'
         machine_list_offline.append(worker['host'])
-    else: # worker['status'] in ['running', 'broken']: # Looks like 'running' means 'working'
+    elif worker['status'] in ['running']: # Looks like 'running' means 'working'
         machine_list_busy.append(worker['host'])
+    elif worker['status'] in ['broken']:
+        machine_list_broken.append(worker['host'])
+    else:
+        print("Unhandle worker status: " + str(worker['status']))
 
 # Clean-up the lists
 machine_list_idle = sorted(set(machine_list_idle))
 machine_list_offline = sorted(set(machine_list_offline))
+machine_list_broken = sorted(set(machine_list_broken))
 machine_list_busy = sorted(set(machine_list_busy))
 
 # Remove the machine from idle/offline lists if at least 1 worker is busy
@@ -96,6 +102,7 @@ for machine in machine_list_idle:
 # Print an overview
 print(str(len(machine_list_idle)) + " workers listed fully idle: " + str(machine_list_idle))
 print(str(len(machine_list_offline)) + " workers listed offline/dead: " + str(machine_list_offline))
+print(str(len(machine_list_broken)) + " workers listed broken: " + str(machine_list_broken))
 print(str(len(machine_list_busy)) + " workers listed busy: " + str(machine_list_busy))
 
 # Get WORKER_CLASS for each workers of each machines (idle and offline) and compare to WORKER_CLASS required by scheduled/blocked jobs
@@ -112,7 +119,9 @@ for worker in workers_list_data['workers']:
 
 # Power on machines which can run scheduled jobs
 for machine in sorted(set(machines_to_power_on)):
-    if args.dry_run:
+    if machine in machine_list_broken:
+        print("Removing '" + machine + "' from the list to power ON since some workers are broken there")
+    elif args.dry_run:
         print("Would power ON '" + machine + "' - Dry run mode")
     elif 'power_management' in config and config['power_management'].get(machine + "_POWER_ON"):
         print("Powering ON: " + machine)
@@ -120,8 +129,8 @@ for machine in sorted(set(machines_to_power_on)):
     else:
         print("Unable to power ON '" + machine + "' - No command for that")
 
-# Power off machines which are idle (TODO: add a threshold, e.g. idle since more than 15 minutes. Does API provide this information?)
-for machine in machine_list_idle:
+# Power off machines which are idle or broken (TODO: add a threshold, e.g. idle since more than 15 minutes. Does API provide this information?)
+for machine in machine_list_idle + machine_list_broken:
     if args.dry_run:
         print("Would power OFF '" + machine + "' - Dry run mode")
     elif 'power_management' in config and config['power_management'].get(machine + "_POWER_OFF"):
