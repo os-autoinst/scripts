@@ -13,7 +13,7 @@ PATH=$BASHLIB$PATH
 
 source bash+ :std
 use Test::More
-plan tests 27
+plan tests 29
 
 host=localhost
 url=https://localhost
@@ -40,9 +40,17 @@ is "$out" "Unable to clone job 42: it is part of a directly chained cluster (not
 
 openqa-cli() {
     if [[ "$1 $2" == "--json jobs/24" ]]; then
-        echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
+        echo '{"job": { "test": "vim", "priority": 50, "settings" : {}, "state": "done", "result": "failed" } }'
     elif [[ "$1 $2" == "--json jobs/27" ]]; then
-        echo '{"job": { "test": "vim", "clone_id" : 28 } }'
+        echo '{"job": { "test": "vim", "clone_id" : 28, "state": "done", "result": "failed" } }'
+    elif [[ "$1 $2" == "--json jobs/28" ]]; then
+        echo '{"job": { "test": "vim", "clone_id" : 29, "state": "done", "result": "failed" } }'
+    elif [[ "$1 $2" == "--json jobs/30" ]]; then
+        echo '{"job": { "test": "vim", "state": "done", "result": "failed" } }'
+    elif [[ "$1 $2" == "--json jobs/31" ]]; then
+        echo '{"job": { "test": "vim", "state": "done", "result": "failed" } }'
+    elif [[ "$1 $2" == "--json jobs/33" ]]; then
+        echo '{"job": { "test": "vim", "state": "done", "result": "passed" } }'
     elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
         echo '{"id": 1234}'
     elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
@@ -96,6 +104,11 @@ rc=0
 out=$(investigate 30 2>&1) || rc=$?
 is "$rc" 142 'investigation postponed because other job in cluster is not done'
 is "$out" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished"
+
+rc=0
+out=$(investigate 33 2>&1) || rc=$?
+is "$rc" 0 'Skipping passed jobs'
+is "$out" '' 'Empty output'
 
 rc=0
 out=$(echo 30 | main 2>&1) || rc=$?

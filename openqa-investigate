@@ -187,6 +187,12 @@ investigate() {
     local rc=0
 
     job_data=$(openqa-cli "${client_args[@]}" --json jobs/"$id")
+    state="$(echo "$job_data" | runjq -r '.job.state')" || return $?
+    result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
+    # Skip all unfinished or passed jobs for now
+    if [[ "$state" != 'done' || "$result" == passed ]]; then
+        return
+    fi
     # shellcheck disable=SC2181
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
     old_name="$(echo "$job_data" | runjq -r '.job.test')" || return $?
