@@ -165,8 +165,8 @@ requests for consideration or create an issue with a code change proposal.
 
 #### Functional testing
 
-This is done with the [Test::More bash
-library](https://github.com/ingydotnet/test-more-bash).
+This is done with the [test-tap-bash
+library](https://github.com/bpan-org/test-tap-bash).
 It will be automatically cloned.
 
 
