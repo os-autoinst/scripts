@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 source test/init
+bpan:source bashplus +err +fs +sym
 
 plan tests 27
 
@@ -35,11 +36,11 @@ openqa-cli() {
     elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
         echo '{"id": 1234}'
     elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
-        touch comment_1234_updated
+        echo true > "$comment_1234_updated"
     elif [[ $@ == '-X DELETE jobs/30/comments/1234' ]]; then
-        touch comment_1234_deleted
+        echo true > "$comment_1234_deleted"
     elif [[ $@ == $'-X POST jobs/31/comments text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
-        touch comment_for_job_31_created
+        echo true > "$comment_for_job_31_created"
     elif [[ $@ == "-X GET jobs/30/comments" ]]; then
         echo '[{"id": 1234, "text":"Starting investigation for 31"},{"id": 1235, "text":"unrelated comment"}]'
     elif [[ $@ == "-X POST jobs/32/comments text=Starting investigation for job 32" ]]; then
@@ -104,25 +105,23 @@ is "$rc" 0 'skip with success if we do not own first investigation comment'
 # XXX What is this testing?
 like "$got" '' 'no output when skipping'
 
-# delete certain files used to trace whether API calls happened
-for trace_file in comment_1234_updated comment_for_job_31_created comment_1234_deleted; do
-    [[ -f $trace_file ]] && unlink "$trace_file"
-done
+# Make auto-deleting temp files for testing subprocesses:
++fs:mktemp; comment_1234_updated=$temp
++fs:mktemp; comment_1234_deleted=$temp
++fs:mktemp; comment_for_job_31_created=$temp
 
 # test finalizing investigation comment when no investigation jobs were needed
 ok "$(force=true finalize_investigation_comment 31 30 1234 '' 2>&1)" \
     'success if no investigation jobs needed to be created after all'
-ok "$([[ -f comment_1234_deleted ]])" \
+ok "$([[ -s $comment_1234_deleted ]])" \
     'comment on job 30 deleted'
-ok "$([[ ! -f comment_for_job_31_created ]])" \
+ok "$([[ ! -s $comment_for_job_31_created ]])" \
     'no comment on job 31 created'
 
 # test finalizing investigation comment when investigation jobs had been created
 ok "$(force=true finalize_investigation_comment 31 30 1234 'foo' 2>&1)" \
     'success if we write an investigation comment'
-ok "$([[ -f comment_1234_updated ]])" \
+ok "$([[ -s $comment_1234_updated ]])" \
     'comment on job 30 updated'
-ok "$([[ -f comment_for_job_31_created ]])" \
+ok "$([[ -s $comment_for_job_31_created ]])" \
     'comment on job 31 created as well'
-
-rm -f comment_1234_updated comment_for_job_31_created comment_1234_deleted
