@@ -76,7 +76,7 @@ is "$got" "Job 27 already has a clone, skipping investigation. Use the env varia
 
 try force=true investigate 28
 is "$rc" 0 'still success when job is skipped (because of exclude_no_group)'
-like "$got" "exclude_no_group is set, skipping investigation"
+has "$got" "exclude_no_group is set, skipping investigation"
 
 try investigate 30
 is "$rc" 142 'investigation postponed because other job in cluster is not done'
@@ -91,16 +91,17 @@ is "$rc" 0 'investigation not postponed if other job in dependency tree not done
 
 try force=true investigate 31
 is "$rc" 0 'success when job is skipped (because of exclude_no_group and job w/o group)'
-like "$got" 'Job w/o job group, \$exclude_no_group is set, skipping investigation'
+has "$got" 'Job w/o job group, $exclude_no_group is set, skipping investigation'
 
 # test syncing via investigation comment; we're first
 try force=true sync_via_investigation_comment 31 30
 is "$rc" 255 'do not skip if we own first investigation comment'
-like "$got" '1234' 'comment ID returned'
+has "$got" '1234' 'comment ID returned'
 
 # test syncing via investigation comment; we're second
 try force=true sync_via_investigation_comment 32 32
 is "$rc" 0 'skip with success if we do not own first investigation comment'
+# XXX What is this testing?
 like "$got" '' 'no output when skipping'
 
 # delete certain files used to trace whether API calls happened

@@ -46,11 +46,11 @@ get_image() {
 }
 try find_latest_published_tumbleweed_image "23" "i386" "32bit" qcow
 is "$rc" 2 "find_latest_published_tumbleweed_image failure (qcow)"
-like "$got" "Unable to determine qcow image" "Expected error message (qcow)"
+has "$got" "Unable to determine qcow image" "Expected error message (qcow)"
 
 latest_published_tw_builds() {
     echo ""
 }
 try find_latest_published_tumbleweed_image "23" "i386" "32bit" qcow
 is "$rc" 1 "find_latest_published_tumbleweed_image failure (no builds)"
-like "$got" "Unable to find latest published Tumbleweed builds" "Expected error message (no builds)"
+has "$got" "Unable to find latest published Tumbleweed builds" "Expected error message (no builds)"

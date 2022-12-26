@@ -33,7 +33,7 @@ is "$rc" 1 'failing search_log'
 
 try "search_log 123 'foo [z-a]' $logfile2"
 is "$rc" 2 'search_log with invalid pattern'
-like "$got" 'range out of order in character class' 'correct error message'
+has "$got" 'range out of order in character class' 'correct error message'
 
 try-client-output label_on_issue 123 'foo.*bar' Label 1 softfailed
 expected="client_call -X POST jobs/123/comments text=Label
@@ -73,22 +73,22 @@ testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
 group_id=24
 job_data='{"job": {"name": "foo", "result": "failed"}}'
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "" "$job_data" 2>&1 >/dev/null) || true
-like "$out" 'Subject: Unreviewed issue .Group 24 openQA.' "send-email subject like expected"
-like "$out" 'From: openqa-label-known-issues <foo@bar>' "send-email from called like expected"
-like "$out" 'To: dummy@example.com.dummy' "send-email to like expected"
+has "$out" 'Subject: Unreviewed issue (Group 24 openQA)' "send-email subject like expected"
+has "$out" 'From: openqa-label-known-issues <foo@bar>' "send-email from called like expected"
+has "$out" 'To: dummy@example.com.dummy' "send-email to like expected"
 like "$out" '8<.*Backend process died.*>8' 'Log excerpt in mail'
-like "$out" 'Content-Type: text/html' 'mail has text part'
-like "$out" 'Content-Type: text/plain' 'mail has HTML part'
-like "$out" '<li>Name: foo' 'mail contains job name'
+has "$out" 'Content-Type: text/html' 'mail has text part'
+has "$out" 'Content-Type: text/plain' 'mail has HTML part'
+has "$out" 'Name: foo' 'mail contains job name'
 
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
 is "$out" '' "send-email not called for group_id null"
 
 group_id=25
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
-like "$out" '' "send-email not called for no email address and no fallback address"
+is "$out" '' "send-email not called for no email address and no fallback address"
 
 notification_address=fallback@example.com
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" "$job_data" 2>&1 >/dev/null) || true
-like "$out" 'To: fallback@example.com' "send-email to like expected"
-like "$out" 'Subject: Unreviewed issue .Group 25 Lala.' "send-email subject like expected"
+has "$out" 'To: fallback@example.com' "send-email to like expected"
+has "$out" 'Subject: Unreviewed issue (Group 25 Lala)' "send-email subject like expected"
