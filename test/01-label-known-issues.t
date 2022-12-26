@@ -11,66 +11,52 @@ mock-client() {
     client_output+="client_call $@"$'\n'
 }
 
-nl=$'\n'
 client_call=(mock-client "${client_call[@]}")
 logfile1=$dir/data/01-os-autoinst.txt.1
 logfile2=$dir/data/01-os-autoinst.txt.2
 
-rc=0
-comment_on_job 123 Label || rc=$?
-is "$rc" 0 'successful comment_on_job'
-is "$client_output" "client_call -X POST jobs/123/comments text=Label$nl" 'comment_on_job works'
+try-client-output() {
+  out=$logfile1
+  client_output=''
+  try "$*"' && echo "$client_output"'
+}
 
-rc=0
-search_log 123 'foo.*bar' "$logfile1" || rc=$?
+try-client-output comment_on_job 123 Label
+is "$rc" 0 'successful comment_on_job'
+is "$got" "client_call -X POST jobs/123/comments text=Label" 'comment_on_job works'
+
+try search_log 123 'foo.*bar' "$logfile1"
 is "$rc" 0 'successful search_log'
 
-rc=0
-search_log 123 'foo.*bar' "$logfile2" || rc=$?
+try search_log 123 'foo.*bar' "$logfile2"
 is "$rc" 1 'failing search_log'
 
-rc=0
-output=$(search_log 123 'foo [z-a]' "$logfile2" 2>&1) || rc=$?
+try "search_log 123 'foo [z-a]' $logfile2"
 is "$rc" 2 'search_log with invalid pattern'
-like "$output" 'range out of order in character class' 'correct error message'
+like "$got" 'range out of order in character class' 'correct error message'
 
-rc=0
-client_output=''
-out=$logfile1
-label_on_issue 123 'foo.*bar' Label 1 softfailed || rc=$?
+try-client-output label_on_issue 123 'foo.*bar' Label 1 softfailed
 expected="client_call -X POST jobs/123/comments text=Label
-client_call -X POST jobs/123/restart
-"
+client_call -X POST jobs/123/restart"
 is "$rc" 0 'successful label_on_issue'
-is "$client_output" "$expected" 'label_on_issue with restart and disabled force_result'
+is "$got" "$expected" 'label_on_issue with restart and disabled force_result'
 
-rc=0
-client_output=''
-out=$logfile1
-enable_force_result=true label_on_issue 123 'foo.*bar' Label 1 softfailed || rc=$?
+try-client-output enable_force_result=true label_on_issue 123 'foo.*bar' Label 1 softfailed
 expected="client_call -X POST jobs/123/comments text=label:force_result:softfailed:Label
 
 Label
-client_call -X POST jobs/123/restart
-"
+client_call -X POST jobs/123/restart"
 is "$rc" 0 'successful label_on_issue'
-is "$client_output" "$expected" 'label_on_issue with restart and force_result'
+is "$got" "$expected" 'label_on_issue with restart and force_result'
 
-rc=0
-client_output=''
-out=$logfile1
-label_on_issue 123 'foo.*bar' Label || rc=$?
-expected="client_call -X POST jobs/123/comments text=Label
-"
+try-client-output label_on_issue 123 "foo.*bar" Label
+expected="client_call -X POST jobs/123/comments text=Label"
 is "$rc" 0 'successful label_on_issue'
-is "$client_output" "$expected" 'label_on_issue with restart and force_result'
+is "$got" "$expected" 'label_on_issue with restart and force_result'
 
-rc=0
-client_output=''
-out=$logfile1
-label_on_issue 123 'foo bar' Label || rc=$?
+try-client-output "label_on_issue 123 'foo bar' Label"
 is "$rc" 1 'label_on_issue did not find search term'
-is "$client_output" "" 'label_on_issue with restart and force_result'
+is "$got" "" 'label_on_issue with restart and force_result'
 
 send-email() {
     local mailto=$1 email=$2
