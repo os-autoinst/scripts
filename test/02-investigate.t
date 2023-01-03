@@ -1,18 +1,7 @@
 #!/usr/bin/env bash
 
-set -e
+source test/init
 
-dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
-
-TEST_MORE_PATH=$dir/../test-more-bash
-BASHLIB="`
-    find $TEST_MORE_PATH -type d |
-    grep -E '/(bin|lib)$' |
-    xargs -n1 printf "%s:"`"
-PATH=$BASHLIB$PATH
-
-source bash+ :std
-use Test::More
 plan tests 27
 
 host=localhost
