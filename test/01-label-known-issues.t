@@ -79,7 +79,7 @@ has "$out" 'To: dummy@example.com.dummy' "send-email to like expected"
 like "$out" '8<.*Backend process died.*>8' 'Log excerpt in mail'
 has "$out" 'Content-Type: text/html' 'mail has text part'
 has "$out" 'Content-Type: text/plain' 'mail has HTML part'
-has "$out" 'Name: foo' 'mail contains job name'
+has "$out" '<li>Name: foo' 'mail contains job name'
 
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
 is "$out" '' "send-email not called for group_id null"
