@@ -118,19 +118,19 @@ for trace_file in comment_1234_updated comment_for_job_31_created comment_1234_d
 done
 
 # test finalizing investigation comment when no investigation jobs were needed
-rc=0
-out=$(force=true finalize_investigation_comment 31 30 1234 '' 2>&1) || rc=$?
-is "$rc" 0 'success if no investigation jobs needed to be created after all'
-[[ -f comment_1234_deleted ]] && comment_1234_deleted=1 || comment_1234_deleted=0
-[[ -f comment_for_job_31_created ]] && comment_for_job_31_created=1 || comment_for_job_31_created=0
-is "$comment_1234_deleted" 1 'comment on job 30 deleted'
-is "$comment_for_job_31_created" 0 'no comment on job 31 created'
+ok "$(force=true finalize_investigation_comment 31 30 1234 '' 2>&1)" \
+    'success if no investigation jobs needed to be created after all'
+ok "$([[ -f comment_1234_deleted ]])" \
+    'comment on job 30 deleted'
+ok "$([[ ! -f comment_for_job_31_created ]])" \
+    'no comment on job 31 created'
 
 # test finalizing investigation comment when investigation jobs had been created
-rc=0
-out=$(force=true finalize_investigation_comment 31 30 1234 'foo' 2>&1) || rc=$?
-is "$rc" 0 'success if we write an investigation comment'
-[[ -f comment_1234_updated ]] && comment_1234_updated=1 || comment_1234_updated=0
-[[ -f comment_for_job_31_created ]] && comment_for_job_31_created=1 || comment_for_job_31_created=0
-is "$comment_1234_updated" 1 'comment on job 30 updated'
-is "$comment_for_job_31_created" 1 'comment on job 31 created as well'
+ok "$(force=true finalize_investigation_comment 31 30 1234 'foo' 2>&1)" \
+    'success if we write an investigation comment'
+ok "$([[ -f comment_1234_updated ]])" \
+    'comment on job 30 updated'
+ok "$([[ -f comment_for_job_31_created ]])" \
+    'comment on job 31 created as well'
+
+rm -f comment_1234_updated comment_for_job_31_created comment_1234_deleted
