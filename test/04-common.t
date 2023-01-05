@@ -19,9 +19,11 @@ try runcli success a b c
 is $rc 0 "runcli success"
 is "$got" "SUCCESS a b c" "runcli successful output"
 
+caller() ( builtin caller 2 )
 try runcli failure a b c
+unset -f caller
 is $rc 23 "runcli failure"
-like "$got", "failure a b c.*oh noe" "runcli failure output"
+like "$got" "test/04-common.t.*failure a b c.*oh noe" "runcli failure output"
 
 tw_openqa_host=foo
 get_image() {
