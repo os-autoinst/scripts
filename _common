@@ -8,7 +8,7 @@ enable_force_result=${enable_force_result:-false}
 client_call=()
 client_args=()
 markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown)
-openqa_cli=""
+openqa_cli="${openqa_cli:-""}"
 
 warn() { echo "$@" >&2; }
 
