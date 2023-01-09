@@ -64,53 +64,45 @@ openqa-cli() {
     fi
 }
 
-rc=0
 clone_call=echo
-out=$(clone 23 24 2>&1 ) || rc=$?
+try clone 23 24
 is "$rc" 0 "Successful clone"
 testlabel="vim:investigate"
-is "$out" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
+is "$got" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
 
-rc=0
-out=$(investigate 27 2>&1) || rc=$?
+try investigate 27
 is "$rc" 0 'success regardless of actually triggered jobs'
-is "$out" "Job 27 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
+is "$got" "Job 27 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
 
-rc=0
-out=$(force=true investigate 28 2>&1) || rc=$?
+try force=true investigate 28
 is "$rc" 0 'still success when job is skipped (because of exclude_no_group)'
-like "$out" "exclude_no_group is set, skipping investigation"
+has "$got" "exclude_no_group is set, skipping investigation"
 
-rc=0
-out=$(investigate 30 2>&1) || rc=$?
+try investigate 30
 is "$rc" 142 'investigation postponed because other job in cluster is not done'
-is "$out" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished"
+is "$got" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished"
 
-rc=0
-out=$(echo 30 | main 2>&1) || rc=$?
+try 'echo 30 | main'
 is "$rc" 142 'return code (for postponing) passed by main function'
-is "$out" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished" 'output passed by main function'
+is "$got" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished" 'output passed by main function'
 
-rc=0
-out=$(investigate 32 2>&1) || rc=$?
+try investigate 32
 is "$rc" 0 'investigation not postponed if other job in dependency tree not done but cluster itself is done'
 
-rc=0
-out=$(force=true investigate 31 2>&1) || rc=$?
+try force=true investigate 31
 is "$rc" 0 'success when job is skipped (because of exclude_no_group and job w/o group)'
-like "$out" 'Job w/o job group, \$exclude_no_group is set, skipping investigation'
+has "$got" 'Job w/o job group, $exclude_no_group is set, skipping investigation'
 
 # test syncing via investigation comment; we're first
-rc=0
-out=$(force=true sync_via_investigation_comment 31 30 2>&1) || rc=$?
+try force=true sync_via_investigation_comment 31 30
 is "$rc" 255 'do not skip if we own first investigation comment'
-like "$out" '1234' 'comment ID returned'
+has "$got" '1234' 'comment ID returned'
 
 # test syncing via investigation comment; we're second
-rc=0
-out=$(force=true sync_via_investigation_comment 32 32 2>&1) || rc=$?
+try force=true sync_via_investigation_comment 32 32
 is "$rc" 0 'skip with success if we do not own first investigation comment'
-like "$out" '' 'no output when skipping'
+# XXX What is this testing?
+like "$got" '' 'no output when skipping'
 
 # delete certain files used to trace whether API calls happened
 for trace_file in comment_1234_updated comment_for_job_31_created comment_1234_deleted; do
