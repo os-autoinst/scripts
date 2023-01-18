@@ -1,0 +1,30 @@
+#!/bin/bash -e
+
+# Usage
+# echo https://openqahost/tests/1234 | openqa-label-known-issues-multi
+
+set -o pipefail -o errtrace
+
+source "$(dirname "$0")"/openqa-label-known-issues
+
+to_review=()
+
+print_summary() {
+    local to_review_count=${#to_review[@]}
+    [[ $to_review_count -eq 0 ]] && return
+    local msg="\n\e[1m\e[31m$to_review_count unknown issues to be reviewed:\e[0m"
+    for job in "${to_review[@]}"; do
+        msg+="\n - $job"
+    done
+    echo -e "$msg"
+}
+
+main() {
+    # shellcheck disable=SC2013
+    for testurl in $(cat - | sed 's/ .*$//'); do
+        label_issue "$testurl"
+    done
+    print_summary
+}
+
+caller 0 >/dev/null || main "$@"

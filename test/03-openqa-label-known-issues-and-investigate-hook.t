@@ -16,9 +16,8 @@ openqa-trigger-bisect-jobs() {
     echo "openqa-trigger-bisect-jobs ($@)"
 }
 openqa-label-known-issues() {
-    for testurl in $(cat - | sed 's/ .*$//'); do
-        echo "[$testurl]($testurl): Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
-    done
+    testurl=$1
+    echo "[$testurl]($testurl): Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
 }
 openqa-investigate() {
     "$INVESTIGATE_FAIL" && return 1
