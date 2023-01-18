@@ -7,7 +7,8 @@ enable_force_result=${enable_force_result:-false}
 
 client_call=()
 client_args=()
-markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown)
+markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown) \
+    || echo "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++" >&2
 openqa_cli="${openqa_cli:-""}"
 
 warn() { echo "$@" >&2; }
