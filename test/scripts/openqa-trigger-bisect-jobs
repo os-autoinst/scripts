@@ -1,2 +1,0 @@
-#!/bin/bash
-echo "openqa-trigger-bisect-jobs ($@)"
