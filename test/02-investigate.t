@@ -83,7 +83,7 @@ try investigate 30
 is "$rc" 142 'investigation postponed because other job in cluster is not done'
 is "$got" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished"
 
-try 'echo 30 | main'
+try main 30
 is "$rc" 142 'return code (for postponing) passed by main function'
 is "$got" "Postponing to investigate job 30: waiting until 1 pending parallel job(s) finished" 'output passed by main function'
 

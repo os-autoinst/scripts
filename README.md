@@ -95,7 +95,7 @@ there is no carry-over and no automatic ticket assignment by auto-review.
   output the list of failed jobs that are suitable for triggering
   investigation jobs on, compare to "openqa-monitor-incompletes"
 
-* [openqa-investigate](https://github.com/os-autoinst/scripts/blob/master/openqa-investigate)
+* [openqa-investigate-multi](https://github.com/os-autoinst/scripts/blob/master/openqa-investigate-multi)
   can take a list of openQA jobs, for example output of
   "openqa-monitor-investigation-candidates" and trigger "investigation jobs",
   e.g. a plain retrigger, using the "last good" tests as well as "last good"
@@ -108,7 +108,7 @@ there is no carry-over and no automatic ticket assignment by auto-review.
 
 A possible approach to combine handling known issues and unknown issues is to
 run "openqa-label-known-issues-multi" against all "investigation candidates" and
-pass all unknown issues to "openqa-investigate":
+pass all unknown issues to "openqa-investigate-multi":
 
 ```
 ./openqa-review-failed
@@ -117,7 +117,7 @@ pass all unknown issues to "openqa-investigate":
 which does the equivalent of:
 
 ```
-./openqa-monitor-investigation-candidates | ./openqa-label-known-issues-multi | ./openqa-investigate
+./openqa-monitor-investigation-candidates | ./openqa-label-known-issues-multi | ./openqa-investigate-multi
 ```
 
 with minor changes to the input/output format used between the commands.

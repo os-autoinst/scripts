@@ -15,7 +15,7 @@ host_url="$scheme://$host"
 investigate-and-bisect() {
     local rc=0 test
     read -r test
-    echo "$test" | openqa-investigate || rc=$?
+    openqa-investigate "$test" || rc=$?
     [[ "$rc" -eq 142 ]] && return "$rc"
     openqa-trigger-bisect-jobs --url "$test" || rc=$?
     return "$rc"
