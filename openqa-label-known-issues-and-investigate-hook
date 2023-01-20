@@ -5,22 +5,25 @@ set -eo pipefail
 # "hook script" intended to be called by openQA instances taking a job ID as
 # parameter and forwarding a complete job URL to "openqa-label-known-issues"
 # on stdin and all left unknowns to "openqa-investigate"
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
+PATH=$dir:$PATH
 
-id="${1:?"Need 'job_id'"}"
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
-dirname=$(dirname "$0")
-script_dir=${script_dir:-$dirname}
 
 investigate-and-bisect() {
     local rc=0 test
     read -r test
-    echo "$test" | "$script_dir/openqa-investigate" || rc=$?
+    echo "$test" | openqa-investigate || rc=$?
     [[ "$rc" -eq 142 ]] && return "$rc"
-    "$script_dir/openqa-trigger-bisect-jobs" --url "$test" || rc=$?
+    openqa-trigger-bisect-jobs --url "$test" || rc=$?
     return "$rc"
 }
 
-echo "$host_url/tests/$id" | "$script_dir/openqa-label-known-issues" | sed -n 's/\[\([^]]*\)\].*Unknown issue, to be reviewed.*/\1/p' | investigate-and-bisect
+hook() {
+    local id="${1:?"Need 'job_id'"}"
+    echo "$host_url/tests/$id" | openqa-label-known-issues | sed -n 's/\[\([^]]*\)\].*Unknown issue, to be reviewed.*/\1/p' | investigate-and-bisect
+}
 
+caller 0 >/dev/null || hook "$@"

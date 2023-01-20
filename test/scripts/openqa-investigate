@@ -1,6 +1,0 @@
-#!/bin/bash
-"$INVESTIGATE_FAIL" && exit 1
-"$INVESTIGATE_RETRIGGER_HOOK" && exit 142
-for testurl in $(cat - | sed 's/ .*$//'); do
-    echo "$testurl | openqa-investigate"
-done
