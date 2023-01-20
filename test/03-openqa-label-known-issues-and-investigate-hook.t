@@ -16,22 +16,20 @@ openqa-trigger-bisect-jobs() {
     echo "openqa-trigger-bisect-jobs ($@)"
 }
 openqa-label-known-issues() {
-    for testurl in $(cat - | sed 's/ .*$//'); do
-        echo "[$testurl]($testurl): Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
-    done
+    testurl=$1
+    echo "[$testurl]($testurl): Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
 }
 openqa-investigate() {
+    local testurl=$1
     "$INVESTIGATE_FAIL" && return 1
     "$INVESTIGATE_RETRIGGER_HOOK" && return 142
-    for testurl in $(cat - | sed 's/ .*$//'); do
-        echo "$testurl | openqa-investigate"
-    done
+    echo "openqa-investigate $testurl"
 }
 
 try hook 123
 is "$rc" 0 'successful hook'
 
-has "$got" 'https://openqa.opensuse.org/tests/123 | openqa-investigate' 'correct output 1'
+has "$got" 'openqa-investigate https://openqa.opensuse.org/tests/123' 'correct output 1'
 has "$got" 'openqa-trigger-bisect-jobs (--url https://openqa.opensuse.org/tests/123)' 'correct output 2'
 
 export INVESTIGATE_FAIL=true

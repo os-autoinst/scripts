@@ -51,7 +51,7 @@ false matches of job failures unrelated to the specified ticket.
   output the list of "interesting" incompletes, where "interesting" means not
   all incompletes but the ones likely needing actions by admins, e.g.
   unreviewed, no clones, no obvious "setup failure", etc.
-* [openqa-label-known-issues](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues)
+* [openqa-label-known-issues-multi](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues-multi)
   can take a list of openQA jobs, for example output from
   "openqa-monitor-incompletes" and look for matching "known issues", for
   example from progress.opensuse.org, label the job and retrigger if specified
@@ -95,7 +95,7 @@ there is no carry-over and no automatic ticket assignment by auto-review.
   output the list of failed jobs that are suitable for triggering
   investigation jobs on, compare to "openqa-monitor-incompletes"
 
-* [openqa-investigate](https://github.com/os-autoinst/scripts/blob/master/openqa-investigate)
+* [openqa-investigate-multi](https://github.com/os-autoinst/scripts/blob/master/openqa-investigate-multi)
   can take a list of openQA jobs, for example output of
   "openqa-monitor-investigation-candidates" and trigger "investigation jobs",
   e.g. a plain retrigger, using the "last good" tests as well as "last good"
@@ -107,8 +107,8 @@ there is no carry-over and no automatic ticket assignment by auto-review.
 ### Combine auto-review and openqa-investigate
 
 A possible approach to combine handling known issues and unknown issues is to
-run "openqa-label-known-issues" against all "investigation candidates" and
-pass all unknown issues to "openqa-investigate":
+run "openqa-label-known-issues-multi" against all "investigation candidates" and
+pass all unknown issues to "openqa-investigate-multi":
 
 ```
 ./openqa-review-failed
@@ -117,7 +117,7 @@ pass all unknown issues to "openqa-investigate":
 which does the equivalent of:
 
 ```
-./openqa-monitor-investigation-candidates | ./openqa-label-known-issues | ./openqa-investigate
+./openqa-monitor-investigation-candidates | ./openqa-label-known-issues-multi | ./openqa-investigate-multi
 ```
 
 with minor changes to the input/output format used between the commands.
@@ -190,7 +190,7 @@ psql \
 
 Perform a dry run on the local instance using the generated job list:
 ```
-cat tests/local_incompletes | env scheme=http host=localhost:9526 dry_run=1 sh -ex ./openqa-label-known-issues
+cat tests/local_incompletes | env scheme=http host=localhost:9526 dry_run=1 sh -ex ./openqa-label-known-issues-multi
 ```
 
 ## License

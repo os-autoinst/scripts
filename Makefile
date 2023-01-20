@@ -14,7 +14,7 @@ bpan:
 
 .PHONY: test-online
 test-online:
-	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues
+	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues-multi
 	env dry_run=1 ./trigger-openqa_in_openqa
 	# Invalid JSON causes the job to abort with an error
 	env tw_openqa_host=example.com dry_run=1 ./trigger-openqa_in_openqa | grep -v 'parse error:'
