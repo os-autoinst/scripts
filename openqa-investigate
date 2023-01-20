@@ -26,7 +26,7 @@ curl_args=(--user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
 clone() {
-    local origin id name_suffix refspec job_data unsupported_cluster_jobs pending_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
+    local origin id name_suffix refspec unsupported_cluster_jobs pending_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
     origin=${1:?"Need 'origin'"}
     id=${2:?"Need 'id'"}
     name_suffix=${3+":$3"}
