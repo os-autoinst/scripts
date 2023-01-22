@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 31
+plan tests 35
 
 host=localhost
 url=https://localhost
@@ -37,6 +37,8 @@ openqa-cli() {
         echo '{"job": { "test": "vim", "test": "vim:investigate:abc", "result": "failed" } }'
     elif [[ "$1 $2" == "--json jobs/34" ]]; then
         echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
+    elif [[ "$1 $2" == "--json jobs/35" ]]; then
+        echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
     elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
         echo '{"id": 1234}'
     elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
@@ -105,11 +107,17 @@ has "$got" 'Job w/o job group, $exclude_no_group is set, skipping investigation'
 
 try investigate 33
 is "$rc" 0 'success (33)'
-has "$got" "Job is ':investigate:' already, skipping investigation" "skip :investigate:"
+has "$got" "Job is ':investigate:' already, skipping investigation" "skip :investigate: (33)"
 
 try investigate 34
 is "$rc" 2 'mocked function returned failure (34)'
-has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN"
+has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (34)"
+has "$got" "likely not a sporadic" "not sporadic (34)"
+
+try investigate 35
+is "$rc" 2 'mocked function returned failure (35)'
+has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (35)"
+has "$got" "likely a sporadic" "sporadic (35)"
 
 # test syncing via investigation comment; we're first
 try force=true sync_via_investigation_comment 31 30

@@ -180,6 +180,32 @@ $comment_text"
     fi
 }
 
+post-investigate() {
+    local id=$1 old_name=$2
+    local rc=0 status
+    [[ ! "$old_name" =~ investigate:retry$ ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
+    result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
+    investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
+    origin_job_id=${investigate_origin#"$host_url/t"}
+    comment="Investigate retry job: $host_url/t$id"
+    if [[ "$result" == passed ]]; then
+        comment+=" passed, likely a sporadic failure"
+    else
+        comment+=" failed, likely not a sporadic failure"
+    fi
+
+    # meanwhile the original job might have been deleted already, handle
+    # gracefully
+    out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="$comment" 2>&1) || rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+        status=$(echo "$out" | runjq .error_status 2>/dev/null || echo "unknown")
+        if [[ "$status" != "404" ]]; then
+            echoerr "Unexpected error encountered when posting comments on job $origin_job_id after investigation job $id failed: '$out'"
+            return 2
+        fi
+    fi
+}
+
 # crosscheck
 # 1. current job/build + current test -> check if reproducible/sporadic
 # 2. current job/build + last good test (+ last good needles) -> check for
@@ -196,17 +222,7 @@ investigate() {
     [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
     old_name="$(echo "$job_data" | runjq -r '.job.test')" || return $?
     if [[ "$old_name" =~ ":investigate:" ]]; then
-        [[ ! "$old_name" =~ investigate:retry$ ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
-        investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
-        origin_job_id=${investigate_origin#"$host_url/t"}
-        # meanwhile the original job might have been deleted already, handle
-        # gracefully
-        out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="Investigate retry job: $host_url/t$id failed, likely not a sporadic failure" 2>&1) || \
-            status=$(echo "$out" | runjq .error_status 2>/dev/null || echo "unknown")
-            if [[ "$status" != "404" ]]; then
-                echoerr "Unexpected error encountered when posting comments on job $origin_job_id after investigation job $id failed: '$out'"
-                return 2
-            fi
+        post-investigate "$id" "$old_name" || return $?
         return 0
     fi
     clone="$(echo "$job_data" | runjq -r '.job.clone_id')" || return $?
