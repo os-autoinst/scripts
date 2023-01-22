@@ -241,6 +241,7 @@ investigate() {
 }
 
 main() {
+    local id=${1:?"Need 'job_id'"}
     client_prefix=''
     [ "$dry_run" = "1" ] && client_prefix="echo"
     set +u

@@ -75,6 +75,11 @@ runcurl() {
     echo "$body"
 }
 
+openqa-api-get() {
+    client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
+    openqa-cli "${client_args[@]}" --json "$@"
+}
+
 comment_on_job() {
     local id=$1 comment=$2 force_result=${3:-''}
     if $enable_force_result && [[ -n $force_result ]]; then

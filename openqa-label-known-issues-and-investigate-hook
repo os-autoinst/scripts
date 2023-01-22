@@ -8,6 +8,9 @@ set -eo pipefail
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
 PATH=$dir:$PATH
 
+# shellcheck source=/dev/null
+source "$dir"/_common
+
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
@@ -21,9 +24,23 @@ investigate-and-bisect() {
     return "$rc"
 }
 
+label() {
+    local url=$1
+    openqa-label-known-issues "$url" | sed -n 's/\[\([^]]*\)\].*Unknown issue, to be reviewed.*/\1/p'
+}
+
 hook() {
     local id="${1:?"Need 'job_id'"}"
-    openqa-label-known-issues "$host_url/tests/$id" | sed -n 's/\[\([^]]*\)\].*Unknown issue, to be reviewed.*/\1/p' | investigate-and-bisect
+    local url=$host_url/tests/$id
+    job_data=$(openqa-api-get "jobs/$id")
+    state="$(echo "$job_data" | runjq -r '.job.state')" || return $?
+    result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
+    [[ "$state" != "done" ]] && return
+    if [[ "$result" != passed ]]; then
+        label "$url" | investigate-and-bisect
+    else
+        echo "$url" | investigate-and-bisect
+    fi
 }
 
 caller 0 >/dev/null || hook "$@"
