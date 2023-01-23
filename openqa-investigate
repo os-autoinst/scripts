@@ -231,6 +231,7 @@ investigate() {
     # have more, ambiguous potential changes that we need to bisect on
 
     # sync by writing initial investigation comment (edited later)
+    rc=0
     comment_id=$(sync_via_investigation_comment "$id" "$first_cluster_job_id") || rc=$?
     [[ $rc != 255 ]] && return $rc
 
