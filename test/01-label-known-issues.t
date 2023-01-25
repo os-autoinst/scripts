@@ -2,7 +2,7 @@
 
 source test/init
 
-plan tests 25
+plan tests 26
 
 source _common
 
@@ -14,6 +14,7 @@ mock-client() {
 client_call=(mock-client "${client_call[@]}")
 logfile1=$dir/data/01-os-autoinst.txt.1
 logfile2=$dir/data/01-os-autoinst.txt.2
+logfile3=$dir/data/01-os-autoinst.txt.3
 
 try-client-output() {
   out=$logfile1
@@ -25,11 +26,14 @@ try-client-output comment_on_job 123 Label
 is "$rc" 0 'successful comment_on_job'
 is "$got" "client_call -X POST jobs/123/comments text=Label" 'comment_on_job works'
 
-try search_log 123 'foo.*bar' "$logfile1"
+try "search_log 123 'foo.*bar'" "$logfile1"
 is "$rc" 0 'successful search_log'
 
-try search_log 123 'foo.*bar' "$logfile2"
+try "search_log 123 'foo.*bar'" "$logfile2"
 is "$rc" 1 'failing search_log'
+
+try "search_log 123 '([dD]ownload.*failed.*404)[\S\s]*Result: setup failure'" "$logfile3"
+is "$rc" 0 'successful search_log'
 
 try "search_log 123 'foo [z-a]' $logfile2"
 is "$rc" 2 'search_log with invalid pattern'

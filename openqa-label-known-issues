@@ -91,7 +91,7 @@ label_on_issues_from_issue_tracker() {
 }
 
 label_on_issues_without_tickets() {
-    if label_on_issue "$id" '(?s)([dD]ownload.*failed.*404).*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then return
+    if label_on_issue "$id" '([dD]ownload.*failed.*404)[\S\s]*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then return
     elif label_on_issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then return
     elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then return
     elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then return
