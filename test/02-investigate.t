@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 27
+plan tests 35
 
 host=localhost
 url=https://localhost
@@ -33,6 +33,12 @@ openqa-cli() {
         echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
     elif [[ "$1 $2" == "--json jobs/27" ]]; then
         echo '{"job": { "test": "vim", "clone_id" : 28 } }'
+    elif [[ "$1 $2" == "--json jobs/33" ]]; then
+        echo '{"job": { "test": "vim", "test": "vim:investigate:abc", "result": "failed" } }'
+    elif [[ "$1 $2" == "--json jobs/34" ]]; then
+        echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
+    elif [[ "$1 $2" == "--json jobs/35" ]]; then
+        echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
     elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
         echo '{"id": 1234}'
     elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
@@ -47,10 +53,15 @@ openqa-cli() {
         echo '{"id": 1237}'
     elif [[ $@ == "-X GET jobs/32/comments" ]]; then
         echo '[{"id": 1236, "text":"Starting investigation for job 32"},{"id": 1237, "text":"Starting investigation for job 32"}]'
+    elif [[ $@ =~ "-X POST jobs/35/comments" ]]; then
+        warn "Commenting 35 ($@)"
+        exit 99
     elif [[ $@ == '--apibase  --json tests/27/dependencies_ajax' ]]; then
         echo '{"cluster":{}, "edges":[], "nodes":[{"id":27,"state":"done","result":"passed"}]}'
     elif [[ $@ == '--apibase  --json tests/28/dependencies_ajax' ]]; then
         echo '{"cluster":{}, "edges":[], "nodes":[{"id":28,"state":"done","result":"failed"}]}'
+    elif [[ $@ == '--apibase  --json tests/33/dependencies_ajax' ]]; then
+        echo '{"cluster":{}, "edges":[], "nodes":[]}'
     elif [[ $@ == '--apibase  --json tests/29/dependencies_ajax' ]]; then
         echo '{"cluster":{"cluster_foo":[28],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"done","result":"failed"},{"id":29,"state":"done","result":"passed"}]}'
     elif [[ $@ == '--apibase  --json tests/30/dependencies_ajax' ]]; then
@@ -93,6 +104,20 @@ is "$rc" 0 'investigation not postponed if other job in dependency tree not done
 try force=true investigate 31
 is "$rc" 0 'success when job is skipped (because of exclude_no_group and job w/o group)'
 has "$got" 'Job w/o job group, $exclude_no_group is set, skipping investigation'
+
+try investigate 33
+is "$rc" 0 'success (33)'
+has "$got" "Job is ':investigate:' already, skipping investigation" "skip :investigate: (33)"
+
+try investigate 34
+is "$rc" 2 'mocked function returned failure (34)'
+has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (34)"
+has "$got" "likely not a sporadic" "not sporadic (34)"
+
+try investigate 35
+is "$rc" 2 'mocked function returned failure (35)'
+has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (35)"
+has "$got" "likely a sporadic" "sporadic (35)"
 
 # test syncing via investigation comment; we're first
 try force=true sync_via_investigation_comment 31 30
