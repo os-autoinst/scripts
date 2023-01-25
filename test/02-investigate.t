@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 35
+plan tests 36
 
 host=localhost
 url=https://localhost
@@ -77,11 +77,17 @@ openqa-cli() {
 }
 
 clone_call=echo
+_clone_call() {
+    echo "$@" >&2
+}
+clone_call=_clone_call
 try clone 23 24
 is "$rc" 0 "Successful clone"
 testlabel="vim:investigate"
-is "$got" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
+has "$got" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
+has "$got" '_TRIGGER_JOB_DONE_HOOK=1' "job is cloned with _TRIGGER_JOB_DONE_HOOK"
 
+clone_call=echo
 try investigate 27
 is "$rc" 0 'success regardless of actually triggered jobs'
 is "$got" "Job 27 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"

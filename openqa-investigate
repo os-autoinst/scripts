@@ -47,7 +47,7 @@ clone() {
 
     name="$(echo "$clone_job_data" | runjq -r '.job.test'):investigate$name_suffix" || return $?
     base_prio=$(echo "$clone_job_data" | runjq -r '.job.priority') || return $?
-    clone_settings=("TEST+=:investigate$name_suffix" '_GROUP_ID=0' 'BUILD=')
+    clone_settings=("TEST+=:investigate$name_suffix" '_TRIGGER_JOB_DONE_HOOK=1' '_GROUP_ID=0' 'BUILD=')
     if [[ $refspec ]]; then
         casedir=$(echo "$clone_job_data" | runjq -r '.job.settings.CASEDIR') || return $?
         [[ $casedir == null ]] && casedir=''
