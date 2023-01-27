@@ -67,6 +67,11 @@ https://raw.githubusercontent.com/os-autoinst/scripts/master/openqa-query-for-jo
 for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
 ```
 
+*Notes:* the regex used in `<search_term>` is very powerful but also can be
+expensive when `(?s)` is used. Every `.*` can span over multiple lines and
+that involves a lot of backtracking and might not be needed. Use `[^\n]*` over
+`.*` where possible or use line spanning matches like `[\S\s]*`.
+
 ### Unknown issues
 
 If none of your configured searches above are matching, you can configure a
