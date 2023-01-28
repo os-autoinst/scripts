@@ -35,3 +35,6 @@ test-yaml:
 .PHONY: update-deps
 update-deps:
 	tools/update-deps --specfile dist/rpm/os-autoinst-scripts-deps.spec
+
+clean:
+	$(RM) -r bpan
