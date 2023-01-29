@@ -3,21 +3,21 @@
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
 
+warn() { printf '%s\n' "$@" >&2; }
+
 enable_force_result=${enable_force_result:-false}
 
 client_call=()
 client_args=()
 markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown) \
-    || echo "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++" >&2
+    || warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
 openqa_cli="${openqa_cli:-""}"
-
-warn() { echo "$@" >&2; }
 
 error-handler() {
     local line=$1
     # shellcheck disable=SC2207
     local c=($(caller))
-    echo "${c[1]}: ERROR: line $line" >&2
+    warn "${c[1]}: ERROR: line $line"
 }
 
 # From openqa-cli JSON output filter and return the id/ids of jobs,
@@ -53,7 +53,7 @@ runjq() {
     set -e
     [[ "$rc" == 0 ]] && echo "$output" && return
     output=$(echo "$output" | head -"$jq_output_limit")
-    echo "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)" >&2
+    warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
     return $rc
 }
 
@@ -62,14 +62,14 @@ runjq() {
 runcurl() {
     local rc status_code body response
     local verbose="${verbose:-"false"}"
-    $verbose && echo "[debug] curl: Fetching ($*)" >&2
+    $verbose && warn "[debug] curl: Fetching ($*)"
     set +e
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" != 0 ]] && echo "curl ($(caller)): Error fetching ($*): $response" >&2 && return 1
+    [[ "$rc" != 0 ]] && warn "curl ($(caller)): Error fetching ($*): $response" && return 1
     status_code=$(echo "$response" | tail -1)
-    [[ "$status_code" != 200 ]] && echo "curl ($(caller)): Error fetching url ($*): Got Status $status_code" >&2 && return 1
+    [[ "$status_code" != 200 ]] && warn "curl ($(caller)): Error fetching url ($*): Got Status $status_code" && return 1
     # remove last line
     body=$(echo "$response" | tac | tail -n+2 | tac)
     echo "$body"
