@@ -1,3 +1,11 @@
+include .setup.mk
+
+ifndef test
+test := test/
+ifdef GIT_STATUS_IS_CLEAN
+test += xt/
+endif
+endif
 
 BPAN := .bpan
 
@@ -10,7 +18,7 @@ default:
 test: checkstyle test-unit
 
 test-unit: $(BPAN)
-	prove -r test/ xt/
+	prove -r $(if $v,-v )$(test)
 	py.test
 
 
