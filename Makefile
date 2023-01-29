@@ -20,10 +20,12 @@ test: checkstyle test-unit
 test-unit: test-bash test-python
 
 test-bash: $(BPAN)
-	prove -r $(if $v,-v )$(test)
+	$(call run-with,prove,$@,\
+	prove -r $(if $v,-v )$(test))
 
 test-python:
-	py.test tests
+	$(call run-with,py.test,$@,\
+	py.test tests)
 
 test-online:
 	dry_run=1 bash -x ./openqa-label-known-issues-multi < ./tests/incompletes
@@ -34,12 +36,12 @@ test-online:
 checkstyle: test-shellcheck test-yaml
 
 test-shellcheck:
-	@which shellcheck >/dev/null 2>&1 || echo "Command 'shellcheck' not found, can not execute shell script checks"
-	shellcheck -x $$(file --mime-type * | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p')
+	$(call run-with,shellcheck,$@,\
+	shellcheck -x $$(file --mime-type * | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p'))
 
 test-yaml:
-	@which yamllint >/dev/null 2>&1 || echo "Command 'yamllint' not found, can not execute YAML syntax checks"
-	yamllint --strict $$(git ls-files "*.yml" "*.yaml" ":!external/")
+	$(call run-with,yamllint,$@,\
+	yamllint --strict $$(git ls-files "*.yml" "*.yaml" ":!external/"))
 
 update-deps:
 	tools/update-deps --specfile dist/rpm/os-autoinst-scripts-deps.spec
