@@ -36,9 +36,11 @@ runcli() (
     output=$("${args[@]}" 2>&1)
     rc=$?
     set -e
-    [[ $rc -eq 0 ]] && echo "$output" && return
-    warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
-    return $rc
+    [[ $rc -eq 0 ]] || {
+        warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
+        return $rc
+    }
+    echo "$output"
 )
 
 # Wrapper around jq that outputs the first lines of JSON in case
@@ -50,10 +52,12 @@ runjq() (
     output=$(echo "$input" | jq "$@" 2>&1)
     rc=$?
     set -e
-    [[ $rc -eq 0 ]] && echo "$output" && return
-    output=$(echo "$output" | head -"$jq_output_limit")
-    warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
-    return $rc
+    [[ $rc -eq 0 ]] || {
+        output=$(echo "$output" | head -"$jq_output_limit")
+        warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
+        return $rc
+    }
+    echo "$output"
 )
 
 # Wrapper around curl that reports the HTTP status if it is not 200, and the
