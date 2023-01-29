@@ -3,7 +3,7 @@
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
 
-warn() { printf '%s\n' "$@" >&2; }
+warn() ( printf '%s\n' "$@" >&2 )
 
 die() { warn "$@"; exit 1; }
 
@@ -16,25 +16,22 @@ markdown_cmd=$(command -v Markdown.pl) ||
     warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
 openqa_cli="${openqa_cli:-""}"
 
-error-handler() {
-    local line=$1
+error-handler() (
+    line=$1
     # shellcheck disable=SC2207
-    local c=($(caller))
+    c=($(caller))
     warn "${c[1]}: ERROR: line $line"
-}
+)
 
 # From openqa-cli JSON output filter and return the id/ids of jobs,
 # for example from a query to the 'jobs get' route or the result string of a
 # 'jobs post' or 'isos post'
-job_ids() {
-    jq -r '.ids[]' "$@"
-}
+job_ids() ( jq -r '.ids[]' "$@" )
 
 # Wrapper around openqa-cli that outputs the api arguments in case of
 # an error, and the calling command and line
-runcli() {
-    local args=("$@")
-    local rc output
+runcli() (
+    args=("$@")
     set +e
     output=$("${args[@]}" 2>&1)
     rc=$?
@@ -42,13 +39,12 @@ runcli() {
     [[ $rc -eq 0 ]] && echo "$output" && return
     warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
     return $rc
-}
+)
 
 # Wrapper around jq that outputs the first lines of JSON in case
 # jq has a problem with it, and the calling command and line
-runjq() {
-    local rc output
-    local jq_output_limit="${jq_output_limit:-15}"
+runjq() (
+    jq_output_limit="${jq_output_limit:-15}"
     input=$(</dev/stdin)
     set +e
     output=$(echo "$input" | jq "$@" 2>&1)
@@ -58,13 +54,12 @@ runjq() {
     output=$(echo "$output" | head -"$jq_output_limit")
     warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
     return $rc
-}
+)
 
 # Wrapper around curl that reports the HTTP status if it is not 200, and the
 # calling command and line
-runcurl() {
-    local rc status_code body response
-    local verbose="${verbose:-"false"}"
+runcurl() (
+    verbose="${verbose:-"false"}"
     $verbose && warn "[debug] curl: Fetching ($*)"
     set +e
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
@@ -78,7 +73,7 @@ runcurl() {
     # remove last line
     body=$(echo "$response" | tac | tail -n+2 | tac)
     echo "$body"
-}
+)
 
 openqa-api-get() {
     client_args=(
@@ -194,18 +189,17 @@ handle_unknown() {
     fi
 }
 
-send-email() {
-    local mailto=$1 email=$2
+send-email() (
+    mailto=$1 email=$2
     if [[ $dry_run ]]; then
         echo "Would send email to '$mailto':"$'\n'"$email"
         return
     fi
     echo "$email" | /usr/sbin/sendmail -t "$mailto"
-}
+)
 
-multipart-from-markdown() {
-    local plain=$1 to_email=$2 from=$3 subject=$4
-    local email md body header boundary
+multipart-from-markdown() (
+    plain=$1 to_email=$2 from=$3 subject=$4
     md=$(echo "$plain" | $markdown_cmd)
     boundary="_000_DB6PR0401MB2565_"
     header='Content-Type: multipart/alternative; boundary="'"$boundary"'"'
@@ -235,10 +229,10 @@ $body
 
     echo "$email"
 
-}
+)
 
-latest_published_tw_builds() {
-    local latest_builds group_id=$1
+latest_published_tw_builds() (
+    group_id=$1
     latest_builds=("$(
         runcurl -s "$tw_openqa_host/group_overview/$group_id.json" |
         jq -r '(
@@ -251,10 +245,10 @@ latest_published_tw_builds() {
         )[]'
     )")
     echo "${latest_builds[@]}"
-}
+)
 
-get_image() {
-    local image name=$1
+get_image() (
+    name=$1
     image=$(
         $openqa_cli api --host "$tw_openqa_host" assets |
         jq -r "
@@ -266,11 +260,11 @@ get_image() {
             | .name"
     )
     echo "$image"
-}
+)
 
-find_latest_published_tumbleweed_image() {
-    local latest_builds build image=null assetname
-    local tw_group_id=$1 arch=$2 machine=$3 type=$4
+find_latest_published_tumbleweed_image() (
+    tw_group_id=$1 arch=$2 machine=$3 type=$4
+    image=null
     read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
     [[ ${#latest_builds[@]} -gt 0 ]] ||
         die "Unable to find latest published Tumbleweed builds."
@@ -292,5 +286,5 @@ find_latest_published_tumbleweed_image() {
         exit 2
     fi
     echo "$image"
-}
+)
 
