@@ -17,10 +17,13 @@ default:
 
 test: checkstyle test-unit
 
-test-unit: $(BPAN)
-	prove -r $(if $v,-v )$(test)
-	py.test
+test-unit: test-bash test-python
 
+test-bash: $(BPAN)
+	prove -r $(if $v,-v )$(test)
+
+test-python:
+	py.test tests
 
 test-online:
 	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues-multi
