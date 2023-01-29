@@ -108,7 +108,7 @@ search_log() {
     fi
 }
 
-label_on_issue() {
+label-on-issue() {
     local id=$1 search_term=$2 label=$3 restart=${4:-''} force_result=${5:-''}
     local out=${out:?}
     search_log "$id" "$search_term" "$out" || return
