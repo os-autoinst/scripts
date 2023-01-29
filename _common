@@ -5,6 +5,8 @@
 
 warn() { printf '%s\n' "$@" >&2; }
 
+die() { warn "$@"; exit 1; }
+
 enable_force_result=${enable_force_result:-false}
 
 client_call=()
@@ -67,9 +69,9 @@ runcurl() {
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" != 0 ]] && warn "curl ($(caller)): Error fetching ($*): $response" && return 1
+    [[ "$rc" == 0 ]] || die "curl ($(caller)): Error fetching ($*): $response"
     status_code=$(echo "$response" | tail -1)
-    [[ "$status_code" != 200 ]] && warn "curl ($(caller)): Error fetching url ($*): Got Status $status_code" && return 1
+    [[ "$status_code" == 200 ]] || die "curl ($(caller)): Error fetching url ($*): Got Status $status_code"
     # remove last line
     body=$(echo "$response" | tac | tail -n+2 | tac)
     echo "$body"
@@ -216,10 +218,8 @@ find_latest_published_tumbleweed_image() {
     local latest_builds build image=null assetname
     local tw_group_id=$1 arch=$2 machine=$3 type=$4
     read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
-    if [[ "${#latest_builds[@]}" -eq 0 ]]; then
-        warn "Unable to find latest published Tumbleweed builds."
-        exit 1
-    fi
+    [[ "${#latest_builds[@]}" -gt 0 ]] ||
+        die "Unable to find latest published Tumbleweed builds."
     for build in "${latest_builds[@]}"; do
         if [[ "$type" = iso ]]; then
             assetname="Tumbleweed-NET-$arch-Snapshot$build-Media.iso$"
