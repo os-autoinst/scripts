@@ -249,17 +249,14 @@ latest_published_tw_builds() (
 
 get_image() (
     name=$1
-    image=$(
-        $openqa_cli api --host "$tw_openqa_host" assets |
-        jq -r "
-            [.assets[]
-            | select(.name
-            | test(\"$name\"))
-            | select(.size != null)]
-            | .[0]
-            | .name"
-    )
-    echo "$image"
+    $openqa_cli api --host "$tw_openqa_host" assets |
+    jq -r "
+        [.assets[]
+        | select(.name
+        | test(\"$name\"))
+        | select(.size != null)]
+        | .[0]
+        | .name"
 )
 
 find_latest_published_tumbleweed_image() (
