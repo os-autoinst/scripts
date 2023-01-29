@@ -45,6 +45,7 @@ update-deps:
 	tools/update-deps --specfile dist/rpm/os-autoinst-scripts-deps.spec
 
 clean:
+	$(RM) job_post_response
 	$(RM) -r $(BPAN)
 	$(RM) -r .pytest_cache/
 	find . -name __pycache__ | xargs -r $(RM) -r
