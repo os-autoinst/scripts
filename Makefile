@@ -1,13 +1,18 @@
-all:
+
+BPAN := .bpan
+
+
+#------------------------------------------------------------------------------
+# User targets
+#------------------------------------------------------------------------------
+default:
 
 test: checkstyle test-unit
 
-test-unit: bpan
+test-unit: $(BPAN)
 	prove -r test/ xt/
 	py.test
 
-bpan:
-	git clone https://github.com/bpan-org/bpan.git --depth 1
 
 test-online:
 	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues-multi
@@ -29,4 +34,12 @@ update-deps:
 	tools/update-deps --specfile dist/rpm/os-autoinst-scripts-deps.spec
 
 clean:
-	$(RM) -r bpan
+	$(RM) -r $(BPAN)
+	$(RM) -r .pytest_cache/
+	find . -name __pycache__ | xargs -r $(RM) -r
+
+#------------------------------------------------------------------------------
+# Internal targets
+#------------------------------------------------------------------------------
+$(BPAN):
+	git clone https://github.com/bpan-org/bpan.git --depth 1 $@
