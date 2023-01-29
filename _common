@@ -49,11 +49,11 @@ runjq() (
     jq_output_limit="${jq_output_limit:-15}"
     input=$(</dev/stdin)
     set +e
-    output=$(echo "$input" | jq "$@" 2>&1)
+    output=$(2>&1 jq "$@" <<<"$input")
     rc=$?
     set -e
     [[ $rc -eq 0 ]] || {
-        output=$(echo "$output" | head -"$jq_output_limit")
+        output=$(head -"$jq_output_limit" <<<"$output")
         warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
         return $rc
     }
@@ -71,11 +71,11 @@ runcurl() (
     set -e
     [[ $rc -eq 0 ]] ||
         die "curl ($(caller)): Error fetching ($*): $response"
-    status_code=$(echo "$response" | tail -1)
+    status_code=$(tail -1 <<<"$response")
     [[ $status_code == 200 ]] ||
         die "curl ($(caller)): Error fetching url ($*): Got Status $status_code"
     # remove last line
-    body=$(echo "$response" | tac | tail -n+2 | tac)
+    body=$(<<<"$response" tac | tail -n+2 | tac)
     echo "$body"
 )
 
@@ -161,21 +161,20 @@ handle_unknown() {
     if "$email_unreviewed" && [[ $group_id != null ]]; then
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
         group_description=$(
-            echo "$group_data" |
-                runjq -r '.[0].description'
+            runjq -r '.[0].description' <<<"$group_data"
         ) || true
         group_mailto=$(
-            echo "$group_description" |
-                perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' |
+            <<<"$group_description" \
+            perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' |
                 head -1
         )
         group_mailto=${group_mailto:-$notification_address}
         # Avoid sending notifications for jobs that were restarted
-        clone_id="$(echo "$job_data" | runjq -r '.job.clone_id')"
+        clone_id="$(<<<"$job_data" runjq -r '.job.clone_id')"
         if [[ $group_mailto && $clone_id == null ]]; then
-            group_name=$(echo "$group_data" | runjq -r '.[0].name')
-            job_name=$(echo "$job_data" | runjq -r '.job.name')
-            job_result=$(echo "$job_data" | runjq -r '.job.result')
+            group_name=$(<<<"$group_data" runjq -r '.[0].name')
+            job_name=$(<<<"$job_data" runjq -r '.job.name')
+            job_result=$(<<<"$job_data" runjq -r '.job.result')
             job_info="* Name: $job_name
 * Result: $job_result
 * Reason: $reason"
@@ -199,12 +198,12 @@ send-email() (
         echo "Would send email to '$mailto':"$'\n'"$email"
         return
     fi
-    echo "$email" | /usr/sbin/sendmail -t "$mailto"
+    <<<"$email" /usr/sbin/sendmail -t "$mailto"
 )
 
 multipart-from-markdown() (
     plain=$1 to_email=$2 from=$3 subject=$4
-    md=$(echo "$plain" | $markdown_cmd)
+    md=$(<<<"$plain" $markdown_cmd)
     boundary="_000_DB6PR0401MB2565_"
     header='Content-Type: multipart/alternative; boundary="'"$boundary"'"'
     body="--$boundary"'
