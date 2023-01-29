@@ -39,7 +39,7 @@ runcli() {
     output=$("${args[@]}" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" == 0 ]] && echo "$output" && return
+    [[ $rc -eq 0 ]] && echo "$output" && return
     warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
     return $rc
 }
@@ -54,7 +54,7 @@ runjq() {
     output=$(echo "$input" | jq "$@" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" == 0 ]] && echo "$output" && return
+    [[ $rc -eq 0 ]] && echo "$output" && return
     output=$(echo "$output" | head -"$jq_output_limit")
     warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
     return $rc
@@ -70,10 +70,10 @@ runcurl() {
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" == 0 ]] ||
+    [[ $rc -eq 0 ]] ||
         die "curl ($(caller)): Error fetching ($*): $response"
     status_code=$(echo "$response" | tail -1)
-    [[ "$status_code" == 200 ]] ||
+    [[ $status_code == 200 ]] ||
         die "curl ($(caller)): Error fetching url ($*): Got Status $status_code"
     # remove last line
     body=$(echo "$response" | tac | tail -n+2 | tac)
@@ -91,7 +91,7 @@ openqa-api-get() {
 
 comment_on_job() {
     local id=$1 comment=$2 force_result=${3:-''}
-    if $enable_force_result && [[ -n $force_result ]]; then
+    if $enable_force_result && [[ $force_result ]]; then
         comment="label:force_result:$force_result:$comment
 
 $comment"
@@ -109,12 +109,12 @@ search_log() {
             grep $grep_opts \
             "$search_term" "$out" 2>&1
     ) || rc=$?
-    if [[ "$rc" == 1 ]]; then
+    if [[ $rc -eq 1 ]]; then
         return 1
-    elif [[ "$rc" == 124 ]]; then
+    elif [[ $rc -eq 124 ]]; then
         warn "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
         return $rc
-    elif [[ "$rc" != 0 ]]; then
+    elif [[ $rc -ne 0 ]]; then
         # unexpected error, e.g. "exceeded PCRE's backtracking limit"
         warn "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
         return $rc
@@ -159,7 +159,7 @@ handle_unknown() {
     echo "$header"
     echo "$excerpt"
 
-    if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
+    if "$email_unreviewed" && [[ $group_id != null ]]; then
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
         group_description=$(
             echo "$group_data" |
@@ -173,7 +173,7 @@ handle_unknown() {
         group_mailto=${group_mailto:-$notification_address}
         # Avoid sending notifications for jobs that were restarted
         clone_id="$(echo "$job_data" | runjq -r '.job.clone_id')"
-        if [[ -n "$group_mailto" && "$clone_id" == 'null' ]]; then
+        if [[ $group_mailto && $clone_id == null ]]; then
             group_name=$(echo "$group_data" | runjq -r '.[0].name')
             job_name=$(echo "$job_data" | runjq -r '.job.name')
             job_result=$(echo "$job_data" | runjq -r '.job.result')
@@ -196,7 +196,7 @@ handle_unknown() {
 
 send-email() {
     local mailto=$1 email=$2
-    if [[ $dry_run == 1 ]]; then
+    if [[ $dry_run ]]; then
         echo "Would send email to '$mailto':"$'\n'"$email"
         return
     fi
@@ -272,10 +272,10 @@ find_latest_published_tumbleweed_image() {
     local latest_builds build image=null assetname
     local tw_group_id=$1 arch=$2 machine=$3 type=$4
     read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
-    [[ "${#latest_builds[@]}" -gt 0 ]] ||
+    [[ ${#latest_builds[@]} -gt 0 ]] ||
         die "Unable to find latest published Tumbleweed builds."
     for build in "${latest_builds[@]}"; do
-        if [[ "$type" = iso ]]; then
+        if [[ $type == iso ]]; then
             assetname="Tumbleweed-NET-$arch-Snapshot$build-Media.iso$"
         else
             assetname="Tumbleweed-$arch-$build-Tumbleweed\\\\@$machine.*.qcow"
@@ -283,12 +283,12 @@ find_latest_published_tumbleweed_image() {
         image=$(get_image "$assetname")
 
         # This published build has an image available
-        [[ "$image" != null ]] && break
+        [[ $image != null ]] && break
         # Published but no image available, we'll try and continue
         echo "Unable to determine $type image for Tumbleweed build '$build' (for architecture '$arch' and machine '$machine')."
     done
     # No published image available
-    if [[ "$image" = null ]]; then
+    if [[ $image = null ]]; then
         exit 2
     fi
     echo "$image"
