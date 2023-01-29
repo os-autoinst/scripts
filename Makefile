@@ -26,10 +26,10 @@ test-python:
 	py.test tests
 
 test-online:
-	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues-multi
-	env dry_run=1 ./trigger-openqa_in_openqa
+	dry_run=1 bash -x ./openqa-label-known-issues-multi < ./tests/incompletes
+	dry_run=1 ./trigger-openqa_in_openqa
 	# Invalid JSON causes the job to abort with an error
-	env tw_openqa_host=example.com dry_run=1 ./trigger-openqa_in_openqa | grep -v 'parse error:'
+	-tw_openqa_host=example.com dry_run=1 ./trigger-openqa_in_openqa
 
 checkstyle: test-shellcheck test-yaml
 
