@@ -11,8 +11,9 @@ enable_force_result=${enable_force_result:-false}
 
 client_call=()
 client_args=()
-markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown) \
-    || warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
+markdown_cmd=$(command -v Markdown.pl) ||
+    markdown_cmd=$(command -v markdown) ||
+    warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
 openqa_cli="${openqa_cli:-""}"
 
 error-handler() {
@@ -69,16 +70,22 @@ runcurl() {
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" == 0 ]] || die "curl ($(caller)): Error fetching ($*): $response"
+    [[ "$rc" == 0 ]] ||
+        die "curl ($(caller)): Error fetching ($*): $response"
     status_code=$(echo "$response" | tail -1)
-    [[ "$status_code" == 200 ]] || die "curl ($(caller)): Error fetching url ($*): Got Status $status_code"
+    [[ "$status_code" == 200 ]] ||
+        die "curl ($(caller)): Error fetching url ($*): Got Status $status_code"
     # remove last line
     body=$(echo "$response" | tac | tail -n+2 | tac)
     echo "$body"
 }
 
 openqa-api-get() {
-    client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
+    client_args=(
+        api \
+            --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' \
+            --host "$host_url"
+    )
     openqa-cli "${client_args[@]}" --json "$@"
 }
 
@@ -97,7 +104,11 @@ search_log() {
     local rc=0 grep_output
     local grep_opts="${grep_opts:-"-qPzo"}"
     # shellcheck disable=SC2086
-    grep_output=$(timeout "$grep_timeout" grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
+    grep_output=$(
+        timeout "$grep_timeout" \
+            grep $grep_opts \
+            "$search_term" "$out" 2>&1
+    ) || rc=$?
     if [[ "$rc" == 1 ]]; then
         return 1
     elif [[ "$rc" == 124 ]]; then
@@ -127,18 +138,38 @@ handle_unknown() {
     local group_data group_name group_description group_mailto header email excerpt=$snip_start
     local job_name job_result job_info
     to_review+=("$testurl ${reason:0:50}")
-    header="[$testurl]($testurl): Unknown issue, to be reviewed"$'\n'"-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
-    excerpt="Likely the error is within this log excerpt, last lines before shutdown:"$'\n'$'\n'"$snip_start"
+    header="[$testurl]($testurl): Unknown issue, to be reviewed"$'\n'
+    header+="-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
+    excerpt=$'Likely the error is within this log excerpt, last lines before shutdown:\n\n'"$snip_start"
     # Look for different termination points with likely context
-    excerpt+=$( (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/    # /' | head -n -1 | sed 's/\x1b\[[0-9;]*m//g')
+    excerpt+=$(
+        (
+            grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" ||
+            grep -B 10 'sending magic and exit' "$out" ||
+            grep -B 5 'killing command server.*because test execution ended through exception' "$out" ||
+            grep -B 5 'EXIT 1' "$out" ||
+            grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" ||
+            echo '(No log excerpt found)'
+        ) |
+            sed 's/^/    # /' |
+            head -n -1 |
+            sed 's/\x1b\[[0-9;]*m//g'
+    )
     excerpt+=$'\n'"$snip_end"
     echo "$header"
     echo "$excerpt"
 
     if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
-        group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
-        group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
+        group_description=$(
+            echo "$group_data" |
+                runjq -r '.[0].description'
+        ) || true
+        group_mailto=$(
+            echo "$group_description" |
+                perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' |
+                head -1
+        )
         group_mailto=${group_mailto:-$notification_address}
         # Avoid sending notifications for jobs that were restarted
         clone_id="$(echo "$job_data" | runjq -r '.job.clone_id')"
@@ -149,9 +180,15 @@ handle_unknown() {
             job_info="* Name: $job_name
 * Result: $job_result
 * Reason: $reason"
-            email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$job_info"$'\n'$'\n'"$excerpt"
+            email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$job_info"$'\n\n'"$excerpt"
             subject="Unreviewed issue (Group $group_id $group_name)"
-            email=$(multipart-from-markdown "$email" "$group_mailto" "openqa-label-known-issues <$from_email>" "$subject")
+            email=$(
+                multipart-from-markdown \
+                    "$email" \
+                    "$group_mailto" \
+                    "openqa-label-known-issues <$from_email>" \
+                    "$subject"
+            )
             send-email "$group_mailto" "$email"
         fi
     fi
@@ -202,15 +239,32 @@ $body
 
 latest_published_tw_builds() {
     local latest_builds group_id=$1
-    latest_builds=("$(runcurl -s "$tw_openqa_host/group_overview/$group_id.json" \
-        | jq -r '([.build_results[] | select(.tag.description=="published") | select(.version=="Tumbleweed") | .build] | sort | reverse)[]')")
+    latest_builds=("$(
+        runcurl -s "$tw_openqa_host/group_overview/$group_id.json" |
+        jq -r '(
+            [.build_results[]
+            | select(.tag.description=="published")
+            | select(.version=="Tumbleweed")
+            | .build]
+            | sort
+            | reverse
+        )[]'
+    )")
     echo "${latest_builds[@]}"
 }
 
 get_image() {
     local image name=$1
-    image=$($openqa_cli api --host "$tw_openqa_host" assets \
-        | jq -r "[.assets[] | select(.name | test(\"$name\")) | select(.size != null)] | .[0] | .name")
+    image=$(
+        $openqa_cli api --host "$tw_openqa_host" assets |
+        jq -r "
+            [.assets[]
+            | select(.name
+            | test(\"$name\"))
+            | select(.size != null)]
+            | .[0]
+            | .name"
+    )
     echo "$image"
 }
 
