@@ -23,7 +23,7 @@ client_args=()
 markdown_cmd=$(command -v Markdown.pl) ||
     markdown_cmd=$(command -v markdown) ||
     warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
-openqa_cli="${openqa_cli:-""}"
+openqa_cli=${openqa_cli-}
 
 error-handler() (
     line=$1
@@ -55,7 +55,7 @@ runcli() (
 # Wrapper around jq that outputs the first lines of JSON in case
 # jq has a problem with it, and the calling command and line
 runjq() (
-    jq_output_limit="${jq_output_limit:-15}"
+    jq_output_limit=${jq_output_limit:-15}
     input=$(</dev/stdin)
     set +e
     output=$(2>&1 jq "$@" <<<"$input")
@@ -72,7 +72,7 @@ runjq() (
 # Wrapper around curl that reports the HTTP status if it is not 200, and the
 # calling command and line
 runcurl() (
-    verbose="${verbose:-"false"}"
+    verbose=${verbose:-false}
     $verbose && warn "[debug] curl: Fetching ($*)"
     set +e
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
@@ -110,7 +110,7 @@ $comment"
 search_log() {
     local id=$1 search_term=$2 out=$3 grep_timeout=${4:-5}
     local rc=0 grep_output
-    local grep_opts="${grep_opts:-"-qPzo"}"
+    local grep_opts=${grep_opts:-'-qPzo'}
     # shellcheck disable=SC2086
     grep_output=$(
         timeout "$grep_timeout" \
@@ -179,7 +179,7 @@ handle_unknown() {
         )
         group_mailto=${group_mailto:-$notification_address}
         # Avoid sending notifications for jobs that were restarted
-        clone_id="$(<<<"$job_data" runjq -r '.job.clone_id')"
+        clone_id=$(<<<"$job_data" runjq -r '.job.clone_id')
         if [[ $group_mailto && $clone_id == null ]]; then
             group_name=$(<<<"$group_data" runjq -r '.[0].name')
             job_name=$(<<<"$job_data" runjq -r '.job.name')
@@ -213,7 +213,7 @@ send-email() (
 multipart-from-markdown() (
     plain=$1 to_email=$2 from=$3 subject=$4
     md=$(<<<"$plain" $markdown_cmd)
-    boundary="_000_DB6PR0401MB2565_"
+    boundary=_000_DB6PR0401MB2565_
     header='Content-Type: multipart/alternative; boundary="'"$boundary"'"'
     body="--$boundary"'
 Content-Type: text/plain; charset="utf-8"
