@@ -1,37 +1,57 @@
-.PHONY: all
-all:
+include .setup.mk
 
-.PHONY: test
+ifndef test
+test := test/
+ifdef GIT_STATUS_IS_CLEAN
+test += xt/
+endif
+endif
+
+BPAN := .bpan
+
+
+#------------------------------------------------------------------------------
+# User targets
+#------------------------------------------------------------------------------
+default:
+
 test: checkstyle test-unit
 
-.PHONY: test-unit
-test-unit: bpan
-	prove -r test/ xt/
-	py.test
+test-unit: test-bash test-python
 
-bpan:
-	git clone https://github.com/bpan-org/bpan.git --depth 1
+test-bash: $(BPAN)
+	prove -r $(if $v,-v )$(test)
 
-.PHONY: test-online
+test-python:
+	py.test tests
+
 test-online:
-	cat ./tests/incompletes | env dry_run=1 bash -ex ./openqa-label-known-issues-multi
-	env dry_run=1 ./trigger-openqa_in_openqa
+	dry_run=1 bash -x ./openqa-label-known-issues-multi < ./tests/incompletes
+	dry_run=1 ./trigger-openqa_in_openqa
 	# Invalid JSON causes the job to abort with an error
-	env tw_openqa_host=example.com dry_run=1 ./trigger-openqa_in_openqa | grep -v 'parse error:'
+	-tw_openqa_host=example.com dry_run=1 ./trigger-openqa_in_openqa
 
-.PHONY: checkstyle
 checkstyle: test-shellcheck test-yaml
 
-.PHONY: test-shellcheck
 test-shellcheck:
 	@which shellcheck >/dev/null 2>&1 || echo "Command 'shellcheck' not found, can not execute shell script checks"
 	shellcheck -x $$(file --mime-type * | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p')
 
-.PHONY: test-yaml
 test-yaml:
 	@which yamllint >/dev/null 2>&1 || echo "Command 'yamllint' not found, can not execute YAML syntax checks"
 	yamllint --strict $$(git ls-files "*.yml" "*.yaml" ":!external/")
 
-.PHONY: update-deps
 update-deps:
 	tools/update-deps --specfile dist/rpm/os-autoinst-scripts-deps.spec
+
+clean:
+	$(RM) job_post_response
+	$(RM) -r $(BPAN)
+	$(RM) -r .pytest_cache/
+	find . -name __pycache__ | xargs -r $(RM) -r
+
+#------------------------------------------------------------------------------
+# Internal targets
+#------------------------------------------------------------------------------
+$(BPAN):
+	git clone https://github.com/bpan-org/bpan.git --depth 1 $@

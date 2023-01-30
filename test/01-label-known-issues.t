@@ -39,28 +39,28 @@ try "search_log 123 'foo [z-a]' $logfile2"
 is "$rc" 2 'search_log with invalid pattern'
 has "$got" 'range out of order in character class' 'correct error message'
 
-try-client-output label_on_issue 123 'foo.*bar' Label 1 softfailed
+try-client-output label-on-issue 123 'foo.*bar' Label 1 softfailed
 expected="client_call -X POST jobs/123/comments text=Label
 client_call -X POST jobs/123/restart"
-is "$rc" 0 'successful label_on_issue'
-is "$got" "$expected" 'label_on_issue with restart and disabled force_result'
+is "$rc" 0 'successful label-on-issue'
+is "$got" "$expected" 'label-on-issue with restart and disabled force_result'
 
-try-client-output enable_force_result=true label_on_issue 123 'foo.*bar' Label 1 softfailed
+try-client-output enable_force_result=true label-on-issue 123 'foo.*bar' Label 1 softfailed
 expected="client_call -X POST jobs/123/comments text=label:force_result:softfailed:Label
 
 Label
 client_call -X POST jobs/123/restart"
-is "$rc" 0 'successful label_on_issue'
-is "$got" "$expected" 'label_on_issue with restart and force_result'
+is "$rc" 0 'successful label-on-issue'
+is "$got" "$expected" 'label-on-issue with restart and force_result'
 
-try-client-output label_on_issue 123 "foo.*bar" Label
+try-client-output label-on-issue 123 "foo.*bar" Label
 expected="client_call -X POST jobs/123/comments text=Label"
-is "$rc" 0 'successful label_on_issue'
-is "$got" "$expected" 'label_on_issue with restart and force_result'
+is "$rc" 0 'successful label-on-issue'
+is "$got" "$expected" 'label-on-issue with restart and force_result'
 
-try-client-output "label_on_issue 123 'foo bar' Label"
-is "$rc" 1 'label_on_issue did not find search term'
-is "$got" "" 'label_on_issue with restart and force_result'
+try-client-output "label-on-issue 123 'foo bar' Label"
+is "$rc" 1 'label-on-issue did not find search term'
+is "$got" "" 'label-on-issue with restart and force_result'
 
 send-email() {
     local mailto=$1 email=$2

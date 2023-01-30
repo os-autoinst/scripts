@@ -1,6 +1,6 @@
 #!/bash
 
-export BPAN_ROOT=$PWD/bpan
+export BPAN_ROOT=$PWD/.bpan
 
 source "$BPAN_ROOT/test/init"
 

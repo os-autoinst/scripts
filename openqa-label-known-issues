@@ -84,22 +84,22 @@ label_on_issues_from_issue_tracker() {
             if [[ $tracker == 'openqa-force-result' && $after =~ :force_result:([a-z_]+) ]]; then
                 force_result=${BASH_REMATCH[1]}
             fi
-            label_on_issue "$id" "$search" "$label" "${after//*\":retry*/1}" "$force_result" && break
+            label-on-issue "$id" "$search" "$label" "${after//*\":retry*/1}" "$force_result" && break
         fi
         done
     )
 }
 
 label_on_issues_without_tickets() {
-    if label_on_issue "$id" '([dD]ownload.*failed.*404)[\S\s]*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then return
-    elif label_on_issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then return
-    elif label_on_issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then return
-    elif label_on_issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then return
-    elif label_on_issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then return
-    elif label_on_issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then return
-    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then return
-    elif label_on_issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set|loadtest needs a script below)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then return
-    elif label_on_issue "$id" '\[error\] Failed to download' 'label:download_error potentially out-of-space worker?' 1; then return
+    if label-on-issue "$id" '([dD]ownload.*failed.*404)[\S\s]*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then return
+    elif label-on-issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then return
+    elif label-on-issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then return
+    elif label-on-issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then return
+    elif label-on-issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then return
+    elif label-on-issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then return
+    elif label-on-issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then return
+    elif label-on-issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set|loadtest needs a script below)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then return
+    elif label-on-issue "$id" '\[error\] Failed to download' 'label:download_error potentially out-of-space worker?' 1; then return
     fi
     false
 }
