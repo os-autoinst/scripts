@@ -57,8 +57,8 @@ clean:
 # Internal targets
 #------------------------------------------------------------------------------
 $(BPAN):
-	git clone https://github.com/bpan-org/bpan.git --depth 1 $@
+	git clone --quiet https://github.com/bpan-org/bpan.git --depth 1 $@
 
 $(VENV):
 	$(PYTHON) -m venv $@
-	pip install pytest requests
+	pip install pytest requests &>/dev/null
