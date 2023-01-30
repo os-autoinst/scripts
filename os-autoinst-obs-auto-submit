@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+source "$(dirname "${BASH_SOURCE[0]}")/_common"
 
 export LC_ALL=C
 src_project="${src_project:-"devel:openQA"}"

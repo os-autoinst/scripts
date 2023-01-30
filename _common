@@ -1,4 +1,9 @@
-#!/bin/bash -e
+#!/bash
+
+# Strict Bash settings:
+set -o errexit -o errtrace -o nounset -o pipefail
+# If Bash 4.4+
+shopt -s inherit_errexit 2>/dev/null || true
 
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
@@ -6,6 +11,10 @@
 warn() ( printf '%s\n' "$@" >&2 )
 
 die() { warn "$@"; exit 1; }
+
+# Set minimal Bash to 4.2
+(shopt -s compat41) ||
+  die "Bash 4.2+ is required"
 
 enable_force_result=${enable_force_result:-false}
 
