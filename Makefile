@@ -38,7 +38,7 @@ checkstyle: test-shellcheck test-yaml
 
 test-shellcheck:
 	$(call run-with,shellcheck,$@,\
-	shellcheck -x $$(file --mime-type * | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p'))
+	shellcheck -x $$(grep -rEl '^#!/.*sh' [a-z]* | grep -v '\.swp$$' | sort))
 
 test-yaml:
 	$(call run-with,yamllint,$@,\

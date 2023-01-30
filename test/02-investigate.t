@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=1091,2034,2154
+
 source test/init
 bpan:source bashplus +err +fs +sym
 
@@ -39,36 +41,36 @@ openqa-cli() {
         echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
     elif [[ "$1 $2" == "--json jobs/35" ]]; then
         echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
-    elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
+    elif [[ $* == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
         echo '{"id": 1234}'
-    elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
+    elif [[ $* == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
         echo true > "$comment_1234_updated"
-    elif [[ $@ == '-X DELETE jobs/30/comments/1234' ]]; then
+    elif [[ $* == '-X DELETE jobs/30/comments/1234' ]]; then
         echo true > "$comment_1234_deleted"
-    elif [[ $@ == $'-X POST jobs/31/comments text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
+    elif [[ $* == $'-X POST jobs/31/comments text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
         echo true > "$comment_for_job_31_created"
-    elif [[ $@ == "-X GET jobs/30/comments" ]]; then
+    elif [[ $* == "-X GET jobs/30/comments" ]]; then
         echo '[{"id": 1234, "text":"Starting investigation for 31"},{"id": 1235, "text":"unrelated comment"}]'
-    elif [[ $@ == "-X POST jobs/32/comments text=Starting investigation for job 32" ]]; then
+    elif [[ $* == "-X POST jobs/32/comments text=Starting investigation for job 32" ]]; then
         echo '{"id": 1237}'
-    elif [[ $@ == "-X GET jobs/32/comments" ]]; then
+    elif [[ $* == "-X GET jobs/32/comments" ]]; then
         echo '[{"id": 1236, "text":"Starting investigation for job 32"},{"id": 1237, "text":"Starting investigation for job 32"}]'
-    elif [[ $@ =~ "-X POST jobs/35/comments" ]]; then
-        warn "Commenting 35 ($@)"
+    elif [[ $* =~ "-X POST jobs/35/comments" ]]; then
+        warn "Commenting 35 ($*)"
         exit 99
-    elif [[ $@ == '--apibase  --json tests/27/dependencies_ajax' ]]; then
+    elif [[ $* == '--apibase  --json tests/27/dependencies_ajax' ]]; then
         echo '{"cluster":{}, "edges":[], "nodes":[{"id":27,"state":"done","result":"passed"}]}'
-    elif [[ $@ == '--apibase  --json tests/28/dependencies_ajax' ]]; then
+    elif [[ $* == '--apibase  --json tests/28/dependencies_ajax' ]]; then
         echo '{"cluster":{}, "edges":[], "nodes":[{"id":28,"state":"done","result":"failed"}]}'
-    elif [[ $@ == '--apibase  --json tests/33/dependencies_ajax' ]]; then
+    elif [[ $* == '--apibase  --json tests/33/dependencies_ajax' ]]; then
         echo '{"cluster":{}, "edges":[], "nodes":[]}'
-    elif [[ $@ == '--apibase  --json tests/29/dependencies_ajax' ]]; then
+    elif [[ $* == '--apibase  --json tests/29/dependencies_ajax' ]]; then
         echo '{"cluster":{"cluster_foo":[28],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"done","result":"failed"},{"id":29,"state":"done","result":"passed"}]}'
-    elif [[ $@ == '--apibase  --json tests/30/dependencies_ajax' ]]; then
+    elif [[ $* == '--apibase  --json tests/30/dependencies_ajax' ]]; then
         echo '{"cluster":{"cluster_foo":[28,30],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"uploading","result":"none"},{"id":30,"state":"done","result":"passed"}]}'
-    elif [[ $@ == '--apibase  --json tests/32/dependencies_ajax' ]]; then
+    elif [[ $* == '--apibase  --json tests/32/dependencies_ajax' ]]; then
         echo '{"cluster":{"cluster_foo":[28,32],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"cancelled","result":"none"},{"id":32,"state":"done","result":"failed"},{"id":29,"state":"running","result":"running"}]}'
-    elif [[ $@ == '--apibase  --json tests/31/dependencies_ajax' ]]; then
+    elif [[ $* == '--apibase  --json tests/31/dependencies_ajax' ]]; then
         # job with cancelled job in the cluster (should be treated like a done job)
         echo '{"cluster":{"cluster_foo":[28,31],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":28,"state":"cancelled","result":"none"},{"id":31,"state":"done","result":"failed"}]}'
     else
@@ -76,9 +78,9 @@ openqa-cli() {
     fi
 }
 
-clone_call=echo
+clone_call='echo'
 _clone_call() {
-    echo "$@" >&2
+    echo "$*" >&2
 }
 clone_call=_clone_call
 try clone 23 24
@@ -87,7 +89,7 @@ testlabel="vim:investigate"
 has "$got" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
 has "$got" '_TRIGGER_JOB_DONE_HOOK=1' "job is cloned with _TRIGGER_JOB_DONE_HOOK"
 
-clone_call=echo
+clone_call='echo'
 try investigate 27
 is "$rc" 0 'success regardless of actually triggered jobs'
 is "$got" "Job 27 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
@@ -109,7 +111,7 @@ is "$rc" 0 'investigation not postponed if other job in dependency tree not done
 
 try force=true investigate 31
 is "$rc" 0 'success when job is skipped (because of exclude_no_group and job w/o group)'
-has "$got" 'Job w/o job group, $exclude_no_group is set, skipping investigation'
+has "$got" "Job w/o job group, \$exclude_no_group is set, skipping investigation"
 
 try investigate 33
 is "$rc" 0 'success (33)'

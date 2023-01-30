@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=1091,2034,2154
+
 source test/init
 
 plan tests 18
-dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
 
 source "$dir/../openqa-label-known-issues-and-investigate-hook"
 client_args=(api --host "$host_url")
@@ -13,7 +14,7 @@ export INVESTIGATE_RETRIGGER_HOOK=false
 
 # Mocking
 openqa-trigger-bisect-jobs() {
-    echo "openqa-trigger-bisect-jobs ($@)"
+    echo "openqa-trigger-bisect-jobs ($*)"
 }
 openqa-label-known-issues() {
     testurl=$1
