@@ -8,7 +8,9 @@ endif
 endif
 
 BPAN := .bpan
+VENV := .venv
 
+export PATH := .venv/bin:$(PATH)
 
 #------------------------------------------------------------------------------
 # User targets
@@ -23,9 +25,8 @@ test-bash: $(BPAN)
 	$(call run-with,prove,$@,\
 	prove -r $(if $v,-v )$(test))
 
-test-python:
-	$(call run-with,py.test,$@,\
-	py.test tests)
+test-python: $(VENV)
+	py.test tests
 
 test-online:
 	dry_run=1 bash -x ./openqa-label-known-issues-multi < ./tests/incompletes
@@ -48,7 +49,7 @@ update-deps:
 
 clean:
 	$(RM) job_post_response
-	$(RM) -r $(BPAN)
+	$(RM) -r $(BPAN) $(VENV)
 	$(RM) -r .pytest_cache/
 	find . -name __pycache__ | xargs -r $(RM) -r
 
@@ -57,3 +58,7 @@ clean:
 #------------------------------------------------------------------------------
 $(BPAN):
 	git clone https://github.com/bpan-org/bpan.git --depth 1 $@
+
+$(VENV):
+	$(PYTHON) -m venv $@
+	pip install pytest requests
