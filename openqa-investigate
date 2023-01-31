@@ -3,11 +3,8 @@
 # Usage
 # echo jobnumber | openqa-investigate-multi
 
-# http://redsymbol.net/articles/unofficial-bash-strict-mode/
-set -euo pipefail
-
 # shellcheck source=/dev/null
-. "$(dirname "${BASH_SOURCE[0]}")"/_common
+source "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
@@ -272,4 +269,4 @@ main() {
     investigate "$@"
 }
 
-caller 0 >/dev/null || main "$@"
+[[ $0 != "${BASH_SOURCE[0]}" ]] || main "$@"

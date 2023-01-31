@@ -5,7 +5,7 @@
 # Can be configured by variables.
 
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+source "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 dry_run="${dry_run:-"0"}"
 target_host="${target_host:-"openqa.opensuse.org"}"
@@ -47,4 +47,4 @@ main() {
         "${CLI_ARGS[@]}"
 }
 
-main
+[[ $0 != "${BASH_SOURCE[0]}" ]] || main "$@"

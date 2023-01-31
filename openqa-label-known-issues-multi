@@ -1,9 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # Usage
 # echo https://openqahost/tests/1234 | openqa-label-known-issues-multi
-
-set -o pipefail -o errtrace
 
 source "$(dirname "$0")"/openqa-label-known-issues
 
@@ -27,4 +25,4 @@ main() {
     print_summary
 }
 
-caller 0 >/dev/null || main "$@"
+[[ $0 != "${BASH_SOURCE[0]}" ]] || main "$@"
