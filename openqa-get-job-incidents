@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# 
+# Summary: List incidents and associated packages of openQA jobs
+# 
+
+import requests
+import json
+import argparse
+import sys
+
+def get_job_url(job) :
+    # Plain job id's are assumed to be jobs on OSD
+    url = None
+    try :
+        return "https://openqa.suse.de/api/v1/jobs/%d" % (int(job))
+    except ValueError:
+        pass
+    
+    ## Check if the job is an api reference, otherwise we have to transform the test link into an API link
+    if '#' in job :    # remove fragment if present
+        job = job[:job.find("#")]
+    i = job.find("/tests")
+    if i > 0 :
+        return "%s/api/v1/jobs/%d" % (job[:i], int(job[i+7:]))
+    else :
+        # Assume it's '$HOST/t1234"
+        i = job.rfind("/t")
+        return "%s/api/v1/jobs/%d" % (job[:i], int(job[i+2:]))
+
+def fetch_job(job) :
+    url = get_job_url(job)
+    req = requests.get(url)
+    req.raise_for_status()
+    return req.json()['job']
+
+def fetch_incident(incident) :
+    url = "http://dashboard.qam.suse.de/api/incidents/%d" % (incident)
+    req = requests.get(url)
+    req.raise_for_status()
+    return req.json()
+
+def print_incident(iid) :
+    try :
+        incident = fetch_incident(iid)
+        rr = int(incident['rr_number'])
+        packages = incident['packages']
+        print("  %6d:%-8d %s" % (iid, rr, ",".join(packages)))
+    except requests.exceptions.HTTPError as e:
+        print("  %6d - %s" % (iid, str(e)))
+
+def run_diff(job1, job2) :
+    sys.stderr.write("Diff between %s and %s\n" % (get_job_url(job1),get_job_url(job2)))
+    
+    job1, job2 = fetch_job(job1), fetch_job(job2)
+    def get_incidents(job) :
+        settings = job['settings']
+        incidents = []
+        for issue in [x for x in settings if "_TEST_ISSUES" in x] :
+            incidents += [int(x.strip()) for x in settings[issue].split(",")]
+        return set(incidents)  # remove duplicates
+    inc1,inc2 = get_incidents(job1),get_incidents(job2)
+    
+    # List diff plus
+    plus = [x for x in inc2 if x not in inc1]
+    for p in plus :
+        sys.stdout.write("+")
+        print_incident(p)
+    # List diff minus
+    minus = [x for x in inc1 if x not in inc2]
+    for m in minus :
+        sys.stdout.write("-")
+        print_incident(m)
+    
+    if len(plus) == 0 and len(minus) == 0 :
+        sys.stderr.write("diff _TEST_ISSUES is empty\n")
+
+
+if __name__ == "__main__" :
+    parser = argparse.ArgumentParser()
+    parser.add_argument("jobs", help="openQA jobs go here", nargs="+")
+    parser.add_argument("-d", "--diff", help="List only the diff between two jobs", action="store_true",default=False)
+    args = parser.parse_args()
+    
+    jobs = args.jobs
+    try :
+        if args.diff :
+            if len(jobs) != 2 :
+                sys.stderr.write("job diff requires exactly two jobs")
+                sys.exit(1)
+            run_diff(jobs[0], jobs[1])
+        else :
+            for job in jobs :
+                job = fetch_job(job)
+                settings = job['settings']
+                issues = [x for x in settings if "_TEST_ISSUES" in x]
+                issues.sort()
+                for issue in issues :
+                    print(issue)
+                    incidents = [int(x.strip()) for x in settings[issue].split(",")]
+                    for iid in incidents :
+                        print_incident(iid)
+    except KeyboardInterrupt:
+        sys.stderr.write("Cancelled\n")
+        sys.exit(1)
