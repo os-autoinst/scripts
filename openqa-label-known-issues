@@ -17,7 +17,7 @@ issue_marker="${issue_marker:-"auto_review%3A"}"
 issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/issues.json?limit=200&subproject_id=*&subject=~${issue_marker}"}"
 reason_min_length="${reason_min_length:-"8"}"
 grep_timeout="${grep_timeout:-5}"
-email_unreviewed=${email_unreviewed:-true}
+email_unreviewed=${email_unreviewed:-false}
 notification_address=${notification_address:-}
 from_email=${from_email:-openqa-label-known-issues@open.qa}
 curl_args=(--user-agent "openqa-label-known-issues")
