@@ -57,7 +57,8 @@ false matches of job failures unrelated to the specified ticket.
   example from progress.opensuse.org, label the job and retrigger if specified
   in the issue (see the source code for details how to mark tickets)
 
-For tickets referencing "auto_review" it is suggested to add a text section based on the following template:
+For tickets referencing "auto_review" it is suggested to add a text section
+based on the following template:
 
 ```
 ## Steps to reproduce
@@ -183,7 +184,9 @@ It will be automatically cloned.
     make checkstyle
 
 #### openqa-label-known-issues
-Generate a list of recent incomplete jobs of your local openQA instance. Here's an example using `psql`:
+
+Generate a list of recent incomplete jobs of your local openQA instance. Here's
+an example using `psql`:
 
 ```
 psql \

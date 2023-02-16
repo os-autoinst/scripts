@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -x
 
 # Monitor an openQA job by polling the status of a job over the API.
 #
@@ -7,7 +7,8 @@
 # code corresponding to the jobs' result. For example all jobs pass it would exit
 # this program with exit code 0 for success; otherwise with 1.
 
-set -euo pipefail
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 # configuration variables with defaults.
 sleep_time="${sleep_time:-"10"}"
@@ -16,9 +17,6 @@ host="${host:-"https://openqa.opensuse.org"}"
 openqa_groupid="${openqa_groupid:-"24"}"
 obs_component="${obs_component:-"package"}"
 obs_package_name="${1:-""}"
-
-# shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
 
 [[ -f job_post_response ]] || (echo "Need job response status file 'job_post_response'" && exit 2)
 declare -A failed_versions

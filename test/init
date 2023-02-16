@@ -1,5 +1,7 @@
 #!/bash
 
+# shellcheck disable=2034
+
 export BPAN_ROOT=$PWD/.bpan
 
 source "$BPAN_ROOT/test/init"

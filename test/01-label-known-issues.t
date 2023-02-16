@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=1091,2034,2154
+
 source test/init
 
 plan tests 26
@@ -8,7 +10,7 @@ source _common
 
 client_output=''
 mock-client() {
-    client_output+="client_call $@"$'\n'
+    client_output+="client_call $*"$'\n'
 }
 
 client_call=(mock-client "${client_call[@]}")
@@ -19,6 +21,7 @@ logfile3=$dir/data/01-os-autoinst.txt.3
 try-client-output() {
   out=$logfile1
   client_output=''
+  # shellcheck disable=2016
   try "$*"' && echo "$client_output"'
 }
 
@@ -68,7 +71,8 @@ send-email() {
     echo "$email" >&2
 }
 openqa-cli() {
-    local id=$(basename "$4")
+    local id
+    id=$(basename "$4")
     cat "$dir/data/group$id.json"
 }
 from_email=foo@bar

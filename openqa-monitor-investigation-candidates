@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 set -euo pipefail
 host="${host:-"openqa.opensuse.org"}"
 ssh_host="${ssh_host:-"$host"}"

@@ -1,12 +1,10 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
 
 # Usage
 # openqa-label-known-issues https://openqahost/tests/1234
 
-set -o pipefail -o errtrace
-
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+source "$(dirname "${BASH_SOURCE[0]}")/_common"
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
@@ -153,4 +151,4 @@ label_issue() {
     investigate_issue "$testurl"
 }
 
-caller 0 >/dev/null || label_issue "$@"
+[[ $0 != "${BASH_SOURCE[0]}" ]] || label_issue "$@"

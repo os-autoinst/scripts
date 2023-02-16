@@ -1,88 +1,105 @@
-#!/bin/bash -e
+#!/bash
+
+# Strict Bash settings:
+set -o errexit -o errtrace -o nounset -o pipefail
+# If Bash 4.4+
+shopt -s inherit_errexit 2>/dev/null || true
 
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
 
-warn() { printf '%s\n' "$@" >&2; }
+warn() ( printf '%s\n' "$@" >&2 )
+
+die() { warn "$@"; exit 1; }
+
+# Set minimal Bash to 4.2
+(shopt -s compat41) ||
+  die "Bash 4.2+ is required"
 
 enable_force_result=${enable_force_result:-false}
 
 client_call=()
 client_args=()
-markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown) \
-    || warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
-openqa_cli="${openqa_cli:-""}"
+markdown_cmd=$(command -v Markdown.pl) ||
+    markdown_cmd=$(command -v markdown) ||
+    warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
+openqa_cli=${openqa_cli-}
 
-error-handler() {
-    local line=$1
+error-handler() (
+    line=$1
     # shellcheck disable=SC2207
-    local c=($(caller))
+    c=($(caller))
     warn "${c[1]}: ERROR: line $line"
-}
+)
 
 # From openqa-cli JSON output filter and return the id/ids of jobs,
 # for example from a query to the 'jobs get' route or the result string of a
 # 'jobs post' or 'isos post'
-job_ids() {
-    jq -r '.ids[]' "$@"
-}
+job_ids() ( jq -r '.ids[]' "$@" )
 
 # Wrapper around openqa-cli that outputs the api arguments in case of
 # an error, and the calling command and line
-runcli() {
-    local args=("$@")
-    local rc output
+runcli() (
+    args=("$@")
     set +e
     output=$("${args[@]}" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" == 0 ]] && echo "$output" && return
-    warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
-    return $rc
-}
+    [[ $rc -eq 0 ]] || {
+        warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
+        return $rc
+    }
+    echo "$output"
+)
 
 # Wrapper around jq that outputs the first lines of JSON in case
 # jq has a problem with it, and the calling command and line
-runjq() {
-    local rc output
-    local jq_output_limit="${jq_output_limit:-15}"
+runjq() (
+    jq_output_limit=${jq_output_limit:-15}
     input=$(</dev/stdin)
     set +e
-    output=$(echo "$input" | jq "$@" 2>&1)
+    output=$(2>&1 jq "$@" <<<"$input")
     rc=$?
     set -e
-    [[ "$rc" == 0 ]] && echo "$output" && return
-    output=$(echo "$output" | head -"$jq_output_limit")
-    warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
-    return $rc
-}
+    [[ $rc -eq 0 ]] || {
+        output=$(head -"$jq_output_limit" <<<"$output")
+        warn "jq ($(caller)): $output (rc: $rc Input: >>>$input<<<)"
+        return $rc
+    }
+    echo "$output"
+)
 
 # Wrapper around curl that reports the HTTP status if it is not 200, and the
 # calling command and line
-runcurl() {
-    local rc status_code body response
-    local verbose="${verbose:-"false"}"
+runcurl() (
+    verbose=${verbose:-false}
     $verbose && warn "[debug] curl: Fetching ($*)"
     set +e
     response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
     rc=$?
     set -e
-    [[ "$rc" != 0 ]] && warn "curl ($(caller)): Error fetching ($*): $response" && return 1
-    status_code=$(echo "$response" | tail -1)
-    [[ "$status_code" != 200 ]] && warn "curl ($(caller)): Error fetching url ($*): Got Status $status_code" && return 1
+    [[ $rc -eq 0 ]] ||
+        die "curl ($(caller)): Error fetching ($*): $response"
+    status_code=$(tail -1 <<<"$response")
+    [[ $status_code == 200 ]] ||
+        die "curl ($(caller)): Error fetching url ($*): Got Status $status_code"
     # remove last line
-    body=$(echo "$response" | tac | tail -n+2 | tac)
+    body=$(<<<"$response" tac | tail -n+2 | tac)
     echo "$body"
-}
+)
 
 openqa-api-get() {
-    client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
+    client_args=(
+        api \
+            --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' \
+            --host "$host_url"
+    )
     openqa-cli "${client_args[@]}" --json "$@"
 }
 
 comment_on_job() {
     local id=$1 comment=$2 force_result=${3:-''}
-    if $enable_force_result && [[ -n $force_result ]]; then
+    if $enable_force_result && [[ $force_result ]]; then
         comment="label:force_result:$force_result:$comment
 
 $comment"
@@ -93,15 +110,19 @@ $comment"
 search_log() {
     local id=$1 search_term=$2 out=$3 grep_timeout=${4:-5}
     local rc=0 grep_output
-    local grep_opts="${grep_opts:-"-qPzo"}"
+    local grep_opts=${grep_opts:-'-qPzo'}
     # shellcheck disable=SC2086
-    grep_output=$(timeout "$grep_timeout" grep $grep_opts "$search_term" "$out" 2>&1) || rc=$?
-    if [[ "$rc" == 1 ]]; then
+    grep_output=$(
+        timeout "$grep_timeout" \
+            grep $grep_opts \
+            "$search_term" "$out" 2>&1
+    ) || rc=$?
+    if [[ $rc -eq 1 ]]; then
         return 1
-    elif [[ "$rc" == 124 ]]; then
+    elif [[ $rc -eq 124 ]]; then
         warn "grep was killed, possibly timed out: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
         return $rc
-    elif [[ "$rc" != 0 ]]; then
+    elif [[ $rc -ne 0 ]]; then
         # unexpected error, e.g. "exceeded PCRE's backtracking limit"
         warn "grep failed: cmd=>grep $grep_opts '$search_term' '$out'< output='$grep_output'"
         return $rc
@@ -125,50 +146,74 @@ handle_unknown() {
     local group_data group_name group_description group_mailto header email excerpt=$snip_start
     local job_name job_result job_info
     to_review+=("$testurl ${reason:0:50}")
-    header="[$testurl]($testurl): Unknown issue, to be reviewed"$'\n'"-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
-    excerpt="Likely the error is within this log excerpt, last lines before shutdown:"$'\n'$'\n'"$snip_start"
+    header="[$testurl]($testurl): Unknown issue, to be reviewed"$'\n'
+    header+="-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
+    excerpt=$'Likely the error is within this log excerpt, last lines before shutdown:\n\n'"$snip_start"
     # Look for different termination points with likely context
-    excerpt+=$( (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/    # /' | head -n -1 | sed 's/\x1b\[[0-9;]*m//g')
+    excerpt+=$(
+        (
+            grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" ||
+            grep -B 10 'sending magic and exit' "$out" ||
+            grep -B 5 'killing command server.*because test execution ended through exception' "$out" ||
+            grep -B 5 'EXIT 1' "$out" ||
+            grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" ||
+            echo '(No log excerpt found)'
+        ) |
+            sed 's/^/    # /' |
+            head -n -1 |
+            sed 's/\x1b\[[0-9;]*m//g'
+    )
     excerpt+=$'\n'"$snip_end"
     echo "$header"
     echo "$excerpt"
 
-    if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
+    if "$email_unreviewed" && [[ $group_id != null ]]; then
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
-        group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
-        group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
+        group_description=$(
+            runjq -r '.[0].description' <<<"$group_data"
+        ) || true
+        group_mailto=$(
+            <<<"$group_description" \
+            perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' |
+                head -1
+        )
         group_mailto=${group_mailto:-$notification_address}
         # Avoid sending notifications for jobs that were restarted
-        clone_id="$(echo "$job_data" | runjq -r '.job.clone_id')"
-        if [[ -n "$group_mailto" && "$clone_id" == 'null' ]]; then
-            group_name=$(echo "$group_data" | runjq -r '.[0].name')
-            job_name=$(echo "$job_data" | runjq -r '.job.name')
-            job_result=$(echo "$job_data" | runjq -r '.job.result')
+        clone_id=$(<<<"$job_data" runjq -r '.job.clone_id')
+        if [[ $group_mailto && $clone_id == null ]]; then
+            group_name=$(<<<"$group_data" runjq -r '.[0].name')
+            job_name=$(<<<"$job_data" runjq -r '.job.name')
+            job_result=$(<<<"$job_data" runjq -r '.job.result')
             job_info="* Name: $job_name
 * Result: $job_result
 * Reason: $reason"
-            email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$job_info"$'\n'$'\n'"$excerpt"
+            email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$job_info"$'\n\n'"$excerpt"
             subject="Unreviewed issue (Group $group_id $group_name)"
-            email=$(multipart-from-markdown "$email" "$group_mailto" "openqa-label-known-issues <$from_email>" "$subject")
+            email=$(
+                multipart-from-markdown \
+                    "$email" \
+                    "$group_mailto" \
+                    "openqa-label-known-issues <$from_email>" \
+                    "$subject"
+            )
             send-email "$group_mailto" "$email"
         fi
     fi
 }
 
-send-email() {
-    local mailto=$1 email=$2
-    if [[ $dry_run == 1 ]]; then
+send-email() (
+    mailto=$1 email=$2
+    if [[ $dry_run ]]; then
         echo "Would send email to '$mailto':"$'\n'"$email"
         return
     fi
-    echo "$email" | /usr/sbin/sendmail -t "$mailto"
-}
+    <<<"$email" /usr/sbin/sendmail -t "$mailto"
+)
 
-multipart-from-markdown() {
-    local plain=$1 to_email=$2 from=$3 subject=$4
-    local email md body header boundary
-    md=$(echo "$plain" | $markdown_cmd)
-    boundary="_000_DB6PR0401MB2565_"
+multipart-from-markdown() (
+    plain=$1 to_email=$2 from=$3 subject=$4
+    md=$(<<<"$plain" $markdown_cmd)
+    boundary=_000_DB6PR0401MB2565_
     header='Content-Type: multipart/alternative; boundary="'"$boundary"'"'
     body="--$boundary"'
 Content-Type: text/plain; charset="utf-8"
@@ -196,32 +241,44 @@ $body
 
     echo "$email"
 
-}
+)
 
-latest_published_tw_builds() {
-    local latest_builds group_id=$1
-    latest_builds=("$(runcurl -s "$tw_openqa_host/group_overview/$group_id.json" \
-        | jq -r '([.build_results[] | select(.tag.description=="published") | select(.version=="Tumbleweed") | .build] | sort | reverse)[]')")
+latest_published_tw_builds() (
+    group_id=$1
+    latest_builds=("$(
+        runcurl -s "$tw_openqa_host/group_overview/$group_id.json" |
+        jq -r '(
+            [.build_results[]
+            | select(.tag.description=="published")
+            | select(.version=="Tumbleweed")
+            | .build]
+            | sort
+            | reverse
+        )[]'
+    )")
     echo "${latest_builds[@]}"
-}
+)
 
-get_image() {
-    local image name=$1
-    image=$($openqa_cli api --host "$tw_openqa_host" assets \
-        | jq -r "[.assets[] | select(.name | test(\"$name\")) | select(.size != null)] | .[0] | .name")
-    echo "$image"
-}
+get_image() (
+    name=$1
+    $openqa_cli api --host "$tw_openqa_host" assets |
+    jq -r "
+        [.assets[]
+        | select(.name
+        | test(\"$name\"))
+        | select(.size != null)]
+        | .[0]
+        | .name"
+)
 
-find_latest_published_tumbleweed_image() {
-    local latest_builds build image=null assetname
-    local tw_group_id=$1 arch=$2 machine=$3 type=$4
+find_latest_published_tumbleweed_image() (
+    tw_group_id=$1 arch=$2 machine=$3 type=$4
+    image=null
     read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
-    if [[ "${#latest_builds[@]}" -eq 0 ]]; then
-        warn "Unable to find latest published Tumbleweed builds."
-        exit 1
-    fi
+    [[ ${#latest_builds[@]} -gt 0 ]] ||
+        die "Unable to find latest published Tumbleweed builds."
     for build in "${latest_builds[@]}"; do
-        if [[ "$type" = iso ]]; then
+        if [[ $type == iso ]]; then
             assetname="Tumbleweed-NET-$arch-Snapshot$build-Media.iso$"
         else
             assetname="Tumbleweed-$arch-$build-Tumbleweed\\\\@$machine.*.qcow"
@@ -229,14 +286,14 @@ find_latest_published_tumbleweed_image() {
         image=$(get_image "$assetname")
 
         # This published build has an image available
-        [[ "$image" != null ]] && break
+        [[ $image != null ]] && break
         # Published but no image available, we'll try and continue
         echo "Unable to determine $type image for Tumbleweed build '$build' (for architecture '$arch' and machine '$machine')."
     done
     # No published image available
-    if [[ "$image" = null ]]; then
+    if [[ $image = null ]]; then
         exit 2
     fi
     echo "$image"
-}
+)
 

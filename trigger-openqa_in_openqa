@@ -1,13 +1,11 @@
-#!/bin/bash -ex
+#!/bin/bash -x
 
 # Trigger tests on an openQA instance testing openQA itself.
 #
 # Can be configured by variables.
 
-set -euo pipefail
-
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+source "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 # configuration variables with defaults.
 target_host="${target_host:-"openqa.opensuse.org"}"
@@ -62,4 +60,4 @@ trigger() {
     done
 }
 
-main
+[[ $0 != "${BASH_SOURCE[0]}" ]] || main "$@"
