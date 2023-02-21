@@ -123,10 +123,10 @@ snip_end="    # --- >8 ---"
 handle_unknown() {
     local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-} job_data=${8:-} dry_run=${9:-}
     local group_data group_name group_description group_mailto header email excerpt=$snip_start
-    local job_name job_result job_info
+    local job_name job_result info
     to_review+=("$testurl ${reason:0:50}")
-    header="[$testurl]($testurl): Unknown issue, to be reviewed"$'\n'"-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
-    excerpt="Likely the error is within this log excerpt, last lines before shutdown:"$'\n'$'\n'"$snip_start"
+    header="[$testurl]($testurl): Unknown test issue, to be reviewed"$'\n'"-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
+    excerpt="Last lines before SUT shutdown:"$'\n'$'\n'"$snip_start"
     # Look for different termination points with likely context
     excerpt+=$( (grep -A 12 'Backend process died, backend errors are reported below in the following lines' "$out" || grep -B 10 'sending magic and exit' "$out" || grep -B 5 'killing command server.*because test execution ended through exception' "$out" || grep -B 5 'EXIT 1' "$out" || grep -B 10 '\(Result: died\|isotovideo failed\)' "$out" || echo '(No log excerpt found)') | sed 's/^/    # /' | head -n -1 | sed 's/\x1b\[[0-9;]*m//g')
     excerpt+=$'\n'"$snip_end"
@@ -144,10 +144,17 @@ handle_unknown() {
             group_name=$(echo "$group_data" | runjq -r '.[0].name')
             job_name=$(echo "$job_data" | runjq -r '.job.name')
             job_result=$(echo "$job_data" | runjq -r '.job.result')
-            job_info="* Name: $job_name
+            info="* Name: $job_name
 * Result: $job_result
-* Reason: $reason"
-            email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$job_info"$'\n'$'\n'"$excerpt"
+* Reason: $reason
+
+It might be a product bug, an outdated needle, test code needing adaptation or a
+test infrastructure related problem.
+Adding a [bugref](http://open.qa/docs/#_bug_references) that can be
+[carried over](http://open.qa/docs/#carry-over) will prevent these mails for
+this issue. If the carry-over is not sufficient, you may want to create a ticket with
+[auto-review-regex](https://github.com/os-autoinst/scripts/blob/master/README.md#auto-review---automatically-detect-known-issues-in-openqa-jobs-label-openqa-jobs-with-ticket-references-and-optionally-retrigger)."
+            email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$info"$'\n'$'\n'"$excerpt"
             subject="Unreviewed issue (Group $group_id $group_name)"
             email=$(multipart-from-markdown "$email" "$group_mailto" "openqa-label-known-issues <$from_email>" "$subject")
             send-email "$group_mailto" "$email"
