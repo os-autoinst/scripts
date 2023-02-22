@@ -16,6 +16,7 @@ host="${host:-"https://openqa.opensuse.org"}"
 openqa_groupid="${openqa_groupid:-"24"}"
 obs_component="${obs_component:-"package"}"
 obs_package_name="${1:-""}"
+comment_on_obs=${comment_on_obs:-}
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
@@ -40,6 +41,7 @@ for job_id in $(job_ids job_post_response); do
 done
 
 [[ ${failed_jobs[*]} ]] || exit 0
+[[ $comment_on_obs ]] || exit 1
 
 osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">.*test.* failed.*/\1/p' | while read -r id; do
     osc api -X DELETE /comment/"$id"
