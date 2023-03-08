@@ -47,8 +47,6 @@ is "$got" "$expected" 'label-on-issue with restart and disabled force_result'
 
 try-client-output enable_force_result=true label-on-issue 123 'foo.*bar' Label 1 softfailed
 expected="client_call -X POST jobs/123/comments text=label:force_result:softfailed:Label
-
-Label
 client_call -X POST jobs/123/restart"
 is "$rc" 0 'successful label-on-issue'
 is "$got" "$expected" 'label-on-issue with restart and force_result'
