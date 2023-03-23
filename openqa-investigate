@@ -188,8 +188,8 @@ post-investigate() {
     investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
     origin_job_id=${investigate_origin#"$host_url/t"}
     comment="Investigate retry job: $host_url/t$id"
-    if [[ "$result" == passed ]]; then
-        comment+=" passed, likely a sporadic failure"
+    if [[ "$result" == passed || "$result" == softfailed ]]; then
+        comment+=" $result, likely a sporadic failure"
     else
         comment+=" failed, likely not a sporadic failure"
     fi
