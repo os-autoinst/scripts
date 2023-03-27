@@ -77,7 +77,7 @@ trigger_jobs() {
     investigation=$(runcurl "${curl_args[@]}" -s "$job_url"/investigation_ajax) || return $?
     last_good_exists=$(echo "$investigation" | runjq -r '.last_good') || return $?
     if [[ "$last_good_exists" = "null" || "$last_good_exists" = "not found" ]]; then
-        echo "No last good recorded, skipping regression investigation jobs" && return 1
+        echo "No last good recorded, skipping regression investigation jobs" && return 0
     fi
     last_good=$(echo "$investigation" | runjq -r '.last_good.text') || return $?
     [[ ! $last_good =~ ^[0-9]+$ ]] && echo ".last_good.text not found: investigation for test $id returned '$investigation'" >&2 && return 1
