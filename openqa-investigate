@@ -148,7 +148,7 @@ sync_via_investigation_comment() {
     local id=$1 first_cluster_job_id=$2
 
     comment_id=$("${client_call[@]}" -X POST jobs/"$first_cluster_job_id"/comments text="Starting investigation for job $id" | runjq -r '.id') || return $?
-    first_comment_id=$("${client_call[@]}" -X GET jobs/"$first_cluster_job_id"/comments | runjq -r '[.[] | select(.text | contains("investigation"))] | sort_by(.id) | first | .id') || return $?
+    first_comment_id=$("${client_call[@]}" -X GET jobs/"$first_cluster_job_id"/comments | runjq -r '[.[] | select(.text | contains("investigation"))] | min_by(.id) | .id') || return $?
 
     # delete comment again in case a concurrent job could start the investigation before us
     if [[ $comment_id != "$first_comment_id" ]]; then
@@ -236,7 +236,7 @@ investigate() {
     [[ $rc != 255 ]] && return $rc
 
     # determine the job in the cluster with the lowest ID to use that for commenting/synchronization
-    first_cluster_job_id=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | sort | first") || return $?
+    first_cluster_job_id=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | min") || return $?
 
     [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
     group="$(echo "$job_data" | runjq -r '.job.parent_group + " / " + .job.group')" || return $?
