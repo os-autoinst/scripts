@@ -1,1 +1,1 @@
-"$(dirname "$0")"/openqa-monitor-investigation-candidates | "$(dirname "$0")"/openqa-label-known-issues-multi 3>&1 1>/dev/null 2>&3- | sed -n 's/\(\S*\) : Unknown issue, to be reviewed.*$/\1/p' | "$(dirname "$0")"/openqa-investigate-multi
+"$(dirname "$0")"/openqa-monitor-investigation-candidates | "$(dirname "$0")"/openqa-label-known-issues-multi 3>&1 1>/dev/null 2>&3- | sed -n 's/\(\S*\) : Unknown test issue, to be reviewed.*$/\1/p' | "$(dirname "$0")"/openqa-investigate-multi

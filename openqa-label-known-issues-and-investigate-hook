@@ -26,7 +26,7 @@ investigate-and-bisect() {
 
 label() {
     local url=$1
-    openqa-label-known-issues "$url" | sed -n 's/\[\([^]]*\)\].*Unknown issue, to be reviewed.*/\1/p'
+    openqa-label-known-issues "$url" | sed -n 's/\[\([^]]*\)\].*Unknown test issue, to be reviewed.*/\1/p'
 }
 
 hook() {
