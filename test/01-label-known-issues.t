@@ -2,7 +2,7 @@
 
 source test/init
 
-plan tests 26
+plan tests 27
 
 source _common
 
@@ -94,3 +94,11 @@ notification_address=fallback@example.com
 out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" "$job_data" 2>&1 >/dev/null) || true
 has "$out" 'To: fallback@example.com' "send-email to like expected"
 has "$out" 'Subject: Unreviewed issue (Group 25 Lala)' "send-email subject like expected"
+
+send-email() {
+    local mailto=$1 email=$2
+    echo "$mailto" >&2
+    echo "$email" >&2
+}
+out=$(handle_unknown "$testurl" "$logfile1" "no reason" "$group_id" true "" "" "$job_data" ) || true
+like "$out" "\[$testurl\].*Unknown test issue, to be reviewed"
