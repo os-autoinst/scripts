@@ -85,7 +85,7 @@ Just put the following into the description of the Job Group:
 Each Slack channel has its own email address which you can find out by clicking
 on the title and then on "Integrations".
 
-The email will have the subject "Unknown issue to be reviewed (Group 123)".
+The email will have the subject "Unknown test issue to be reviewed (Group 123)".
 It will contain the link to the job and a small log excerpt, possibly
 already pointing to the error. The sender email address can be
 [configured](#Configuration).

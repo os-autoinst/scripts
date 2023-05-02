@@ -18,7 +18,7 @@ openqa-trigger-bisect-jobs() {
 openqa-label-known-issues() {
     testurl=$1
     warn "- openqa-label-known-issues $testurl"
-    echo "[$testurl]($testurl): Unknown issue, to be reviewed -> $testurl/file/autoinst-log.txt"
+    echo "[$testurl]($testurl): Unknown test issue, to be reviewed -> $testurl/file/autoinst-log.txt"
 }
 openqa-investigate() {
     local testurl=$1
