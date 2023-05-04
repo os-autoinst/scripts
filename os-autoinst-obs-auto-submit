@@ -57,8 +57,6 @@ update_package() {
     # ignore those updates
     rm -f _service:*-test.changes
     cp -v .osc/*-test.changes . 2>/dev/null ||:
-    # Factory policies want only multiple spec files (for now)
-    rm -f _multibuild
     for file in _service:*; do
         # shellcheck disable=SC2001
         mv -v "$file" "$(echo "$file" | sed -e 's,.*:,,')"
