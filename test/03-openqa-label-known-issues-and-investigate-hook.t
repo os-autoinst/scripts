@@ -2,7 +2,7 @@
 
 source test/init
 
-plan tests 18
+plan tests 22
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
 
 source "$dir/../openqa-label-known-issues-and-investigate-hook"
@@ -75,3 +75,15 @@ export INVESTIGATE_FAIL=false
 export INVESTIGATE_RETRIGGER_HOOK=true
 try hook 123
 is "$rc" 142 'openqa-investigate exit code for retriggering hook script'
+
+openqa-label-known-issues() {
+    testurl=$1
+    warn "- openqa-label-known-issues $testurl"
+    echo "nothing"
+}
+export INVESTIGATE_RETRIGGER_HOOK=false
+try hook 123
+is "$rc" 0 'successful hook (no unknown issue) (123)'
+has "$got" "- openqa-label-known-issues"
+hasnt "$got" "- openqa-investigate"
+hasnt "$got" "- openqa-trigger-bisect-jobs"
