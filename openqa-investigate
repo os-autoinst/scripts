@@ -62,9 +62,12 @@ clone() {
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
     [[ $dry_run = 1 ]] && echo "$out"
     # output is in $out, should change that text to a markdown list entry
-    url=$(echo "$out" | sed -n 's/^Created job.*-> //p')
+    # Remove any text before the url
+    url=${out/*http:/http:}
+    # Change /tests/123 to /t123
+    url=${url/\/tests\//\/t}
     echo "* **$name**: $url"
-    clone_id=${out/:*/}; clone_id=${clone_id/*#/}
+    clone_id=${url/*\/t/}
     "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
 }
 
