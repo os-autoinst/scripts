@@ -63,7 +63,7 @@ clone() {
     [[ $dry_run = 1 ]] && echo "$out"
     # output is in $out, should change that text to a markdown list entry
     # Remove any text before the url
-    url=${out/*http:/http:}
+    url=${out/*http/http}
     # Change /tests/123 to /t123
     url=${url/\/tests\//\/t}
     echo "* **$name**: $url"
