@@ -61,13 +61,12 @@ clone() {
     clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$origin")
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
     [[ $dry_run = 1 ]] && echo "$out"
-    # output is in $out, should change that text to a markdown list entry
-    # Remove any text before the url
-    url=${out/*http/http}
-    # Change /tests/123 to /t123
-    url=${url/\/tests\//\/t}
+
+    # output: { "$id": $clone_id }
+    clone_id=$(echo "$out" | runjq -r ".\"$id\"")
+    url="$scheme://$host/t$clone_id"
+    # Create markdown list entry
     echo "* **$name**: $url"
-    clone_id=${url/*\/t/}
     "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
 }
 
@@ -271,7 +270,7 @@ main() {
         client_call=("$client_prefix" "${client_call[@]}")
     fi
     set -u
-    clone_call="${clone_call:-"$client_prefix openqa-clone-job --skip-chained-deps --max-depth 0 --parental-inheritance --within-instance"}"
+    clone_call="${clone_call:-"$client_prefix openqa-clone-job --json-output --skip-chained-deps --max-depth 0 --parental-inheritance --within-instance"}"
     investigate "$@"
 }
 
