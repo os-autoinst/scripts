@@ -2,7 +2,7 @@
 
 source test/init
 
-plan tests 12
+plan tests 13
 
 source _common
 
@@ -23,7 +23,7 @@ caller() ( builtin caller 2 )
 try runcli failure a b c
 unset -f caller
 is $rc 23 "runcli failure"
-like "$got" "test/04-common.t.*failure a b c.*oh noe" "runcli failure output"
+like "$got" "test/04-common.t.*failure a b c.*stderr.*oh noe" "runcli failure output"
 
 tw_openqa_host=foo
 get_image() {
@@ -56,3 +56,11 @@ latest_published_tw_builds() {
 try find_latest_published_tumbleweed_image "23" "i386" "32bit" qcow
 is "$rc" 1 "find_latest_published_tumbleweed_image failure (no builds)"
 has "$got" "Unable to find latest published Tumbleweed builds" "Expected error message (no builds)"
+
+somecommand() {
+    echo "STDOUT"
+    echo "STDERR" >&2
+}
+
+try runcli somecommand
+like "$got" "somecommand.*>>>STDERR<<<.*STDOUT" "somecommand stdout and stderr"
