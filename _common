@@ -31,13 +31,20 @@ job_ids() {
 # an error, and the calling command and line
 runcli() {
     local args=("$@")
-    local rc output
+    local rc output errorlog errstr=
     set +e
-    output=$("${args[@]}" 2>&1)
+    errorlog=$(mktemp -t runcli-errorlog-XXXX)
+    # shellcheck disable=SC2064
+    trap "rm $errorlog" EXIT
+    output=$("${args[@]}" 2>"$errorlog")
     rc=$?
     set -e
+    if [[ -s "$errorlog" ]]; then
+        read -r errstr < "$errorlog"
+        warn "$1 ($(caller)): (${args[*]}) stderr: >>>$errstr<<<"
+    fi
     [[ "$rc" == 0 ]] && echo "$output" && return
-    warn "openqa-cli ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
+    warn "$1 ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
     return $rc
 }
 
