@@ -20,6 +20,7 @@ arch="${arch:-"x86_64"}"
 machine="${machine:-"64bit"}"
 build_tag=${BUILD_TAG:-}
 client_prefix=${client_prefix:-}
+full_run=${FULL:-}
 
 main() {
     [ "$dry_run" = "1" ] && client_prefix="echo"
@@ -37,23 +38,30 @@ download_latest_published_tumbleweed_image() {
         ${client_prefix} wget -c "$url" -O /var/lib/openqa/factory/hdd/"$qcow"
     fi
     # ensure the build tag conforms to coolo's unwritten rules for the openQA dashboard
-    build=$(echo "$build_tag" | sed -e "s/jenkins-trigger-openQA_in_openQA-/:/" -e "s/-/./g")
+    build=$(echo "$build_tag" | sed -e "s/jenkins-trigger-openQA_in_openQA-\(\|full-\)/:/" -e "s/-/./g")
 }
 
 trigger() {
     # prevent host access problem when running within o3 infrastructure
     # where o3 is not reachable over https
+    declare -a ARGS
     if [ "$target_host" = "openqa.opensuse.org" ]; then
-        ARGS="OPENQA_HOST=http://openqa.opensuse.org"
+        ARGS=( "OPENQA_HOST=http://openqa.opensuse.org" )
+    fi
+    # in full run use only openqa_install+publish test
+    if [ "$full_run" ]; then
+        ARGS+=( "TEST=\'openqa_install+publish\'" "FULL_OPENSUSE_TEST=1" "BUILD=${build}.full" ) 
+    else
+        ARGS+=( "BUILD=${build}" )
     fi
 
     ${client_prefix} "${openqa_cli}" \
         api --host "${target_host_proto}://${target_host}" -X POST isos \
         VERSION=Tumbleweed \
-        DISTRI=openQA FLAVOR=dev BUILD="${build}" \
+        DISTRI=openQA FLAVOR=dev\
         ARCH="${arch}" BACKEND=qemu WORKER_CLASS=qemu_x86_64 \
         HDD_1="$qcow" \
-        ${ARGS} \
+        "${ARGS[@]}" \
         | tee job_post_response
 
     echo 'Triggered as:'
