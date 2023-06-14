@@ -50,7 +50,7 @@ trigger() {
     fi
     # in full run use only openqa_install+publish test
     if [ "$full_run" ]; then
-        ARGS+=( "TEST=\'openqa_install+publish\'" "FULL_OPENSUSE_TEST=1" "BUILD=${build}.full" ) 
+        ARGS+=( 'TEST=openqa_install+publish' "FULL_OPENSUSE_TEST=1" "BUILD=${build}.full" )
     else
         ARGS+=( "BUILD=${build}" )
     fi
