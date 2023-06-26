@@ -185,6 +185,52 @@ def find_changed_issues(investigation):
 
 def main(args):
     parsed_url = urlparse(args.url)
+    test_url = urlparse(
+        urlunparse(
+            (
+                parsed_url.scheme,
+                parsed_url.netloc,
+                "/api/v1/jobs/" + parsed_url.path.lstrip("/tests/"),
+                "",
+                "",
+                "",
+            )
+        )
+    )
+    log.debug("Retrieving job data from %s" % test_url.geturl())
+    test_data = fetch_url(test_url, request_type="json")
+    job = test_data["job"]
+    if job['result'] == 'passed':
+        log.info(
+            "Job %d (%s) is passed, skipping bisection"
+            % (job["id"], job["test"])
+        )
+        return
+    search = re.search(":investigate:", job["test"])
+    if search:
+        log.info(
+            "Job %d (%s) is already an investigation, skipping bisection"
+            % (job["id"], job["test"])
+        )
+        return
+    if job.get("clone_id") is not None:
+        log.info("Job %d already has a clone, skipping bisection" % job["id"])
+        return
+
+    children = job["children"] if "children" in job else []
+    parents = job["parents"] if "parents" in job else []
+    if (
+        "Parallel" in children
+        and len(children["Parallel"])
+        or "Directly chained" in children
+        and len(children["Directly chained"])
+        or "Parallel" in parents
+        and len(parents["Parallel"])
+        or "Directly chained" in parents
+        and len(parents["Directly chained"])
+    ):
+        return
+
     investigation_url = urlparse(
         urlunparse(
             (
@@ -205,47 +251,6 @@ def main(args):
     all_changes = find_changed_issues(investigation["diff_to_last_good"])
 
     if not all_changes:
-        return
-
-    test_url = urlparse(
-        urlunparse(
-            (
-                parsed_url.scheme,
-                parsed_url.netloc,
-                "/api/v1/jobs/" + parsed_url.path.lstrip("/tests/"),
-                "",
-                "",
-                "",
-            )
-        )
-    )
-    log.debug("Retrieving additional job data from %s" % test_url.geturl())
-    test_data = fetch_url(test_url, request_type="json")
-    job = test_data["job"]
-    search = re.search(":investigate:", job["test"])
-    if search:
-        log.info(
-            "Job %d (%s) is already an investigation, skipping bisection"
-            % (job["id"], job["test"])
-        )
-        return
-
-    if job.get("clone_id") is not None:
-        log.info("Job %d already has a clone, skipping bisection" % job["id"])
-        return
-
-    children = job["children"] if "children" in job else []
-    parents = job["parents"] if "parents" in job else []
-    if (
-        "Parallel" in children
-        and len(children["Parallel"])
-        or "Directly chained" in children
-        and len(children["Directly chained"])
-        or "Parallel" in parents
-        and len(parents["Parallel"])
-        or "Directly chained" in parents
-        and len(parents["Directly chained"])
-    ):
         return
 
     exclude_group_regex = os.environ.get("exclude_group_regex", "")
