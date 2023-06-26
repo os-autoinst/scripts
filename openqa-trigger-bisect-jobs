@@ -13,6 +13,8 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 
+USER_AGENT = 'openqa-trigger-bisect-jobs (https://github.com/os-autoinst/scripts)'
+
 logging.basicConfig()
 log = logging.getLogger(sys.argv[0] if __name__ == "__main__" else __name__)
 GOOD = "-"
@@ -97,7 +99,7 @@ client_args = [
     "openqa-cli",
     "api",
     "--header",
-    "User-Agent: openqa-trigger-bisect-jobs (https://github.com/os-autoinst/scripts)",
+    f"User-Agent: {USER_AGENT}",
 ]
 
 
@@ -131,7 +133,7 @@ def openqa_clone(
 
 def fetch_url(url, request_type="text"):
     try:
-        content = requests.get(url.geturl())
+        content = requests.get(url.geturl(), headers={'User-Agent': USER_AGENT})
         content.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.error("Error while fetching %s: %s" % (url.geturl(), str(e)))
