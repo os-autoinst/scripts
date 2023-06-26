@@ -133,10 +133,10 @@ def openqa_clone(
 
 def fetch_url(url, request_type="text"):
     try:
-        content = requests.get(url.geturl(), headers={'User-Agent': USER_AGENT})
+        content = requests.get(url, headers={'User-Agent': USER_AGENT})
         content.raise_for_status()
     except requests.exceptions.RequestException as e:
-        log.error("Error while fetching %s: %s" % (url.geturl(), str(e)))
+        log.error("Error while fetching %s: %s" % (url, str(e)))
         raise (e)
     raw = content.content
     if request_type == "json":
@@ -145,7 +145,7 @@ def fetch_url(url, request_type="text"):
         except json.decoder.JSONDecodeError as e:
             log.error(
                 "Error while decoding JSON from %s -> >>%s<<: %s"
-                % (url.geturl(), raw, str(e))
+                % (url, raw, str(e))
             )
             raise (e)
     return content
@@ -185,19 +185,10 @@ def find_changed_issues(investigation):
 
 def main(args):
     parsed_url = urlparse(args.url)
-    test_url = urlparse(
-        urlunparse(
-            (
-                parsed_url.scheme,
-                parsed_url.netloc,
-                "/api/v1/jobs/" + parsed_url.path.lstrip("/tests/"),
-                "",
-                "",
-                "",
-            )
-        )
-    )
-    log.debug("Retrieving job data from %s" % test_url.geturl())
+    base_url = urlunparse((parsed_url.scheme, parsed_url.netloc, "", "", "", ""))
+    job_id = parsed_url.path.lstrip("/tests/")
+    test_url = f"{base_url}/api/v1/jobs/{job_id}"
+    log.debug("Retrieving job data from %s" % test_url)
     test_data = fetch_url(test_url, request_type="json")
     job = test_data["job"]
     if job['result'] == 'passed':
@@ -231,19 +222,8 @@ def main(args):
     ):
         return
 
-    investigation_url = urlparse(
-        urlunparse(
-            (
-                parsed_url.scheme,
-                parsed_url.netloc,
-                parsed_url.path + "/investigation_ajax",
-                "",
-                "",
-                "",
-            )
-        )
-    )
-    log.debug("Retrieving investigation info from %s" % investigation_url.geturl())
+    investigation_url = f"{base_url}/tests/{job_id}/investigation_ajax"
+    log.debug("Retrieving investigation info from %s" % investigation_url)
     investigation = fetch_url(investigation_url, request_type="json")
     log.debug("Received investigation info: %s" % investigation)
     if "diff_to_last_good" not in investigation:
@@ -313,8 +293,7 @@ def main(args):
 
     if len(created):
         comment = "Automatic bisect jobs:\n\n" + created
-        host = urlunparse((parsed_url.scheme, parsed_url.netloc, "", "", "", ""))
-        openqa_comment(job["id"], host, comment, args.dry_run)
+        openqa_comment(job["id"], base_url, comment, args.dry_run)
 
 
 if __name__ == "__main__":

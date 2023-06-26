@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os.path
 from unittest.mock import MagicMock, call
+from urllib.parse import urlparse
 
 import requests
 
@@ -35,6 +36,8 @@ def args_factory():
 
 def mocked_fetch_url(url, request_type="text"):
     content = ""
+    url = urlparse(url)
+
     if url.scheme in ["http", "https"]:
         path = url.geturl()
         path = path[len(url.scheme) + 3 :]
