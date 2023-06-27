@@ -125,7 +125,7 @@ def openqa_comment(job, host, comment, dry_run):
 def openqa_clone(
     cmds,
     dry_run,
-    default_opts=["--skip-chained-deps", "--within-instance"],
+    default_opts=["--skip-chained-deps", "--within-instance", "--json-output"],
     default_cmds=["_GROUP=0"],
 ):
     return call(["openqa-clone-job"] + default_opts + cmds + default_cmds, dry_run)
@@ -246,7 +246,6 @@ def main(args):
     log.debug("Found test name '%s'" % test)
 
     created = ""
-    pattern = re.compile(r"Created\sjob\s.* (http.+\/t\d+)$")
     added = []
     for key in all_changes:
         changes = all_changes[key]
@@ -285,11 +284,14 @@ def main(args):
             params,
             args.dry_run,
         )
-
-        search = re.match(pattern, out)
-        if search:
-            log.info("Created " + search.group(1))
-            created += "* **%s**: %s\n" % (test_name, search.group(1))
+        created_job_ids = []
+        try:
+            created_job_ids = json.loads(out).values()
+        except Exception as e:
+            log.error("openqa-clone-job returned non-JSON output: " + out)
+        for job_id in sorted(created_job_ids):
+            log.info(f"Created {job_id}")
+            created += f"* **{test_name}**: {base_url}/t{job_id}\n"
 
     if len(created):
         comment = "Automatic bisect jobs:\n\n" + created
