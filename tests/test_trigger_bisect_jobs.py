@@ -73,6 +73,7 @@ def test_clone():
         "openqa-clone-job",
         "--skip-chained-deps",
         "--within-instance",
+        "--json-output",
         "https://openqa.opensuse.org/tests/7848818",
         "OS_TEST_ISSUES=21770,21926,21954,22030,22077,22085,22192",
         "TEST=foo:investigate:bisect_without_21637",
@@ -105,9 +106,8 @@ def test_comment():
 def test_triggers():
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
-    out = "Created job #234567: opensuse-foo -> https://openqa.opensuse.org/t234567"
-    openqa.openqa_clone = MagicMock(return_value=out)
-    openqa.openqa_comment = MagicMock(return_value=out)
+    openqa.openqa_clone = MagicMock(return_value='{"7848818": 234567}')
+    openqa.openqa_comment = MagicMock(return_value='')
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
     openqa.main(args)
     calls = [
