@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os.path
 from unittest.mock import MagicMock, call
+from urllib.parse import urlparse
 
 import requests
 
@@ -35,6 +36,8 @@ def args_factory():
 
 def mocked_fetch_url(url, request_type="text"):
     content = ""
+    url = urlparse(url)
+
     if url.scheme in ["http", "https"]:
         path = url.geturl()
         path = path[len(url.scheme) + 3 :]
@@ -195,6 +198,13 @@ def test_problems():
 
     args.url = "http://openqa.opensuse.org/tests/100"
     openqa.main(args)
+    openqa.openqa_clone.assert_not_called()
+
+    args.url = "http://openqa.opensuse.org/tests/101"
+    openqa.log.info = MagicMock()
+    openqa.main(args)
+    openqa.log.info.assert_called_with("Job 101 (foo) is passed, skipping bisection")
+    assert call('http://openqa.opensuse.org/tests/101/investigation_ajax', request_type='json') not in openqa.fetch_url.mock_calls
     openqa.openqa_clone.assert_not_called()
 
 

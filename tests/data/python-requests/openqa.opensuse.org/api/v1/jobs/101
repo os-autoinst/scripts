@@ -1,0 +1,18 @@
+{
+  "job": {
+    "id": 101,
+    "priority": 50,
+    "result": "passed",
+    "settings": {
+      "OS_TEST_ISSUES": "21637,21770,21926,21954,22030,22077,22085,22192",
+      "TEST": "foo"
+    },
+    "state": "done",
+    "t_finished": "2021-12-14T02:51:41",
+    "t_started": "2021-12-14T02:36:22",
+    "test": "foo",
+    "children": {
+        "Directly chained": []
+    }
+  }
+}
