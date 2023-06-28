@@ -72,8 +72,8 @@ def test_clone():
     args = [
         "openqa-clone-job",
         "--skip-chained-deps",
-        "--within-instance",
         "--json-output",
+        "--within-instance",
         "https://openqa.opensuse.org/tests/7848818",
         "OS_TEST_ISSUES=21770,21926,21954,22030,22077,22085,22192",
         "TEST=foo:investigate:bisect_without_21637",

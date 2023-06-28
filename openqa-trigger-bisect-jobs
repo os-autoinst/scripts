@@ -125,7 +125,7 @@ def openqa_comment(job, host, comment, dry_run):
 def openqa_clone(
     cmds,
     dry_run,
-    default_opts=["--skip-chained-deps", "--within-instance", "--json-output"],
+    default_opts=["--skip-chained-deps", "--json-output", "--within-instance"],
     default_cmds=["_GROUP=0"],
 ):
     return call(["openqa-clone-job"] + default_opts + cmds + default_cmds, dry_run)
