@@ -23,7 +23,7 @@ from_email=${from_email:-openqa-label-known-issues@open.qa}
 curl_args=(--user-agent "openqa-label-known-issues")
 client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url")
 
-out="${REPORT_FILE:-$(mktemp)}"
+out="${REPORT_FILE:-$(mktemp -t openqa-label-known-issues--output-XXXX)}"
 trap 'error-handler "$LINENO"' ERR
 trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
 
