@@ -61,10 +61,10 @@ update_package() {
         # shellcheck disable=SC2001
         mv -v "$file" "$(echo "$file" | sed -e 's,.*:,,')"
     done
-    version=$(sed -n 's/^Version:\s*//p' ./*.spec)
+    version=$(sed -n 's/^Version:\s*//p' ./*.spec || sed -n 's/^version:\s*//p' ./*.obsinfo)
     rm -f ./*rpmlintrc _servicedata
     $osc addremove
-    sed -i '/rpmlintrc/d' ./*.spec
+    sed -i '/rpmlintrc/d' ./*.spec || true
     if [ "$package" == "os-autoinst-distri-opensuse-deps" ] ; then
         local ci_args="--noservice"
     fi
