@@ -127,7 +127,7 @@ handle_auto_submit() {
     package=$1
     $osc service wait "$src_project"/"$package"
     $osc co --server-side-source-service-files "$src_project"/"$package"
-    if test "$package" == "os-autoinst-distri-opensuse-deps"; then
+    if [[ "$package" == "os-autoinst-distri-opensuse-deps" ]]; then
         $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
         if diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec | grep "^[+-]Requires"; then
             # dependency added or removed
@@ -139,7 +139,7 @@ handle_auto_submit() {
     else
         factory_rev=$(last_revision "$submit_target" "$package")
         sync_changesrevision "$src_project" "$package" "$factory_rev"
-        if test "$factory_rev" = "$(last_revision "$src_project" "$package")"; then
+        if [[ "$factory_rev" == "$(last_revision "$src_project" "$package")" ]]; then
             echo "Latest revision already in $submit_target"
             return
         fi
