@@ -182,18 +182,80 @@ $comment_text"
     fi
 }
 
+fetch-investigation-results() {
+    local origin_job_id=$1
+    local state job investigate_type other_id result investigate_comment comment_lines
+
+    investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry**:"))] | min_by(.id)') || return $?
+    [[ $investigate_comment == 'null' ]] && return
+    readarray -t comment_lines < <(echo "$investigate_comment" | runjq -r '.text') || return $?
+
+    for line in "${comment_lines[@]}"; do
+        if [[ $line =~ :investigate:([^:*]+).*\/t([0-9]+) ]]; then
+            investigate_type=${BASH_REMATCH[1]}
+            other_id=${BASH_REMATCH[2]}
+            job=$(openqa-cli "${client_args[@]}" --json experimental/jobs/"$other_id"/status)
+            state=$(echo "$job" | runjq -r '.state') || return $?
+            # at least one job is not finished, come back later
+            [[ $state != 'done' ]] && return 142
+
+            result=$(echo "$job" | runjq -r '.result') || return $?
+            echo "$investigate_type|$other_id|$result"
+        fi
+    done
+}
+
+is-ok() {
+    [[ $1 == passed || $1 == softfailed ]]
+}
+
+is-product-issue() {
+    local origin_job_id=$1
+    local state result investigate_type passed result_lines
+    local pass_lgt='' pass_lgb='' pass_lgtb=''
+    product_issue=false
+
+    readarray -t result_lines < <(fetch-investigation-results "$origin_job_id") || return $?
+
+    for line in "${result_lines[@]}"; do
+        if [[ $line =~ ^([^|]+)\|([^|]+)\|([^|]+) ]]; then
+            investigate_type=${BASH_REMATCH[1]} result=${BASH_REMATCH[3]}
+            is-ok "$result" && passed=true || passed=false
+            if [[ $investigate_type == last_good_tests_and_build ]]; then
+                pass_lgtb=$passed
+            elif [[ $investigate_type == last_good_build ]]; then
+                pass_lgb=$passed
+            elif [[ $investigate_type == last_good_tests ]]; then
+                pass_lgt=$passed
+            fi
+        fi
+    done
+    [[ -z "$pass_lgb" ]] && return # no last good build
+    if ([[ -z "$pass_lgtb" ]] || "$pass_lgtb") && ([[ -z "$pass_lgt" ]] || ! "$pass_lgt") && "$pass_lgb"; then
+        product_issue=true
+    fi
+}
+
 post-investigate() {
     local id=$1 old_name=$2
     local rc=0 status
     [[ ! "$old_name" =~ investigate:retry$ ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
-    result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
+    # We are in the investigate:retry job now
+    retry_result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
     investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
     origin_job_id=${investigate_origin#"$host_url/t"}
+
     comment="Investigate retry job: $host_url/t$id"
-    if [[ "$result" == passed || "$result" == softfailed ]]; then
-        comment+=" $result, likely a sporadic failure"
+    if is-ok "$retry_result"; then
+        comment+=" $retry_result, likely a sporadic failure"
     else
         comment+=" failed, likely not a sporadic failure"
+        local product_issue=false
+        is-product-issue "$origin_job_id" || return $?
+
+        if "$product_issue"; then
+            comment+="."$'\n'"Jobs including the last good build are ok, likely a product issue"
+        fi
     fi
 
     # meanwhile the original job might have been deleted already, handle

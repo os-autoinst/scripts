@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 39
+plan tests 46
 
 host=localhost
 url=https://localhost
@@ -41,6 +41,10 @@ openqa-cli() {
         echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
     elif [[ "$1 $2" == "--json jobs/36" ]]; then
         echo '{"job": { "test": "vim:investigate:retry", "result": "softfailed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "35"} } }'
+    elif [[ "$2" =~ experimental/jobs/3400[12]/status ]]; then
+        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
+    elif [[ "$2" =~ experimental/jobs/3400[34]/status ]]; then
+        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "passed" }'
     elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
         echo '{"id": 1234}'
     elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
@@ -55,6 +59,8 @@ openqa-cli() {
         echo '{"id": 1237}'
     elif [[ $@ == "-X GET jobs/32/comments" ]]; then
         echo '[{"id": 1236, "text":"Starting investigation for job 32"},{"id": 1237, "text":"Starting investigation for job 32"}]'
+    elif [[ $@ == "-X GET jobs/35/comments" ]]; then
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t34001\n**a:investigate:last_good_tests:coffee**:url/t34002\n**a:investigate:last_good_build:2001**:url/t34003\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t34004"}]'
     elif [[ $@ =~ "-X POST jobs/35/comments" ]]; then
         warn "Commenting 35 ($@)"
         exit 99
@@ -121,23 +127,62 @@ try investigate 34
 is "$rc" 2 'mocked function returned failure (34)'
 has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (34)"
 has "$got" "likely not a sporadic" "not sporadic (34)"
+has "$got" "product issue" "product issue (34)"
 
-try investigate 35
-is "$rc" 2 'mocked function returned failure (35)'
-has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (35)"
-has "$got" "likely a sporadic" "sporadic (35)"
+test-post-investigate() {
 
-try investigate 36
-is "$rc" 2 'mocked function returned failure (36)'
-has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (36)"
-has "$got" "likely a sporadic" "sporadic (36)"
+    t1="fail"
 
-# test syncing via investigation comment; we're first
+    t2="passed" t3="passed" t4="passed"
+    fetch-investigation-results() {
+        echo "retry|1|$t1
+last_good_tests|2|$t2
+last_good_build|3|$t3
+last_good_tests_and_build|4|$t4"
+    }
+    product_issue=false
+    is-product-issue 34
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
+    t2="fail" t3="passed" t4="passed"
+    is-product-issue 34
+    is "$product_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="fail" t3="fail" t4="passed"
+    is-product-issue 34
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
+    t2="" t3="passed" t4="passed"
+    is-product-issue 34
+    is "$product_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="" t3="passed" t4=""
+    is-product-issue 34
+    is "$product_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="fail" t3="" t4="fail"
+    is-product-issue 34
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
+
+    try investigate 35
+    is "$rc" 2 'mocked function returned failure (35)'
+    has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (35)"
+    has "$got" "likely a sporadic" "sporadic (35)"
+
+    try investigate 36
+    is "$rc" 2 'mocked function returned failure (36)'
+    has "$got" "Commenting 35" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (36)"
+    has "$got" "likely a sporadic" "sporadic (36)"
+}
+test-post-investigate
+
+# test syncing via investigation comment; we are first
 try force=true sync_via_investigation_comment 31 30
 is "$rc" 255 'do not skip if we own first investigation comment'
 has "$got" '1234' 'comment ID returned'
 
-# test syncing via investigation comment; we're second
+# test syncing via investigation comment; we are second
 try force=true sync_via_investigation_comment 32 32
 is "$rc" 0 'skip with success if we do not own first investigation comment'
 # XXX What is this testing?
