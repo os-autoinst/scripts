@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 46
+plan tests 47
 
 host=localhost
 url=https://localhost
@@ -45,6 +45,10 @@ openqa-cli() {
         echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
     elif [[ "$2" =~ experimental/jobs/3400[34]/status ]]; then
         echo '{ "state": "done", "test": "vim:investigate:retry", "result": "passed" }'
+    elif [[ "$2" =~ experimental/jobs/3401[01]/status ]]; then
+        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
+    elif [[ "$2" =~ experimental/jobs/3401[12]/status ]]; then
+        echo '{ "state": "running", "test": "vim:investigate:retry", "result": "none" }'
     elif [[ $@ == "-X POST jobs/30/comments text=Starting investigation for job 31" ]]; then
         echo '{"id": 1234}'
     elif [[ $@ == $'-X PUT jobs/30/comments/1234 text=Automatic investigation jobs for job 31:\n\nfoo' ]]; then
@@ -61,6 +65,8 @@ openqa-cli() {
         echo '[{"id": 1236, "text":"Starting investigation for job 32"},{"id": 1237, "text":"Starting investigation for job 32"}]'
     elif [[ $@ == "-X GET jobs/35/comments" ]]; then
         echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t34001\n**a:investigate:last_good_tests:coffee**:url/t34002\n**a:investigate:last_good_build:2001**:url/t34003\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t34004"}]'
+    elif [[ $@ == "-X GET jobs/36/comments" ]]; then
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t34010\n**a:investigate:last_good_tests:coffee**:url/t34011\n**a:investigate:last_good_build:2001**:url/t34012\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t34013"}]'
     elif [[ $@ =~ "-X POST jobs/35/comments" ]]; then
         warn "Commenting 35 ($@)"
         exit 99
@@ -130,6 +136,10 @@ has "$got" "likely not a sporadic" "not sporadic (34)"
 has "$got" "product issue" "product issue (34)"
 
 test-post-investigate() {
+
+    local job_data='{"job": { "result": "failed", "settings": { "OPENQA_INVESTIGATE_ORIGIN": "https://localhost/t36" } } }'
+    try post-investigate 36 "vim:investigate:retry"
+    is "$rc" 142 'post-investigate returned 142 (not all jobs finished yet) (36)'
 
     t1="fail"
 
