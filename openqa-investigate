@@ -184,11 +184,12 @@ $comment_text"
 
 fetch-investigation-results() {
     local origin_job_id=$1
-    local state job investigate_type other_id result investigate_comment comment_lines
+    local state job investigate_type other_id result investigate_comment output comment_lines
 
     investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry**:"))] | min_by(.id)') || return $?
     [[ $investigate_comment == 'null' ]] && return
-    readarray -t comment_lines < <(echo "$investigate_comment" | runjq -r '.text') || return $?
+    output=$(echo "$investigate_comment" | runjq -r '.text') || return $?
+    mapfile -t comment_lines <<<"$output"
 
     for line in "${comment_lines[@]}"; do
         if [[ $line =~ :investigate:([^:*]+).*\/t([0-9]+) ]]; then
@@ -210,12 +211,15 @@ is-ok() {
 }
 
 is-product-issue() {
+    # Fetch job data for all 4 investigation jobs. If one is not yet finished,
+    # return special 142 to retrigger this hook later again.
     local origin_job_id=$1
-    local state result investigate_type passed result_lines
+    local state result investigate_type passed output result_lines
     local pass_lgt='' pass_lgb='' pass_lgtb=''
     product_issue=false
 
-    readarray -t result_lines < <(fetch-investigation-results "$origin_job_id") || return $?
+    output=$(fetch-investigation-results "$origin_job_id") || return $?
+    mapfile -t result_lines <<<"$output"
 
     for line in "${result_lines[@]}"; do
         if [[ $line =~ ^([^|]+)\|([^|]+)\|([^|]+) ]]; then
@@ -240,7 +244,8 @@ post-investigate() {
     local id=$1 old_name=$2
     local rc=0 status
     [[ ! "$old_name" =~ investigate:retry$ ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
-    # We are in the investigate:retry job now
+    # We are in the investigate:retry job now. From here we will check the
+    # results of the other investigation jobs, if necessary
     retry_result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
     investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
     origin_job_id=${investigate_origin#"$host_url/t"}
