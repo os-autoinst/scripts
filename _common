@@ -3,6 +3,8 @@
 # Common shell script snippets to be used when interacting with openQA
 # instances, for example over openqa-cli.
 
+errorlog=""
+
 warn() { printf '%s\n' "$@" >&2; }
 
 enable_force_result=${enable_force_result:-false}
@@ -18,6 +20,7 @@ error-handler() {
     # shellcheck disable=SC2207
     local c=($(caller))
     warn "${c[1]}: ERROR: line $line"
+    [[ -n "$errorlog" ]] && rm -f "$errorlog"
 }
 
 # From openqa-cli JSON output filter and return the id/ids of jobs,
@@ -35,7 +38,6 @@ runcli() {
     set +e
     errorlog=$(mktemp -t runcli-errorlog-XXXX)
     # shellcheck disable=SC2064
-    trap "rm $errorlog" EXIT
     output=$("${args[@]}" 2>"$errorlog")
     rc=$?
     set -e
@@ -43,6 +45,7 @@ runcli() {
         read -r errstr < "$errorlog"
         warn "$1 ($(caller)): (${args[*]}) stderr: >>>$errstr<<<"
     fi
+    rm "$errorlog"
     [[ "$rc" == 0 ]] && echo "$output" && return
     warn "$1 ($(caller)): (${args[*]}) rc: $rc >>>$output<<<"
     return $rc
