@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 49
+plan tests 50
 
 host=localhost
 url=https://localhost
@@ -157,6 +157,7 @@ test-post-investigate() {
     try investigate 30001
     is "$rc" 2 'mocked function returned failure (30001)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30001)"
+    has "$got" "Investigate retry job **vim:investigate:retry**" "retry test name appears in comment(30001)"
     has "$got" "likely not a sporadic" "not sporadic (30001)"
     has "$got" "product issue" "product issue (30001)"
 
