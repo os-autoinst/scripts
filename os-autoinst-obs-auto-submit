@@ -30,7 +30,7 @@ wait_for_package_build() {
     local wip_states='\(unknown\|blocked\|scheduled\|dispatching\|building\|signing\|finished\)'
     local bad_states='\(failed\|unresolvable\|broken\)'
     local attempts="$osc_build_start_poll_tries"
-    while ! curl -s  "$osc_query" | grep -e "$wip_states" ; do
+    while ! curl -sS  "$osc_query" | grep -e "$wip_states" ; do
         if [[ $attempts -le 0 ]]; then
             echo "warning: Re-build of $package has not been considered in time (or package has been re-built so fast that we've missed it)"
             break
@@ -39,11 +39,11 @@ wait_for_package_build() {
         sleep "$osc_poll_interval"
         attempts=$((attempts - 1))
     done
-    while curl -s "$osc_query" | grep -e "$wip_states" ; do
+    while curl -sS "$osc_query" | grep -e "$wip_states" ; do
         echo "Waiting while $package is in progress"
         sleep "$osc_poll_interval"
     done
-    if curl -s "$osc_query" | grep -e "$bad_states" ; then
+    if curl -sS "$osc_query" | grep -e "$bad_states" ; then
         echo "Building $package has failed, skipping submission"
         return 1
     fi

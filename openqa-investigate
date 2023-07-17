@@ -76,7 +76,7 @@ trigger_jobs() {
     clone "$id" "$id" 'retry' '' "${@:2}"
 
     job_url="$host_url/tests/$id"
-    investigation=$(runcurl "${curl_args[@]}" -s "$job_url"/investigation_ajax) || return $?
+    investigation=$(runcurl "${curl_args[@]}" -sS "$job_url"/investigation_ajax) || return $?
     last_good_exists=$(echo "$investigation" | runjq -r '.last_good') || return $?
     if [[ "$last_good_exists" = "null" || "$last_good_exists" = "not found" ]]; then
         echo "No last good recorded, skipping regression investigation jobs" && return 0
@@ -91,7 +91,7 @@ trigger_jobs() {
         echo "$test_log. Skipping test regression investigation job."
         last_good_tests=''
     else
-        vars_last_good=$(runcurl "${curl_args[@]}" -s "$host_url/tests/$last_good"/file/vars.json) || return $?
+        vars_last_good=$(runcurl "${curl_args[@]}" -sS "$host_url/tests/$last_good"/file/vars.json) || return $?
         last_good_tests=$(echo "$vars_last_good" | runjq -r '.TEST_GIT_HASH') || return $?
         # here we could apply the same approach for needles, not only tests
         # With https://github.com/os-autoinst/os-autoinst/pull/1358 we could
@@ -110,7 +110,7 @@ trigger_jobs() {
         echo "Current job has same build as last good, product regression unlikely. Skipping product regression investigation job."
         last_good_build=''
     else
-        vars_last_good=${vars_last_good:-$(runcurl "${curl_args[@]}" -s "$host_url/tests/$last_good"/file/vars.json)} || return $?
+        vars_last_good=${vars_last_good:-$(runcurl "${curl_args[@]}" -sS "$host_url/tests/$last_good"/file/vars.json)} || return $?
         last_good_build=$(echo "$vars_last_good" | runjq -r '.BUILD') || return $?
         # here we clone with unspecified test refspec, i.e. this could be a
         # more recent tests version. As an alternative we could explicitly
