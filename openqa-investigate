@@ -22,7 +22,7 @@ exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
 force=${force:-false}
 client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
 jq_output_limit="${jq_output_limit:-15}"
-curl_args=(--user-agent "openqa-investigate")
+curl_args=(-L --user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
 clone() {
