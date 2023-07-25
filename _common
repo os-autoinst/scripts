@@ -215,7 +215,7 @@ $body
 
 latest_published_tw_builds() {
     local latest_builds group_id=$1
-    latest_builds=("$(runcurl -sS "$tw_openqa_host/group_overview/$group_id.json" \
+    latest_builds=("$(runcurl -L -sS "$tw_openqa_host/group_overview/$group_id.json" \
         | jq -r '([.build_results[] | select(.tag.description=="published") | select(.version=="Tumbleweed") | .build] | sort | reverse)[]')")
     echo "${latest_builds[@]}"
 }
