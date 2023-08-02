@@ -1,0 +1,13 @@
+#!ipxe
+
+# This script is supposed to be embedded into the ipxe.pxe and ipxe.efi bootloader images like this:
+# git clone https://github.com/ipxe/ipxe.git
+# cd ipxe/src
+# make EMBED=boot.ipxe bin/ipxe.pxe bin-x86_64-efi/ipxe.efi
+
+echo Welcome to o3 iPXE
+
+dhcp
+
+chain --replace --autofree http://${next-server}/tftpboot/ipxe/menu.ipxe ||
+chain --replace --autofree tftp://${next-server}/ipxe/menu.ipxe ||
