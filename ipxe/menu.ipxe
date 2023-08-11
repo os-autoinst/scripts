@@ -99,6 +99,13 @@ echo -n Kernel cmdline: ${}
 read cmdline
 echo -n Initrd: ${}
 read initrd
+
+# clear the screen to prevent lost chars (eg in ipmi openqa tests)
+set esc:hex 1b            # ANSI escape character - "^["
+set cls ${esc:string}[2J  # ANSI clear screen sequence - "^[[2J"
+echo ${cls}
+sleep 1 # clearing the screen may take a second
+
 kernel ${kernel} ${cmdline}
 initrd ${initrd}
 boot
