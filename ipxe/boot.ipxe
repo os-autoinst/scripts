@@ -4,6 +4,7 @@
 # git clone https://github.com/ipxe/ipxe.git
 # cd ipxe/src
 # make EMBED=boot.ipxe bin/ipxe.pxe bin-x86_64-efi/ipxe.efi
+# make EMBED=boot.ipxe CROSS=/usr/bin/aarch64-suse-linux- bin-arm64-efi/ipxe.efi
 
 echo Welcome to o3 iPXE
 
