@@ -26,7 +26,7 @@ item --gap --             -------------------------------- AArch64 -------------
 item --key o leapS1aarch64auto (O)Boot openSUSE Leap15.5 / ttyS1 autoyast=https://is.gd/oqaay4
 item --gap --             ------------------------- Advanced options -------------------------------
 item --key c config       Configure settings
-item shell                Drop to iPXE shell 
+item --key i shell        (i)Drop to iPXE shell
 item reboot               Reboot computer
 item
 item --key x exit         Exit iPXE and continue BIOS boot 
