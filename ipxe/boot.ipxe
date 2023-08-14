@@ -4,7 +4,10 @@
 # git clone https://github.com/ipxe/ipxe.git
 # cd ipxe/src
 # make EMBED=boot.ipxe bin/ipxe.pxe bin-x86_64-efi/ipxe.efi
-# make EMBED=boot.ipxe CROSS=/usr/bin/aarch64-suse-linux- bin-arm64-efi/ipxe.efi
+# cp bin/ipxe.pxe bin-x86_64-efi/ipxe.efi /srv/tftpboot/ipxe/
+# zypper -n in cross-aarch64-gcc13
+# make EMBED=/srv/tftpboot/ipxe/boot.ipxe CROSS=aarch64-suse-linux- bin-arm64-efi/ipxe.efi
+# cp bin-arm64-efi/ipxe.efi /srv/tftpboot/ipxe/ipxe-arm64.efi
 
 echo Welcome to o3 iPXE
 
