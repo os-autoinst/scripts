@@ -9,8 +9,7 @@ set menu-timeout 30000
 :start
 menu iPXE boot menu for openqa.opensuse.org 
 
-item --gap --             ------------------------- Operating systems ------------------------------
-item --gap --             ------ (You will be prompted to edit cmdline after selecting an os) ------
+item --gap --             -- OS Inst (You will be prompted to edit cmdline after selecting an os) --
 item --gap --             -------------------------------- x86_64 ----------------------------------
 item --key l leapS1       (L)Boot openSUSE Leap15.5 from download.opensuse.org / ttyS1 (http)
 item --key e leapS2       (E)Boot openSUSE Leap15.5 from download.opensuse.org / ttyS2 (http)
