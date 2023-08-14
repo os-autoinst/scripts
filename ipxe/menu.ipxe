@@ -9,8 +9,7 @@ set menu-timeout 30000
 :start
 menu iPXE boot menu for openqa.opensuse.org 
 
-item --gap --             ------------------------- Operating systems ------------------------------
-item --gap --             ------ (You will be prompted to edit cmdline after selecting an os) ------
+item --gap --             -- OS Inst (You will be prompted to edit cmdline after selecting an os) --
 item --gap --             -------------------------------- x86_64 ----------------------------------
 item --key l leapS1       (L)Boot openSUSE Leap15.5 from download.opensuse.org / ttyS1 (http)
 item --key e leapS2       (E)Boot openSUSE Leap15.5 from download.opensuse.org / ttyS2 (http)
@@ -20,11 +19,10 @@ item --key z tumbleweed_XEN_autoyast (Z)Boot openSUSE Tumbleweed XEN server from
 item --key t tumbleweedS1 (T)Boot openSUSE Tumbleweed from download.opensuse.org / ttyS1 (http)
 item --key s tumbleweedS2 (S)Boot openSUSE Tumbleweed from download.opensuse.org / ttyS2 (http)
 item --key M memtest64efi (M)Memtest 64 EFI
-item --key N nbxyzbios    (N)Netboot.xyz BIOS
-item --key N nbxyzefi     (N)Netboot.xyz EFI
 item --gap --             -------------------------------- AArch64 ---------------------------------
 item --key o leapS1aarch64auto (O)Boot openSUSE Leap15.5 / ttyS1 autoyast=https://is.gd/oqaay4
 item --gap --             ------------------------- Advanced options -------------------------------
+item --key N nbxyz        (N)Netboot.xyz (x86_64 / aarch64)
 item --key c config       Configure settings
 item --key i shell        (i)Drop to iPXE shell
 item reboot               Reboot computer
@@ -83,10 +81,9 @@ set cmdline
 set initrd
 goto editandboot
 
-:nbxyzbios
-chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.lkrn
-
-:nbxyzefi
+:nbxyz
+iseq ${platform} pcbios && chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.lkrn ||
+iseq ${buildarch} arm64 && chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz-arm64.efi ||
 chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.efi
 
 :leapS1aarch64auto
