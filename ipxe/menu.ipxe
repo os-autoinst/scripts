@@ -5,9 +5,13 @@
 
 #set variables
 set menu-timeout 30000
+set server-name netboot
+iseq ${next-server} 10.150.1.11   && set server-name openqa.opensuse.org ||
+iseq ${next-server} 10.168.192.10 && set server-name qe.nue2.suse.org ||
+iseq ${next-server} 10.162.0.1    && set server-name qanet.qa.suse.de ||
 
 :start
-menu iPXE boot menu for openqa.opensuse.org 
+menu iPXE boot menu for ${server-name}
 
 item --gap --             -- OS Inst (You will be prompted to edit cmdline after selecting an os) --
 item --gap --             -------------------------------- x86_64 ----------------------------------
