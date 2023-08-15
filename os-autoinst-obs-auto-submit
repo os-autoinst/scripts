@@ -125,7 +125,7 @@ generate_os-autoinst-distri-opensuse-deps_changelog() {
 
 handle_auto_submit() {
     package=$1
-    $osc service wait "$src_project"/"$package"
+    $osc service wait "$src_project" "$package"
     $osc co --server-side-source-service-files "$src_project"/"$package"
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" ]]; then
         $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
@@ -144,7 +144,7 @@ handle_auto_submit() {
             return
         fi
     fi
-    $osc service wait "$dst_project"/"$package"
+    $osc service wait "$dst_project" "$package"
     $osc co "$dst_project"/"$package"
     rm "$dst_project"/"$package"/*
     cp -v "$src_project"/"$package"/* "$dst_project"/"$package"/
