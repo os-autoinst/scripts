@@ -21,7 +21,8 @@ email_unreviewed=${email_unreviewed:-false}
 notification_address=${notification_address:-}
 from_email=${from_email:-openqa-label-known-issues@open.qa}
 curl_args=(-L --user-agent "openqa-label-known-issues")
-client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url")
+retries="${retries:-"3"}"
+client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
 
 out="${REPORT_FILE:-$(mktemp -t openqa-label-known-issues--output-XXXX)}"
 trap 'error-handler "$LINENO"' ERR
