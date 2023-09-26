@@ -40,7 +40,7 @@ The search terms are crosschecked against the logfiles and
 "reason" field of the openQA jobs. A multi-line search is possible, for
 example using the `<search_term>`
 
-  `(?s)something to match earlier.*something to match some lines further down`
+  `something to.*match earlier[\S\s]*something to match some lines further down`
 
 Other double quotes in the subject line than around the search term should be
 avoided. Also **avoid generic search terms** to prevent
@@ -68,9 +68,10 @@ for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
 ```
 
 *Notes:* the regex used in `<search_term>` is very powerful but also can be
-expensive when `(?s)` is used. Every `.*` can span over multiple lines and
-that involves a lot of backtracking and might not be needed. Use `[^\n]*` over
-`.*` where possible or use line spanning matches like `[\S\s]*`.
+expensive when `(?s)line1.*line2.*line3` is used. Every `.*` can span over
+multiple lines and that involves a lot of backtracking and might not be needed.
+Use `[^\n]*` over `.*` where possible or use line spanning matches with
+`[\S\s]*` instead of `(?s)`.
 
 ### Unknown issues
 
