@@ -15,6 +15,7 @@ dry_run="${dry_run:-"0"}"
 min_search_term="${min_search_term:-"16"}"
 issue_marker="${issue_marker:-"auto_review%3A"}"
 issue_query="${issue_query:-"https://progress.opensuse.org/projects/openqav3/issues.json?limit=200&subproject_id=*&subject=~${issue_marker}"}"
+force_result_tracker="${force_result_tracker:-"openqa-force-result"}"
 reason_min_length="${reason_min_length:-"8"}"
 grep_timeout="${grep_timeout:-5}"
 email_unreviewed=${email_unreviewed:-false}
@@ -81,8 +82,12 @@ label_on_issues_from_issue_tracker() {
         force_result=''
         label="poo#$issue $subject"
         if [[ ${#search} -ge $min_search_term ]]; then
-            if [[ $tracker == 'openqa-force-result' && $after =~ :force_result:([a-z_]+) ]]; then
-                force_result=${BASH_REMATCH[1]}
+            if [[ $after =~ :force_result:([a-z_]+) ]]; then
+                if [[ $tracker == "$force_result_tracker" ]]; then
+                    force_result=${BASH_REMATCH[1]}
+                else
+                    label="$label (ignoring force result for ticket which is not in tracker \"$force_result_tracker\")"
+                fi
             fi
             label-on-issue "$id" "$search" "$label" "${after//*\":retry*/1}" "$force_result" && break
         fi
