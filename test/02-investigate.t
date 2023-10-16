@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 50
+plan tests 69
 
 host=localhost
 url=https://localhost
@@ -40,6 +40,8 @@ openqa-cli() {
         echo '{"job": { "test": "vim:investigate:last_good_tests", "result": "failed" } }'
     elif [[ "$1 $2" == "--json jobs/3002" ]]; then
         echo '{"job": { "test": "vim", "result": "failed" } }'
+    elif [[ "$1 $2" == "--json jobs/3003" ]]; then
+        echo '{"job": { "test": "vim", "result": "failed" } }'
     elif [[ "$1 $2" == "--json jobs/30001" ]]; then
         echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
     elif [[ "$1 $2" == "--json jobs/30002" ]]; then
@@ -50,6 +52,10 @@ openqa-cli() {
         echo '{"job": { "test": "vim:investigate:retry", "result": "softfailed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
     elif [[ "$1 $2" == "--json jobs/30005" ]]; then
         echo '{"job": { "test": "vim-other:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
+    elif [[ "$1 $2" =~ --json.jobs/3003[134] ]]; then
+        echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
+    elif [[ "$1 $2" == "--json jobs/30032" ]]; then
+        echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
 
     # GET experimental/jobs/id/status
     elif [[ "$2" =~ experimental/jobs/(30001|30002)/status ]]; then
@@ -60,6 +66,10 @@ openqa-cli() {
         echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
     elif [[ "$2" =~ experimental/jobs/(30023|30024)/status ]]; then
         echo '{ "state": "running", "test": "vim:investigate:retry", "result": "none" }'
+    elif [[ "$2" =~ experimental/jobs/(30031|30033)/status ]]; then
+        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
+    elif [[ "$2" =~ experimental/jobs/(30032|30034)/status ]]; then
+        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "passed" }'
 
     # POST jobs/id/comments
     elif [[ $@ == "-X POST jobs/10030/comments text=Starting investigation for job 10031" ]]; then
@@ -74,6 +84,9 @@ openqa-cli() {
     elif [[ $@ =~ "-X POST jobs/30002/comments" ]]; then
         warn "Commenting 30002 ($@)"
         exit 99
+    elif [[ $@ =~ "-X POST jobs/3003/comments" ]]; then
+        warn "Commenting 3003 ($@)"
+        exit 99
 
     # GET jobs/id/comments
     elif [[ $@ == "-X GET jobs/10030/comments" ]]; then
@@ -84,6 +97,8 @@ openqa-cli() {
         echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30001\n**a:investigate:last_good_tests:coffee**:url/t30002\n**a:investigate:last_good_build:2001**:url/t30003\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t30004"}]'
     elif [[ $@ == "-X GET jobs/3002/comments" ]]; then
         echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30021\n**a:investigate:last_good_tests:coffee**:url/t30022\n**a:investigate:last_good_build:2001**:url/t30023\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t34024"}]'
+    elif [[ $@ == "-X GET jobs/3003/comments" ]]; then
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30031\n**a:investigate:last_good_tests:coffee**:url/t30032\n**a:investigate:last_good_build:2001**:url/t30033\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t30034"}]'
 
     # PUT jobs/id/comments/id
     elif [[ $@ == $'-X PUT jobs/10030/comments/1234 text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
@@ -154,12 +169,12 @@ test-post-investigate() {
     has "$got" "Job is ':investigate:' already, skipping investigation" "skip investigation, not a retry (3001)"
 
     # retry failed
+    # product issue
     try investigate 30001
     is "$rc" 2 'mocked function returned failure (30001)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30001)"
     has "$got" "Investigate retry job **vim:investigate:retry**" "retry test name appears in comment(30001)"
-    has "$got" "likely not a sporadic" "not sporadic (30001)"
-    has "$got" "product issue" "product issue (30001)"
+    has "$got" "likely a product issue" "product issue (30001)"
 
     # retry passed
     try investigate 30003
@@ -178,6 +193,13 @@ test-post-investigate() {
     is "$rc" 0 'early return (other test in cluster) (30005)'
     has "$got" "is not a retry" "vim-other vs. vim (30005)"
 
+    # test issue
+    try investigate 30031
+    is "$rc" 2 'mocked function returned failure (30031)'
+    has "$got" "Commenting 3003" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30031)"
+    has "$got" "Investigate retry job **vim:investigate:retry**" "retry test name appears in comment(30031)"
+    has "$got" "likely a test issue" "test issue (30031)"
+
     # 142 not finished yet
     local job_data='{"job": { "result": "failed", "settings": { "OPENQA_INVESTIGATE_ORIGIN": "https://localhost/t3002" } } }'
     try post-investigate 2039 "vim:investigate:retry"
@@ -194,29 +216,62 @@ last_good_build|3|$t3
 last_good_tests_and_build|4|$t4"
     }
     product_issue=false
-    is-product-issue 999
+    test_issue=false
+    identify-issue-type 999
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 
     t2="fail" t3="passed" t4="passed"
-    is-product-issue 999
+    identify-issue-type 999
     is "$product_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 
     t2="fail" t3="fail" t4="passed"
-    is-product-issue 999
+    identify-issue-type 999
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 
     t2="" t3="passed" t4="passed"
-    is-product-issue 999
+    identify-issue-type 999
     is "$product_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 
     t2="" t3="passed" t4=""
-    is-product-issue 999
+    identify-issue-type 999
     is "$product_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 
     t2="fail" t3="" t4="fail"
-    is-product-issue 999
+    identify-issue-type 999
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
+    t2="passed" t3="" t4=""
+    identify-issue-type 999
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="passed" t3="passed" t4=""
+    identify-issue-type 999
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
+    t2="passed" t3="" t4="passed"
+    identify-issue-type 999
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="passed" t3="failed" t4="passed"
+    identify-issue-type 999
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="passed" t3="failed" t4="failed"
+    identify-issue-type 999
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 }
+
 test-post-investigate
 
 # test syncing via investigation comment; we are first
