@@ -74,7 +74,7 @@ openqa-cli() {
     # POST jobs/id/comments
     elif [[ $@ == "-X POST jobs/10030/comments text=Starting investigation for job 10031" ]]; then
         echo '{"id": 1234}'
-    elif [[ $@ == $'-X POST jobs/10031/comments text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
+    elif [[ $@ =~ $'-X POST jobs/10031/comments text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
         echo true > "$comment_for_job_31_created"
     elif [[ $@ == "-X POST jobs/10032/comments text=Starting investigation for job 10032" ]]; then
         echo '{"id": 1237}'
@@ -101,7 +101,7 @@ openqa-cli() {
         echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30031\n**a:investigate:last_good_tests:coffee**:url/t30032\n**a:investigate:last_good_build:2001**:url/t30033\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t30034"}]'
 
     # PUT jobs/id/comments/id
-    elif [[ $@ == $'-X PUT jobs/10030/comments/1234 text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
+    elif [[ $@ =~ $'-X PUT jobs/10030/comments/1234 text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
         echo true > "$comment_1234_updated"
 
     # DELETE jobs/id/comments/id
@@ -123,7 +123,8 @@ openqa-cli() {
 
     # fallback
     else
-        echo '{"debug": "openqa-li '"$@"'"}'
+        args="$@"
+        echo '{"debug": "openqa-li '"${args//$'\n'/ }"'"}'
     fi
 }
 
