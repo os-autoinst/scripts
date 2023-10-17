@@ -72,7 +72,7 @@ expensive when `(?s)` is used. Every `.*` can span over multiple lines and
 that involves a lot of backtracking and might not be needed. Use `[^\n]*` over
 `.*` where possible or use line spanning matches like `[\S\s]*`.
 
-### Unknown issues
+### Unreviewed issues
 
 If none of your configured searches above are matching, you can configure a
 notification for those failed jobs, for example to an email address or a
@@ -85,7 +85,7 @@ Just put the following into the description of the Job Group:
 Each Slack channel has its own email address which you can find out by clicking
 on the title and then on "Integrations".
 
-The email will have the subject "Unknown test issue to be reviewed (Group 123)".
+The email will have the subject "Unreviewed issue (Group 123 Foobar)".
 It will contain the link to the job and a small log excerpt, possibly
 already pointing to the error. The sender email address can be
 [configured](#Configuration).
@@ -111,9 +111,9 @@ there is no carry-over and no automatic ticket assignment by auto-review.
 
 ### Combine auto-review and openqa-investigate
 
-A possible approach to combine handling known issues and unknown issues is to
+A possible approach to combine handling known issues and unreviewed issues is to
 run "openqa-label-known-issues-multi" against all "investigation candidates" and
-pass all unknown issues to "openqa-investigate-multi":
+pass all unreviewed issues to "openqa-investigate-multi":
 
 ```
 ./openqa-review-failed
@@ -146,7 +146,7 @@ following scripts are provided:
 
 `openqa-label-known-issues-and-investigate-hook` recognizes the following
 environment variables:
-* `notification_address` - If set, unknown issues will be sent to this address
+* `notification_address` - If set, unreviewed issues will be sent to this address
    unless a job group has an address configured
 * `from_email` - The From address for notification emails
 * `force_result` - If set to `1` tickets in the [tracker openqa-force-result](https://progress.opensuse.org/projects/openqav3/issues?query_id=700) can override job results
