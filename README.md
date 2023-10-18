@@ -143,6 +143,43 @@ following scripts are provided:
   found, "openqa-investigate". Compare to section
   "Combine auto-review and openqa-investigate"
 
+### More details and examples about openqa-investigate comments
+
+Let's say we have a failed test `openqa-Tumbleweed-dev-x86_64-Build:TW.315-vim`.
+openqa-investigate will trigger several jobs and write a comment:
+
+```
+Automatic investigation jobs for job 123:
+* vim:investigate:retry: https://openqa/t124
+* vim:investigate:last_good_tests:abc123: https://openqa/t126
+* vim:investigate:last_good_build:TW.314: https://openqa/t125
+* vim:investigate:last_good_tests_and_build:abc123+TW.314: https://openqa/t127
+```
+
+The first job `vim:investigate:retry` is a simple retry with the same settings,
+in order to find out if the failure is reproducible consistently.
+
+The `vim:investigate:last_good_tests:abc123` is a retry which uses the last
+good test code. It searches for the last good test, and if there were changes
+in the test code, it will trigger the test using the git sha from that last good
+test, e.g. `CASEDIR=orginal_git_url#abc123`.
+
+The `vim:investigate:last_good_build:TW.314` is a retry using the last good
+build. It searches for the last good test, and if it has a different build
+than the current failing test, it triggers the original test with that build,
+e.g. `BUILD=TW.314`.
+
+The `vim:investigate:last_good_tests_and_build:abc123+TW.314` is a combination
+of the other two, i.e. a retry of the last good build (`BUILD=TW.314`) with the
+last good test code (`CASEDIR=orginal_git_url#abc123`).
+
+With the results of all those tests it can be seen quickly whether something is
+an issue with the new build or the changes in the test code or something else.
+
+As an example, if the `retry` fails, `last_good_tests` fails, but
+`last_good_build` and `last_good_tests_and_build` pass, it's likely an issue
+with the product.
+
 ### Configuration
 
 `openqa-label-known-issues-and-investigate-hook` recognizes the following

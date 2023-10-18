@@ -173,7 +173,9 @@ finalize_investigation_comment() {
 
     local comment="Automatic investigation jobs for job $id:
 
-$comment_text"
+$comment_text
+
+💡[*Detailed explanation of this comment*](https://github.com/os-autoinst/scripts#More-details-and-examples-about-openqa-investigate-comments)"
     "${client_call[@]}" -X PUT jobs/"$first_cluster_job_id"/comments/"$comment_id" text="$comment"
 
     # also write a comment on the job we're actually investigating
@@ -210,13 +212,13 @@ is-ok() {
     [[ $1 == passed || $1 == softfailed ]]
 }
 
-is-product-issue() {
+identify-issue-type() {
     # Fetch job data for all 4 investigation jobs. If one is not yet finished,
     # return special 142 to retrigger this hook later again.
     local origin_job_id=$1
     local state result investigate_type passed output result_lines
     local pass_lgt='' pass_lgb='' pass_lgtb=''
-    product_issue=false
+    product_issue=false test_issue=false
 
     output=$(fetch-investigation-results "$origin_job_id") || return $?
     mapfile -t result_lines <<<"$output"
@@ -234,9 +236,10 @@ is-product-issue() {
             fi
         fi
     done
-    [[ -z "$pass_lgb" ]] && return # no last good build
     if ([[ -z "$pass_lgtb" ]] || "$pass_lgtb") && ([[ -z "$pass_lgt" ]] || ! "$pass_lgt") && "$pass_lgb"; then
         product_issue=true
+    elif ([[ -z "$pass_lgtb" ]] || "$pass_lgtb") && "$pass_lgt" && ([[ -z "$pass_lgb" ]] || ! "$pass_lgb"); then
+        test_issue=true
     fi
 }
 
@@ -258,12 +261,17 @@ post-investigate() {
     if is-ok "$retry_result"; then
         comment+=" $retry_result, likely a sporadic failure"
     else
-        comment+=" failed, likely not a sporadic failure"
+        comment+=" failed"
         local product_issue=false
-        is-product-issue "$origin_job_id" || return $?
+        local test_issue=false
+        identify-issue-type "$origin_job_id" || return $?
 
         if "$product_issue"; then
             comment+="."$'\n'"Jobs including the last good build are ok, likely a product issue"
+        elif "$test_issue"; then
+            comment+="."$'\n'"Jobs including the last good test are ok, likely a test issue"
+        else
+            comment+=", likely not a sporadic failure"
         fi
     fi
 
