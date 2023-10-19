@@ -141,7 +141,7 @@ investigate_issue() {
     # subject line
     elif label_on_issues_without_tickets "$id"; then return
     else
-        handle_unknown "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address" "$job_data" "$dry_run"
+        handle_unreviewed "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address" "$job_data" "$dry_run"
     fi
 }
 
