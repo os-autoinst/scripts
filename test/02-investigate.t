@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 69
+plan tests 73
 
 host=localhost
 url=https://localhost
@@ -271,6 +271,23 @@ last_good_tests_and_build|4|$t4"
     identify-issue-type 999
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
     is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
+    # test when last good tests or build do not exist
+    fetch-investigation-results() {
+        echo "retry|1|failed
+last_good_build|3|passed"
+    }
+    identify-issue-type 999
+    is "$product_issue" "true" "failed+n/a+failed+n/a -> true"
+    is "$test_issue" "false" "failed+n/a+failed+n/a -> false"
+
+    fetch-investigation-results() {
+        echo "retry|1|failed
+last_good_tests|2|passed"
+    }
+    identify-issue-type 999
+    is "$product_issue" "false" "failed+failed+n/a+n/a -> false"
+    is "$test_issue" "true" "failed+failed+n/a+n/a -> true"
 }
 
 test-post-investigate
