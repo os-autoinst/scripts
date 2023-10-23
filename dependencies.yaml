@@ -19,6 +19,7 @@ main_requires:
   curl:
   grep:
   jq:
+  yq:
   sed:
   sudo:
   openQA-client:  # openqa-cli
