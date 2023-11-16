@@ -20,7 +20,9 @@ exclude_no_group="${exclude_no_group:-"true"}"
 # exclude_group_regex checks a combined string "<parent job group name> / <job group name>"
 exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
 force=${force:-false}
-client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
+retries=${retries:-"3"}
+OPENQA_CLI_RETRY_SLEEP_TIME_S=${OPENQA_CLI_RETRY_SLEEP_TIME_S:-20}
+client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
 jq_output_limit="${jq_output_limit:-15}"
 curl_args=(-L --user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
