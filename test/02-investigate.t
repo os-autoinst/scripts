@@ -94,11 +94,11 @@ openqa-cli() {
     elif [[ $@ == "-X GET jobs/10032/comments" ]]; then
         echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Starting investigation for job 10032"}]'
     elif [[ $@ == "-X GET jobs/3000/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30001\n**a:investigate:last_good_tests:coffee**:url/t30002\n**a:investigate:last_good_build:2001**:url/t30003\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t30004"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30001\n*a:investigate:last_good_tests:coffee*: t#30002\n*a:investigate:last_good_build:2001*: t#30003\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30004"}]'
     elif [[ $@ == "-X GET jobs/3002/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30021\n**a:investigate:last_good_tests:coffee**:url/t30022\n**a:investigate:last_good_build:2001**:url/t30023\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t34024"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30021\n*a:investigate:last_good_tests:coffee*: t#30022\n*a:investigate:last_good_build:2001*: t#30023\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#34024"}]'
     elif [[ $@ == "-X GET jobs/3003/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30031\n**a:investigate:last_good_tests:coffee**:url/t30032\n**a:investigate:last_good_build:2001**:url/t30033\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t30034"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30031\n*a:investigate:last_good_tests:coffee*: t#30032\n*a:investigate:last_good_build:2001*: t#30033\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30034"}]'
 
     # PUT jobs/id/comments/id
     elif [[ $@ =~ $'-X PUT jobs/10030/comments/1234 text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
@@ -136,7 +136,7 @@ clone_call=_clone_call
 try clone 10023 10024
 is "$rc" 0 "Successful clone"
 testlabel="vim:investigate"
-has "$got" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
+has "$got" "* *$testlabel*: " "Expected markdown output of job urls for unsupported clusters"
 has "$got" '_TRIGGER_JOB_DONE_HOOK=1' "job is cloned with _TRIGGER_JOB_DONE_HOOK"
 
 clone_call=echo
@@ -174,20 +174,20 @@ test-post-investigate() {
     try investigate 30001
     is "$rc" 2 'mocked function returned failure (30001)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30001)"
-    has "$got" "Investigate retry job **vim:investigate:retry**" "retry test name appears in comment(30001)"
+    has "$got" "Investigate retry job *vim:investigate:retry*" "retry test name appears in comment(30001)"
     has "$got" "likely a product issue" "product issue (30001)"
 
     # retry passed
     try investigate 30003
     is "$rc" 2 'mocked function returned failure (30003)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30003)"
-    has "$got" "likely a sporadic" "sporadic (passed) (30003)"
+    has "$got" "Likely a sporadic" "sporadic (passed) (30003)"
 
     # retry softfailed
     try investigate 30003
     is "$rc" 2 'mocked function returned failure (30003)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30003)"
-    has "$got" "likely a sporadic" "sporadic (softfailed) (30003)"
+    has "$got" "Likely a sporadic" "sporadic (softfailed) (30003)"
 
     # retry softfailed
     try investigate 30005
@@ -198,7 +198,7 @@ test-post-investigate() {
     try investigate 30031
     is "$rc" 2 'mocked function returned failure (30031)'
     has "$got" "Commenting 3003" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30031)"
-    has "$got" "Investigate retry job **vim:investigate:retry**" "retry test name appears in comment(30031)"
+    has "$got" "Investigate retry job *vim:investigate:retry*" "retry test name appears in comment(30031)"
     has "$got" "likely a test issue" "test issue (30031)"
 
     # 142 not finished yet

@@ -28,7 +28,7 @@ curl_args=(-L --user-agent "openqa-investigate")
 echoerr() { echo "$@" >&2; }
 
 clone() {
-    local origin id name_suffix refspec unsupported_cluster_jobs pending_cluster_jobs name base_prio clone_settings casedir repo out url clone_id
+    local origin id name_suffix refspec unsupported_cluster_jobs pending_cluster_jobs name base_prio clone_settings casedir repo out clone_id
     origin=${1:?"Need 'origin'"}
     id=${2:?"Need 'id'"}
     name_suffix=${3+":$3"}
@@ -66,9 +66,8 @@ clone() {
 
     # output: { "$id": $clone_id }
     clone_id=$(echo "$out" | runjq -r ".\"$id\"")
-    url="$scheme://$host/t$clone_id"
     # Create markdown list entry
-    echo "* **$name**: $url"
+    echo "* *$name*: t#$clone_id"
     "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
 }
 
@@ -190,13 +189,13 @@ fetch-investigation-results() {
     local origin_job_id=$1
     local state job investigate_type other_id result investigate_comment output comment_lines
 
-    investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry**:"))] | min_by(.id)') || return $?
+    investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry*:"))] | min_by(.id)') || return $?
     [[ $investigate_comment == 'null' ]] && return
     output=$(echo "$investigate_comment" | runjq -r '.text') || return $?
     mapfile -t comment_lines <<<"$output"
 
     for line in "${comment_lines[@]}"; do
-        if [[ $line =~ :investigate:([^:*]+).*\/t([0-9]+) ]]; then
+        if [[ $line =~ :investigate:([^:*]+).*t\#([0-9]+) ]]; then
             investigate_type=${BASH_REMATCH[1]}
             other_id=${BASH_REMATCH[2]}
             job=$(openqa-cli "${client_args[@]}" --json experimental/jobs/"$other_id"/status)
@@ -259,21 +258,22 @@ post-investigate() {
     # cluster jobs might have the same OPENQA_INVESTIGATE_ORIGIN as the root retry job
     [[ $retry_name != "$origin_name:investigate:retry" ]] && echo "Job $retry_name ($id) is not a retry of $origin_name ($origin_job_id)" && return 0
 
-    comment="Investigate retry job **$retry_name**: $host_url/t$id"
+    comment="Investigate retry job *$retry_name*: t#$id"
     if is-ok "$retry_result"; then
-        comment+=" $retry_result, likely a sporadic failure"
+        comment+=" $retry_result."$'\n\n'
+        comment+="📋 **Likely a sporadic failure**."
     else
-        comment+=" failed"
+        comment+=" failed."$'\n\n'
         local product_issue=false
         local test_issue=false
         identify-issue-type "$origin_job_id" || return $?
 
         if "$product_issue"; then
-            comment+="."$'\n'"Jobs including the last good build are ok, likely a product issue"
+            comment+="📋 **Jobs including the last good build are ok, likely a product issue**."
         elif "$test_issue"; then
-            comment+="."$'\n'"Jobs including the last good test are ok, likely a test issue"
+            comment+="📋 **Jobs including the last good test are ok, likely a test issue**."
         else
-            comment+=", likely not a sporadic failure"
+            comment+="📋 **Likely not a sporadic failure**."
         fi
     fi
 
