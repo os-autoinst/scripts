@@ -259,21 +259,22 @@ post-investigate() {
     # cluster jobs might have the same OPENQA_INVESTIGATE_ORIGIN as the root retry job
     [[ $retry_name != "$origin_name:investigate:retry" ]] && echo "Job $retry_name ($id) is not a retry of $origin_name ($origin_job_id)" && return 0
 
-    comment="Investigate retry job **$retry_name**: $host_url/t$id"
+    comment="Investigate retry job *$retry_name*: $host_url/t$id"
     if is-ok "$retry_result"; then
-        comment+=" $retry_result, likely a sporadic failure"
+        comment+=" $retry_result."$'\n\n'
+        comment+="📋 **Likely a sporadic failure**."
     else
-        comment+=" failed"
+        comment+=" failed."$'\n\n'
         local product_issue=false
         local test_issue=false
         identify-issue-type "$origin_job_id" || return $?
 
         if "$product_issue"; then
-            comment+="."$'\n'"Jobs including the last good build are ok, likely a product issue"
+            comment+="📋 **Jobs including the last good build are ok, likely a product issue**."
         elif "$test_issue"; then
-            comment+="."$'\n'"Jobs including the last good test are ok, likely a test issue"
+            comment+="📋 **Jobs including the last good test are ok, likely a test issue**."
         else
-            comment+=", likely not a sporadic failure"
+            comment+="📋 **Likely not a sporadic failure**."
         fi
     fi
 

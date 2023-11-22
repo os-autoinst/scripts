@@ -174,20 +174,20 @@ test-post-investigate() {
     try investigate 30001
     is "$rc" 2 'mocked function returned failure (30001)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30001)"
-    has "$got" "Investigate retry job **vim:investigate:retry**" "retry test name appears in comment(30001)"
+    has "$got" "Investigate retry job *vim:investigate:retry*" "retry test name appears in comment(30001)"
     has "$got" "likely a product issue" "product issue (30001)"
 
     # retry passed
     try investigate 30003
     is "$rc" 2 'mocked function returned failure (30003)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30003)"
-    has "$got" "likely a sporadic" "sporadic (passed) (30003)"
+    has "$got" "Likely a sporadic" "sporadic (passed) (30003)"
 
     # retry softfailed
     try investigate 30003
     is "$rc" 2 'mocked function returned failure (30003)'
     has "$got" "Commenting 3000" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30003)"
-    has "$got" "likely a sporadic" "sporadic (softfailed) (30003)"
+    has "$got" "Likely a sporadic" "sporadic (softfailed) (30003)"
 
     # retry softfailed
     try investigate 30005
@@ -198,7 +198,7 @@ test-post-investigate() {
     try investigate 30031
     is "$rc" 2 'mocked function returned failure (30031)'
     has "$got" "Commenting 3003" "Posting comment on OPENQA_INVESTIGATE_ORIGIN (30031)"
-    has "$got" "Investigate retry job **vim:investigate:retry**" "retry test name appears in comment(30031)"
+    has "$got" "Investigate retry job *vim:investigate:retry*" "retry test name appears in comment(30031)"
     has "$got" "likely a test issue" "test issue (30031)"
 
     # 142 not finished yet
