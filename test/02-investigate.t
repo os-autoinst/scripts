@@ -94,11 +94,11 @@ openqa-cli() {
     elif [[ $@ == "-X GET jobs/10032/comments" ]]; then
         echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Starting investigation for job 10032"}]'
     elif [[ $@ == "-X GET jobs/3000/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*:url/t30001\n*a:investigate:last_good_tests:coffee*:url/t30002\n*a:investigate:last_good_build:2001*:url/t30003\n*a:investigate:last_good_tests_and_build:coffee+2001*:url/t30004"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30001\n*a:investigate:last_good_tests:coffee*: t#30002\n*a:investigate:last_good_build:2001*: t#30003\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30004"}]'
     elif [[ $@ == "-X GET jobs/3002/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*:url/t30021\n*a:investigate:last_good_tests:coffee*:url/t30022\n*a:investigate:last_good_build:2001*:url/t30023\n*a:investigate:last_good_tests_and_build:coffee+2001*:url/t34024"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30021\n*a:investigate:last_good_tests:coffee*: t#30022\n*a:investigate:last_good_build:2001*: t#30023\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#34024"}]'
     elif [[ $@ == "-X GET jobs/3003/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*:url/t30031\n*a:investigate:last_good_tests:coffee*:url/t30032\n*a:investigate:last_good_build:2001*:url/t30033\n*a:investigate:last_good_tests_and_build:coffee+2001*:url/t30034"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30031\n*a:investigate:last_good_tests:coffee*: t#30032\n*a:investigate:last_good_build:2001*: t#30033\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30034"}]'
 
     # PUT jobs/id/comments/id
     elif [[ $@ =~ $'-X PUT jobs/10030/comments/1234 text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
