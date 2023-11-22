@@ -94,11 +94,11 @@ openqa-cli() {
     elif [[ $@ == "-X GET jobs/10032/comments" ]]; then
         echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Starting investigation for job 10032"}]'
     elif [[ $@ == "-X GET jobs/3000/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30001\n**a:investigate:last_good_tests:coffee**:url/t30002\n**a:investigate:last_good_build:2001**:url/t30003\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t30004"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*:url/t30001\n*a:investigate:last_good_tests:coffee*:url/t30002\n*a:investigate:last_good_build:2001*:url/t30003\n*a:investigate:last_good_tests_and_build:coffee+2001*:url/t30004"}]'
     elif [[ $@ == "-X GET jobs/3002/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30021\n**a:investigate:last_good_tests:coffee**:url/t30022\n**a:investigate:last_good_build:2001**:url/t30023\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t34024"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*:url/t30021\n*a:investigate:last_good_tests:coffee*:url/t30022\n*a:investigate:last_good_build:2001*:url/t30023\n*a:investigate:last_good_tests_and_build:coffee+2001*:url/t34024"}]'
     elif [[ $@ == "-X GET jobs/3003/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n**a:investigate:retry**:url/t30031\n**a:investigate:last_good_tests:coffee**:url/t30032\n**a:investigate:last_good_build:2001**:url/t30033\n**a:investigate:last_good_tests_and_build:coffee+2001**:url/t30034"}]'
+        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*:url/t30031\n*a:investigate:last_good_tests:coffee*:url/t30032\n*a:investigate:last_good_build:2001*:url/t30033\n*a:investigate:last_good_tests_and_build:coffee+2001*:url/t30034"}]'
 
     # PUT jobs/id/comments/id
     elif [[ $@ =~ $'-X PUT jobs/10030/comments/1234 text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
@@ -136,7 +136,7 @@ clone_call=_clone_call
 try clone 10023 10024
 is "$rc" 0 "Successful clone"
 testlabel="vim:investigate"
-has "$got" "* **$testlabel**: " "Expected markdown output of job urls for unsupported clusters"
+has "$got" "* *$testlabel*: " "Expected markdown output of job urls for unsupported clusters"
 has "$got" '_TRIGGER_JOB_DONE_HOOK=1' "job is cloned with _TRIGGER_JOB_DONE_HOOK"
 
 clone_call=echo

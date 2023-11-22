@@ -68,7 +68,7 @@ clone() {
     clone_id=$(echo "$out" | runjq -r ".\"$id\"")
     url="$scheme://$host/t$clone_id"
     # Create markdown list entry
-    echo "* **$name**: $url"
+    echo "* *$name*: $url"
     "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
 }
 
@@ -190,7 +190,7 @@ fetch-investigation-results() {
     local origin_job_id=$1
     local state job investigate_type other_id result investigate_comment output comment_lines
 
-    investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry**:"))] | min_by(.id)') || return $?
+    investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry*:"))] | min_by(.id)') || return $?
     [[ $investigate_comment == 'null' ]] && return
     output=$(echo "$investigate_comment" | runjq -r '.text') || return $?
     mapfile -t comment_lines <<<"$output"
