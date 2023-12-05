@@ -7,6 +7,8 @@
 # cp bin/ipxe.pxe bin-x86_64-efi/ipxe.efi /srv/tftpboot/ipxe/
 # zypper -n in cross-aarch64-gcc13
 # make EMBED=/srv/tftpboot/ipxe/boot.ipxe CROSS=aarch64-suse-linux- bin-arm64-efi/ipxe.efi
+# NOTE: if you face problems while downloading, this might be caused by a broken network driver (e.g. https://github.com/ipxe/ipxe/issues/1023#issuecomment-1708614076).
+# Try to use an iPXE version which does not talk to the NIC directly but rather utilize the underlying UEFI calls. You can compile such a version by building `bin-arm64-efi/snponly.efi` instead of `bin-arm64-efi/ipxe.efi`
 # cp bin-arm64-efi/ipxe.efi /srv/tftpboot/ipxe/ipxe-arm64.efi
 
 echo Welcome to o3 iPXE
