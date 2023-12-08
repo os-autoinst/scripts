@@ -80,6 +80,11 @@ def parse_args():
         help="The openQA test URL for which to trigger bisection investigation jobs",
     )
     parser.add_argument(
+        "--priority-add",
+        default=100,
+        help="Adds the specified value to the cloned job's priority value",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Do not do any action on openQA"
     )
     args = parser.parse_args()
@@ -121,6 +126,19 @@ def openqa_comment(job, host, comment, dry_run):
     ]
     return call(args, dry_run)
 
+def openqa_set_job_prio(job_id, host, prio, dry_run):
+    prio_json = json.dumps({"priority": prio})
+    args = client_args + [
+        "--host",
+        host,
+        "--json",
+        "--data",
+        prio_json,
+        "-X",
+        "PUT",
+        "jobs/" + str(job_id),
+    ]
+    return call(args, dry_run)
 
 def openqa_clone(
     cmds,
@@ -243,6 +261,7 @@ def main(args):
 
     log.debug("Received job data: %s" % test_data)
     test = job["settings"]["TEST"]
+    prio = int(job["priority"]) + args.priority_add
     log.debug("Found test name '%s'" % test)
 
     created = ""
@@ -292,6 +311,7 @@ def main(args):
         for job_id in sorted(created_job_ids):
             log.info(f"Created {job_id}")
             created += f"* **{test_name}**: {base_url}/t{job_id}\n"
+            openqa_set_job_prio(job_id, args.url, prio, args.dry_run)
 
     if len(created):
         comment = "Automatic bisect jobs:\n\n" + created
