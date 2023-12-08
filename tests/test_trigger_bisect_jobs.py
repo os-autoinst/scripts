@@ -204,7 +204,13 @@ def test_problems():
     openqa.log.info = MagicMock()
     openqa.main(args)
     openqa.log.info.assert_called_with("Job 101 (foo) is passed, skipping bisection")
-    assert call('http://openqa.opensuse.org/tests/101/investigation_ajax', request_type='json') not in openqa.fetch_url.mock_calls
+    assert (
+        call(
+            "http://openqa.opensuse.org/tests/101/investigation_ajax",
+            request_type="json",
+        )
+        not in openqa.fetch_url.mock_calls
+    )
     openqa.openqa_clone.assert_not_called()
 
 
