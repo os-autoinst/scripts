@@ -31,6 +31,7 @@ def args_factory():
     args = Namespace()
     args.dry_run = False
     args.verbose = 1
+    args.priority_add = 100
     return args
 
 
@@ -103,11 +104,34 @@ def test_comment():
     openqa.call.assert_called_once_with(args, False)
 
 
+def test_set_job_prio():
+    openqa.call = MagicMock(side_effect=mocked_call)
+    openqa.openqa_set_job_prio(
+        1234567, "https://openqa.opensuse.org", 42, dry_run=False
+    )
+    args = [
+        "openqa-cli",
+        "api",
+        "--header",
+        "User-Agent: openqa-trigger-bisect-jobs (https://github.com/os-autoinst/scripts)",
+        "--host",
+        "https://openqa.opensuse.org",
+        "--json",
+        "--data",
+        '{"priority": 42}',
+        "-X",
+        "PUT",
+        "jobs/1234567",
+    ]
+    openqa.call.assert_called_once_with(args, False)
+
+
 def test_triggers():
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
     openqa.openqa_clone = MagicMock(return_value='{"7848818": 234567}')
     openqa.openqa_comment = MagicMock(return_value='')
+    openqa.openqa_set_job_prio = MagicMock(return_value='')
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
     openqa.main(args)
     calls = [
@@ -174,6 +198,10 @@ def test_triggers():
         "Automatic bisect jobs:\n\n* **foo:investigate:bisect_without_3**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_4**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_21637**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_22085**: https://openqa.opensuse.org/t234567\n* **foo:investigate:bisect_without_22192**: https://openqa.opensuse.org/t234567\n",
         False,
     )
+    prio_calls = 5 * [
+        call(234567, "https://openqa.opensuse.org/tests/7848818", 150, False)
+    ]
+    assert prio_calls == openqa.openqa_set_job_prio.call_args_list
 
 
 def test_problems():
