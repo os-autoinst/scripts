@@ -68,7 +68,13 @@ clone() {
     clone_id=$(echo "$out" | runjq -r ".\"$id\"")
     # Create markdown list entry
     echo "* *$name*: t#$clone_id"
-    "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$clone_id" >/dev/null
+
+    # set priority of cloned jobs
+    # shellcheck disable=SC2207
+    clone_ids=($(echo "$out" | runjq -r 'values[]'))
+    for id in "${clone_ids[@]}"; do
+        "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$id" >/dev/null
+    done
 }
 
 trigger_jobs() {
