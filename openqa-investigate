@@ -51,7 +51,10 @@ clone() {
     base_prio=$(echo "$clone_job_data" | runjq -r '.job.priority') || return $?
     clone_settings=("TEST+=:investigate$name_suffix" '_TRIGGER_JOB_DONE_HOOK=1' '_GROUP_ID=0' 'BUILD=')
     if [[ $refspec ]]; then
+	vars_json=$(fetch-vars-json "$origin")
+        testgiturl=$(echo "$vars_json" | runjq -r '.TEST_GIT_URL')
         casedir=$(echo "$clone_job_data" | runjq -r '.job.settings.CASEDIR') || return $?
+        [[ $testgiturl != null ]] && casedir=$testgiturl
         [[ $casedir == null ]] && casedir=''
         repo=${casedir:-'https://github.com/os-autoinst/os-autoinst-distri-opensuse.git'}
         clone_settings+=("CASEDIR=${repo%#*}#${refspec}")

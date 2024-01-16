@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 73
+plan tests 79
 
 host=localhost
 url=https://localhost
@@ -32,6 +32,8 @@ openqa-cli() {
     # GET jobs/id
     if [[ "$1 $2" == "--json jobs/10024" ]]; then
         echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
+    elif [[ "$1 $2" == "--json jobs/10030" ]]; then
+        echo '{"job": { "test": "vim", "priority": "50", "settings":{"CASEDIR": "https://github.com/os-autoinst/os-autoinst-testrepo.git"} } }'
     elif [[ "$1 $2" == "--json jobs/10027" ]]; then
         echo '{"job": { "test": "vim", "clone_id" : 10028 } }'
     elif [[ "$1 $2" == "--json jobs/3000" ]]; then
@@ -132,12 +134,34 @@ clone_call=echo
 _clone_call() {
     echo "$@" >&2
 }
+
+fetch-vars-json() {
+    local tid=$1
+    if [[ $tid -eq 10020 ]]; then
+        echo '{"TEST_GIT_URL": "https://github.com/os-autoinst/os-autoinst-distri-openQA.git"}'
+    else
+        echo '{}'
+    fi
+}
+
 clone_call=_clone_call
 try clone 10023 10024
 is "$rc" 0 "Successful clone"
 testlabel="vim:investigate"
 has "$got" "* *$testlabel*: " "Expected markdown output of job urls for unsupported clusters"
 has "$got" '_TRIGGER_JOB_DONE_HOOK=1' "job is cloned with _TRIGGER_JOB_DONE_HOOK"
+
+try clone 10023 10024 foo refspec
+is "$rc" 0 "Successful clone"
+like "$got" 'CASEDIR=.*/os-autoinst-distri-opensuse.git#refspec' "job is cloned and it uses default CASEDIR"
+
+try clone 10020 10024 foo refspec
+is "$rc" 0 "Successful clone"
+like "$got" 'CASEDIR=.*/os-autoinst-distri-openQA.git#refspec' "job is cloned with sets CASEDIR from TEST_GIT_URL"
+
+try clone 10023 10030 foo refspec
+is "$rc" 0 "Successful clone"
+like "$got" 'CASEDIR=.*/os-autoinst-testrepo.git#refspec' "job is cloned and CASEDIR is set correctly"
 
 clone_call=echo
 try investigate 10027
