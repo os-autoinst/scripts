@@ -65,7 +65,10 @@ clone() {
     clone_settings+=($(echo "$clone_job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="')) || return $?
     clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$origin")
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
-    [[ $dry_run = 1 ]] && echo "$out"
+    if [[ $dry_run = 1 ]]; then
+        echo "$out"
+        out="{ \"$origin\": 42}"
+    fi
 
     # output: { "$id": $clone_id }
     clone_id=$(echo "$out" | runjq -r ".\"$id\"")
@@ -159,6 +162,7 @@ query_dependency_data_or_postpone() {
 sync_via_investigation_comment() {
     local id=$1 first_cluster_job_id=$2
 
+    [[ $dry_run = 1 ]] && return 255
     comment_id=$("${client_call[@]}" -X POST jobs/"$first_cluster_job_id"/comments text="Starting investigation for job $id" | runjq -r '.id') || return $?
     first_comment_id=$("${client_call[@]}" -X GET jobs/"$first_cluster_job_id"/comments | runjq -r '[.[] | select(.text | contains("investigation"))] | min_by(.id) | .id') || return $?
 
@@ -198,6 +202,7 @@ fetch-investigation-results() {
     local origin_job_id=$1
     local state job investigate_type other_id result investigate_comment output comment_lines
 
+    [[ $dry_run = 1 ]] && return 0
     investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry*:"))] | min_by(.id)') || return $?
     [[ $investigate_comment == 'null' ]] && return
     output=$(echo "$investigate_comment" | runjq -r '.text') || return $?
