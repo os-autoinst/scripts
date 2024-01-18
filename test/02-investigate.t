@@ -126,7 +126,7 @@ openqa-cli() {
     # fallback
     else
         args="$@"
-        echo '{"debug": "openqa-li '"${args//$'\n'/ }"'"}'
+        echo '{"debug": "openqa-cli '"${args//$'\n'/ }"'"}'
     fi
 }
 
