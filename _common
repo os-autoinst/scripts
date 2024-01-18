@@ -11,6 +11,7 @@ enable_force_result=${enable_force_result:-false}
 
 client_call=()
 client_args=()
+curl_args=()
 markdown_cmd=$(command -v Markdown.pl) || markdown_cmd=$(command -v markdown) \
     || warn "+++ (Markdown.pl|markdown) not found, please install Text::Markdown +++"
 openqa_cli="${openqa_cli:-""}"
@@ -255,3 +256,7 @@ find_latest_published_tumbleweed_image() {
     echo "$image"
 }
 
+fetch-vars-json() {
+    local tid=$1
+    runcurl "${curl_args[@]}" -sS "$host_url/tests/$tid"/file/vars.json || return $?
+}
