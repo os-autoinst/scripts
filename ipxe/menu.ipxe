@@ -24,7 +24,8 @@ item --key t tumbleweedS1 (T)Boot openSUSE Tumbleweed from download.opensuse.org
 item --key s tumbleweedS2 (S)Boot openSUSE Tumbleweed from download.opensuse.org / ttyS2 (http)
 item --key M memtest64efi (M)Memtest 64 EFI
 item --gap --             -------------------------------- AArch64 ---------------------------------
-item --key o leapS1aarch64auto (O)Boot openSUSE Leap15.5 / ttyS1 autoyast=https://is.gd/oqaay4
+item --key o leapS1aarch64auto (o)Boot openSUSE Leap15.5 / ttyS1 autoyast=https://is.gd/oqaay4
+item --key O leapS1aarch64man  (O)Boot openSUSE Leap15.5
 item --gap --             ------------------------- Advanced options -------------------------------
 item --key N nbxyz        (N)Netboot.xyz (x86_64 / aarch64)
 item --key c config       Configure settings
@@ -93,6 +94,12 @@ chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.efi
 :leapS1aarch64auto
 set kernel http://download.opensuse.org/distribution/leap/15.5/repo/oss/boot/aarch64/linux
 set cmdline network=1 install=http://download.opensuse.org/distribution/leap/15.5/repo/oss/ root=/dev/ram0 initrd=initrd textmode=1 console=tty console=ttyS1,115200 autoyast=https://is.gd/oqaay4 rootpassword=opensuse
+set initrd http://download.opensuse.org/distribution/leap/15.5/repo/oss/boot/aarch64/initrd
+goto editandboot
+
+:leapS1aarch64man
+set kernel http://download.opensuse.org/distribution/leap/15.5/repo/oss/boot/aarch64/linux
+set cmdline network=1 install=http://download.opensuse.org/distribution/leap/15.5/repo/oss/ sshd=1 sshpassword=linux console=tty
 set initrd http://download.opensuse.org/distribution/leap/15.5/repo/oss/boot/aarch64/initrd
 goto editandboot
 
