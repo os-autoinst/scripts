@@ -1,0 +1,17 @@
+#!/bin/bash
+
+pr_id=$1
+files=$(curl https://api.github.com/repos/os-autoinst/scripts/pulls/${pr_id}/files | jq -c '.[].filename' | sed 's/\"//g')
+checker() {
+for n in "$files"; do
+    if head -1 "$n" | grep -q '^#!'; then
+       if [[ $(sed -n '/\t/p' "$n" | wc -l) > 0 ]]; then
+          echo "$n is using TAB"
+       	  return 1
+       fi
+    return 0
+fi
+done
+}
+
+checker "$@"
