@@ -3,9 +3,6 @@ indent_style = space
 indent_size = 4
 binary_next_line   = true
 
-[Makefile]
-indent_style = tab
-
 [.bpan/**]
 ignore = true
 

@@ -19,7 +19,7 @@ check-one-host() {
 }
 
 main() {
-    for ((run=start; run <= runs; run++)); do
+    for ((run = start; run <= runs; run++)); do
         for host in $hosts; do
             check-one-host "$host" || break
         done || break

@@ -53,19 +53,18 @@ trigger() {
     # where o3 is not reachable over https
     declare -a ARGS
     if [ "$target_host" = "openqa.opensuse.org" ]; then
-        ARGS=( "OPENQA_HOST=http://openqa.opensuse.org" )
+        ARGS=("OPENQA_HOST=http://openqa.opensuse.org")
     fi
     # in full run use only openqa_install+publish test
     if [ "$full_run" ]; then
-        ARGS+=( 'TEST=openqa_install+publish' "FULL_OPENSUSE_TEST=1" )
+        ARGS+=('TEST=openqa_install+publish' "FULL_OPENSUSE_TEST=1")
     fi
 
     ${client_prefix} "${openqa_cli}" \
         schedule --host "${target_host_proto}://${target_host}" \
         --param-file SCENARIO_DEFINITIONS_YAML=/var/tmp/sd.yaml \
         VERSION=Tumbleweed \
-        DISTRI=openqa FLAVOR=dev\
-        ARCH="${arch}"\
+        DISTRI=openqa FLAVOR=dev ARCH="${arch}" \
         HDD_1="$qcow" BUILD="${build}" _GROUP="${group_id}" \
         "${ARGS[@]}" \
         | tee job_post_response

@@ -21,19 +21,18 @@ issues=$(mktemp -t backlog-set-due-date-XXXX)
 jquery=".issues | .[] | select(.priority.name!=\"$priority\" and .due_date==null and .assigned_to!=null and .status.name==\"$status\")"
 
 if [ $# -eq 1 ] && [ -f "$1" ] && [ "$dry_run" = "1" ]; then
-  jq -r "$jquery" "$1" >"$issues"
+    jq -r "$jquery" "$1" >"$issues"
 else
-  redmine_api_key="${redmine_api_key:?"Need redmine API key"}"
-  curl -sS -H "X-Redmine-API-Key: $redmine_api_key" "$host/issues.json?query_id=$query_id&limit=$ticket_limit" | jq -r "$jquery" >"$issues"
+    redmine_api_key="${redmine_api_key:?"Need redmine API key"}"
+    curl -sS -H "X-Redmine-API-Key: $redmine_api_key" "$host/issues.json?query_id=$query_id&limit=$ticket_limit" | jq -r "$jquery" >"$issues"
 fi
 
 [ "$dry_run" = "1" ] && prefix="echo"
 
 for id in $(jq .id "$issues"); do
-  due_date=$(date -d"+$duration" +%Y-%m-%d)
-  echo "Updating ticket $id, new due date setup to $due_date"
-  $prefix curl -v -H "X-Redmine-API-Key: $redmine_api_key" -H 'Content-Type: application/json' -X PUT \
-  -d "{\"issue\": {\"due_date\": \"$due_date\", \"notes\": \"Setting due date based on mean cycle time of SUSE QE Tools\"}}" \
-  "$host/issues/$id.json"
+    due_date=$(date -d"+$duration" +%Y-%m-%d)
+    echo "Updating ticket $id, new due date setup to $due_date"
+    $prefix curl -v -H "X-Redmine-API-Key: $redmine_api_key" -H 'Content-Type: application/json' -X PUT \
+        -d "{\"issue\": {\"due_date\": \"$due_date\", \"notes\": \"Setting due date based on mean cycle time of SUSE QE Tools\"}}" \
+        "$host/issues/$id.json"
 done
-

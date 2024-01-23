@@ -40,7 +40,7 @@ handle_unreachable_or_no_log() {
 
     if ! curl "${curl_args[@]}" -s --head "$testurl" -o /dev/null; then
         # the page might be gone, try the scheme+host we configured (might be different one though)
-        if ! grep -q "$host_url" <<< "$testurl"; then
+        if ! grep -q "$host_url" <<<"$testurl"; then
             echoerr "'$testurl' is not reachable and 'host_url' parameter does not match '$testurl', can not check further, continuing with next"
             return
         fi
@@ -77,37 +77,47 @@ label_on_issues_from_issue_tracker() {
     # Iterate over all progress issues that have the search term included
     # 1. line: issue id
     # 2. line: subject
-    echo "$issues" | (while read -r issue; do
-        read -r subject
-        read -r tracker
-        after=${subject#*\"}
-        search=${after%\"*}
-        force_result=''
-        label="poo#$issue $subject"
-        if [[ ${#search} -ge $min_search_term ]]; then
-            if [[ $after =~ :force_result:([a-z_]+) ]]; then
-                if [[ $tracker == "$force_result_tracker" ]]; then
-                    force_result=${BASH_REMATCH[1]}
-                else
-                    label="$label (ignoring force result for ticket which is not in tracker \"$force_result_tracker\")"
+    echo "$issues" | (
+        while read -r issue; do
+            read -r subject
+            read -r tracker
+            after=${subject#*\"}
+            search=${after%\"*}
+            force_result=''
+            label="poo#$issue $subject"
+            if [[ ${#search} -ge $min_search_term ]]; then
+                if [[ $after =~ :force_result:([a-z_]+) ]]; then
+                    if [[ $tracker == "$force_result_tracker" ]]; then
+                        force_result=${BASH_REMATCH[1]}
+                    else
+                        label="$label (ignoring force result for ticket which is not in tracker \"$force_result_tracker\")"
+                    fi
                 fi
+                label-on-issue "$id" "$search" "$label" "${after//*\":retry*/1}" "$force_result" && break
             fi
-            label-on-issue "$id" "$search" "$label" "${after//*\":retry*/1}" "$force_result" && break
-        fi
         done
     )
 }
 
 label_on_issues_without_tickets() {
-    if label-on-issue "$id" '([dD]ownload.*failed.*404)[\S\s]*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then return
-    elif label-on-issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then return
-    elif label-on-issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then return
-    elif label-on-issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then return
-    elif label-on-issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then return
-    elif label-on-issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then return
-    elif label-on-issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then return
-    elif label-on-issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set|loadtest needs a script below)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then return
-    elif label-on-issue "$id" '\[error\] Failed to download' 'label:download_error potentially out-of-space worker?' 1; then return
+    if label-on-issue "$id" '([dD]ownload.*failed.*404)[\S\s]*Result: setup failure' 'label:non_existing asset, candidate for removal or wrong settings'; then
+        return
+    elif label-on-issue "$id" 'File .*\.yaml.* does not exist at .*scheduler.pm' 'label:missing_schedule_file'; then
+        return
+    elif label-on-issue "$id" 'Compilation failed in require at .*isotovideo line 28.' 'label:schedule_compilation_error'; then
+        return
+    elif label-on-issue "$id" 'qemu-img: Could not open .*: No such file or directory' 'label:missing_asset'; then
+        return
+    elif label-on-issue "$id" 'fatal: Remote branch .* not found' 'label:remote_branch_not_found, probably wrong custom git URL specified with branch'; then
+        return
+    elif label-on-issue "$id" 'fatal: repository not found' 'label:remote_repo_not_found, probably wrong custom git URL specified'; then
+        return
+    elif label-on-issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(No scripts in|needledir not found)' 'label:remote_repo_invalid, probably wrong custom git URL specified'; then
+        return
+    elif label-on-issue "$id" '(?s)Cloning git URL.*to use as test distribution.*(SCHEDULE.*not set|loadtest needs a script below)' 'label:remote_repo_schedule_not_found, probably wrong custom git URL + PRODUCTDIR specified'; then
+        return
+    elif label-on-issue "$id" '\[error\] Failed to download' 'label:download_error potentially out-of-space worker?' 1; then
+        return
     fi
     false
 }
@@ -129,11 +139,12 @@ investigate_issue() {
     # combine both the reason and autoinst-log.txt to check known issues
     # against even in case when autoinst-log.txt is missing the details, e.g.
     # see https://progress.opensuse.org/issues/69178
-    echo "$reason" >> "$out"
+    echo "$reason" >>"$out"
     if [[ "$curl_output" != "200" ]] && [[ "$curl_output" != "301" ]]; then
         # if we can not even access the page it is something more critical
         handle_unreachable_or_no_log "$id" "$testurl" "$out"
-    elif label_on_issues_from_issue_tracker "$id"; then return
+    elif label_on_issues_from_issue_tracker "$id"; then
+        return
 
     ## Issues without tickets, e.g. potential singular, manual debug jobs,
     # wrong user settings, etc.
@@ -141,7 +152,8 @@ investigate_issue() {
     # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
     # but we should check if the issue already exists, e.g. same
     # subject line
-    elif label_on_issues_without_tickets "$id"; then return
+    elif label_on_issues_without_tickets "$id"; then
+        return
     else
         handle_unreviewed "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address" "$job_data" "$dry_run"
     fi

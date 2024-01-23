@@ -26,14 +26,14 @@ declare -A failed_versions
 failed_jobs=()
 for job_id in $(job_ids job_post_response); do
     echo "Waiting for job $job_id to finish"
-    while sleep "${sleep_time}" ; do
+    while sleep "${sleep_time}"; do
         job_state=$($openqa_cli api --host "$host" jobs/"$job_id" | jq -r '.job.state')
         [[ $job_state = 'done' ]] && break
     done
     response=$($openqa_cli api --host "$host" jobs/"$job_id")
     result=$(echo "$response" | jq -r '.job.result')
     echo "Result of job $job_id: $result"
-    if [[ $result != 'passed' ]] && [[ -n $obs_package_name ]] ; then
+    if [[ $result != 'passed' ]] && [[ -n $obs_package_name ]]; then
         version=$(echo "$response" | jq -r '.job.settings.VERSION')
         failed_versions[$version]=1
         failed_jobs+=("$job_id")
