@@ -34,6 +34,7 @@ test-online:
 checkstyle: test-shellcheck test-yaml
 
 test-shellcheck:
+	shfmt -d .
 	@which shellcheck >/dev/null 2>&1 || echo "Command 'shellcheck' not found, can not execute shell script checks"
 	shellcheck -x $$(file --mime-type * | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p')
 
