@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 79
+plan tests 81
 
 host=localhost
 url=https://localhost
@@ -17,6 +17,16 @@ openqa-cli() {
 }
 client_call=(openqa-cli)
 
+fetch-vars-json() {
+    local tid=$1
+    if [[ $tid -eq 10020 ]]; then
+        echo '{"TEST_GIT_URL": "https://github.com/os-autoinst/os-autoinst-distri-openQA.git"}'
+    elif [[ $tid -eq 10022 ]]; then
+        echo '{"WORKER_CLASS": "foo,duh,bar"}'
+    else
+        echo '{}'
+    fi
+}
 rc=0
 out=$(clone 41 42  2>&1 > /dev/null) || rc=$?
 is "$rc" 1 'fails when unable to query job data'
@@ -135,15 +145,6 @@ _clone_call() {
     echo "$@" >&2
 }
 
-fetch-vars-json() {
-    local tid=$1
-    if [[ $tid -eq 10020 ]]; then
-        echo '{"TEST_GIT_URL": "https://github.com/os-autoinst/os-autoinst-distri-openQA.git"}'
-    else
-        echo '{}'
-    fi
-}
-
 clone_call=_clone_call
 try clone 10023 10024
 is "$rc" 0 "Successful clone"
@@ -162,6 +163,12 @@ like "$got" 'CASEDIR=.*/os-autoinst-distri-openQA.git#refspec' "job is cloned wi
 try clone 10023 10030 foo refspec
 is "$rc" 0 "Successful clone"
 like "$got" 'CASEDIR=.*/os-autoinst-testrepo.git#refspec' "job is cloned and CASEDIR is set correctly"
+
+try clone 10022 10030 last_good_tests_and_build:123 refspec
+has "$got" 'WORKER_CLASS=foo,duh,bar' "job assigns the same WORKER_CLASS"
+
+try clone 10021 10030 last_good_tests_and_build:123 refspec
+has "$got" 'unidentified worker class in vars.json' "info shown in the name is WORKER_CLASS is empty"
 
 clone_call=echo
 try investigate 10027

@@ -58,6 +58,14 @@ clone() {
         [[ $casedir == null ]] && casedir=''
         repo=${casedir:-'https://github.com/os-autoinst/os-autoinst-distri-opensuse.git'}
         clone_settings+=("CASEDIR=${repo%#*}#${refspec}")
+        if [[ $name_suffix =~ (last_good_tests_and_build) ]]; then
+            worker_vars_settings=$(echo "$vars_json" | runjq -r '.WORKER_CLASS') || return $?
+            if [[ $worker_vars_settings != null ]]; then
+                clone_settings+=("WORKER_CLASS=${worker_vars_settings}")
+            else
+                name+="(unidentified worker class in vars.json)"
+            fi
+        fi
     fi
     [[ -n ${*:5} ]] && clone_settings+=("${@:5}")
     # clear "PUBLISH_" settings to avoid overriding production assets
