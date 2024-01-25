@@ -17,7 +17,7 @@ on 'test' => sub {
 
 };
 
-on 'devel' => sub {
+on 'develop' => sub {
 
 };
 
