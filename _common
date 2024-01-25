@@ -43,7 +43,7 @@ runcli() {
     rc=$?
     set -e
     if [[ -s "$errorlog" ]]; then
-        read -r errstr < "$errorlog"
+        read -r errstr <"$errorlog"
         warn "$1 ($(caller)): (${args[*]}) stderr: >>>$errstr<<<"
     fi
     rm "$errorlog"
@@ -144,7 +144,7 @@ handle_unreviewed() {
 
     if "$email_unreviewed" && [[ "$group_id" != 'null' ]]; then
         group_data=$(openqa-cli "${client_args[@]}" "job_groups/$group_id")
-        group_description=$(echo "$group_data" | runjq -r '.[0].description' ) || true
+        group_description=$(echo "$group_data" | runjq -r '.[0].description') || true
         group_mailto=$(echo "$group_description" | perl -n -wE'm/.*MAILTO: (\S+).*/ and say $1' | head -1)
         group_mailto=${group_mailto:-$notification_address}
         # Avoid sending notifications for jobs that were restarted
@@ -231,7 +231,7 @@ get_image() {
 find_latest_published_tumbleweed_image() {
     local latest_builds build image=null assetname
     local tw_group_id=$1 arch=$2 machine=$3 type=$4
-    read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
+    read -r -a latest_builds <<<"$(latest_published_tw_builds "$tw_group_id")"
     if [[ "${#latest_builds[@]}" -eq 0 ]]; then
         warn "Unable to find latest published Tumbleweed builds."
         exit 1

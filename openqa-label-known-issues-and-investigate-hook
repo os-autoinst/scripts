@@ -5,7 +5,8 @@ set -eo pipefail
 # "hook script" intended to be called by openQA instances taking a job ID as
 # parameter and forwarding a complete job URL to "openqa-label-known-issues"
 # on stdin and all left unknowns to "openqa-investigate"
-dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
 PATH=$dir:$PATH
 
 # shellcheck source=/dev/null

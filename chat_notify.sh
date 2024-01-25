@@ -1,11 +1,11 @@
 send_message() {
-  out="$(curl -XPOST -d "$1" "https://$2/_matrix/client/r0/rooms/$3/send/m.room.message?access_token=$4")"
-  if [ "$(echo "$out" | jq .errcode)" = "null" ]; then
-    echo "[+] Message sent!"
-  else
-    echo '[!] Something went wrong sending the message'
-    echo "$out" | jq '.error'
-  fi
+    out="$(curl -XPOST -d "$1" "https://$2/_matrix/client/r0/rooms/$3/send/m.room.message?access_token=$4")"
+    if [ "$(echo "$out" | jq .errcode)" = "null" ]; then
+        echo "[+] Message sent!"
+    else
+        echo '[!] Something went wrong sending the message'
+        echo "$out" | jq '.error'
+    fi
 }
 
 server=$1
