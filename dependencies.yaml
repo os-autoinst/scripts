@@ -8,11 +8,12 @@
 #######################################################
 ---
 targets:
-  cpanfile: [main, test]
-  spec:     [main, test]
+  cpanfile: [main, test, devel]
+  spec:     [main, test, devel]
   cpanfile-targets:
     # target: cpanfile target type (default main)
     test: test
+    devel: develop
 main_requires:
   bash:
   coreutils:  # date, ln, tail
@@ -37,3 +38,6 @@ main_requires:
 test_requires:
   perl(Test::Warnings):
   perl(Test::Most):
+devel_requires:
+  python3-yamllint:
+  shfmt:

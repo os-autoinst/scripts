@@ -28,6 +28,8 @@ Url:            https://github.com/os-autoinst/scripts
 %define main_requires bash coreutils curl grep html-xml-utils jq openQA-client openssh-clients osc perl >= 5.010 perl(Data::Dumper) perl(FindBin) perl(Getopt::Long) perl(Mojo::File) perl(Text::Markdown) perl(YAML::PP) sed sudo xmlstarlet yq
 # The following line is generated from dependencies.yaml
 %define test_requires perl(Test::Most) perl(Test::Warnings)
+# The following line is generated from dependencies.yaml
+%define devel_requires python3-yamllint shfmt
 Requires:       %main_requires
 Suggests:       salt
 Suggests:       postgresql
@@ -35,6 +37,15 @@ Suggests:       postgresql
 %description
 - auto-review - Automatically detect known issues in openQA jobs, label openQA jobs with ticket references and optionally retrigger
 - openqa-investigate - Automatic investigation jobs with failure analysis in openQA
+
+%package devel
+Summary:        Development package for os-autoinst-scripts-deps
+Group:          Development/Tools/Other
+Requires:       %devel_requires
+
+%description devel
+Development package pulling in all dependencies needed for developing
+in os-autoinst-scripts-deps
 
 %prep
 
@@ -45,5 +56,7 @@ Suggests:       postgresql
 %check
 
 %files
+
+%files devel
 
 %changelog
