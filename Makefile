@@ -44,7 +44,7 @@ test-yaml:
 	yamllint --strict $$(git ls-files "*.yml" "*.yaml" ":!external/")
 
 update-deps:
-	tools/update-deps --specfile dist/rpm/os-autoinst-scripts-deps.spec
+	tools/update-deps --cpanfile cpanfile --specfile dist/rpm/os-autoinst-scripts-deps.spec
 
 clean:
 	$(RM) job_post_response
