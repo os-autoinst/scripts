@@ -1,0 +1,165 @@
+#!/bin/bash -e
+
+# Motivation: https://progress.opensuse.org/issues/154723
+# 1. fetch requirements from package spec file,
+# 2. look for package names for such requirements
+# 3. search all relevant instances where the package is maintained
+# 4. fetch version info from spec file and from Tumbleweed repo
+
+osc="${osc:-"osc --apiurl https://api.opensuse.org"}"
+
+BLUE="\e[94m"
+RED="\e[91m"
+GRAY="\e[90m"
+ENDCOLOR="\e[0m"
+
+debug() {
+    test -n "$DEBUG" && echo -e "${GRAY}$1${ENDCOLOR}" >&2
+}
+
+info() {
+    echo -e "${BLUE}$1${ENDCOLOR}" >&2
+}
+
+error() {
+    echo -e "${RED}$1${ENDCOLOR}" >&2
+}
+
+init_check() {
+    for cmd in which yq rpmspec osc zypper; do
+        which "$cmd" &> /dev/null || {
+            error "$cmd command is missing"
+            exit 100
+        }
+    done
+}
+
+parse_zypper() {
+    yq -pxml '.stream.search-result.solvable-list | (.solvable.+@name?,.solvable[].+@name)' \
+        | grep -v null \
+        | sort -u \
+        | tr '\n' ' '
+}
+
+get_package_version() {
+    local spec
+    spec="$(basename "$1").spec"
+    local tmpfile
+    tmpfile="$(mktemp)"
+    debug "Getting version from spec file for '$1'"
+    $osc cat "$1" "$spec" > "$tmpfile"
+    rpmspec -q --qf '%{version}\n' "$tmpfile" 2> /dev/null | head -n1
+    rm "$tmpfile"
+}
+
+get_tw_version() {
+    local package
+    package="$(basename "$1")"
+    test -n "$ZYPPER" || return
+    debug "Getting Tumbleweed version for '$package'"
+    zypper -n --no-refresh info "$package" | grep ^Version | cut -f2 -d: | tr -d ' '
+}
+
+get_package_name() {
+    local req
+    req="$(basename "$1" | cut -f1 -d' ')"
+    debug "Looking for package name for requirement '$req'"
+    $osc se --package "$req" | grep -oP "'[^']+'" | head -n1 | tr -d "'"
+}
+
+list_requirements() {
+    local package
+    local tmpfile
+    debug "Getting build requirements from '$1.spec'"
+    tmpfile="$(mktemp)"
+    $osc cat devel:openQA "$1" _service:obs_scm:"$1.spec" > "$tmpfile"
+    {
+        rpmspec -q -D "sysusers_requires BuildRequires: sysuser-tools" --buildrequires "$tmpfile"
+        rpmspec -q -D "sysusers_requires BuildRequires: sysuser-tools" --requires "$tmpfile"
+    } \
+        | sort -u \
+        | while read -r; do
+            package="$(get_package_name "$REPLY")"
+            test -n "$package" || {
+                error "Unable to get package name for '$REPLY'"
+                continue
+            }
+            echo "$package"
+        done
+    rm "$tmpfile"
+}
+
+get_codestream() {
+    debug "Getting codestream for package '$1'"
+    $osc sm "$1" 2> /dev/null || true
+}
+
+find_source_package() {
+    test -n "$1" || return
+    debug "Finding source package for '$1'"
+    local src
+    src="$(zypper -n --no-refresh info "$1" \
+        | grep 'Source package' \
+        | cut -f2 -d: \
+        | tr -d ' ')"
+    test -n "$src" || return
+    src="$(zypper -n --no-refresh --xmlout se -t srcpackage "$src" | parse_zypper)"
+    test -n "$src" || {
+        error "No source package found for $1, is repo-source enabled?"
+        return
+    }
+    echo "$src"
+}
+
+get_source_packages() {
+    for prov in $1; do
+        for src in $(find_source_package "$prov"); do
+            echo "$src"
+        done
+    done
+}
+
+search_provides() {
+    test -n "$ZYPPER" || return
+    debug "Searching what provides '$1'"
+    local -a provides
+    readarray -t provides < <(zypper -n --no-refresh --xmlout se --provides "$1" | parse_zypper)
+    test "${#provides[@]}" -eq 0 && {
+        error "Unknown provider for $1"
+        return
+    }
+    info "$1 is provided by ${provides[*]}"
+    for src in $(get_source_packages "${provides[@]}" | sort -u); do
+        get_codestream "$src"
+    done
+}
+
+list_codestreams() {
+    local stream
+    for req in $(list_requirements "$1" | sort -u); do
+        stream="$(get_codestream "$req")"
+        test -n "$stream" || {
+            search_provides "$req"
+            continue
+        }
+        echo "$stream"
+    done
+}
+
+list_versions() {
+    for stream in $(list_codestreams "$1" | sort -u); do
+        version="$(get_package_version "$stream")"
+        tw="$(get_tw_version "$stream")"
+        echo -e "$stream\t${version:--}\t${tw:--}"
+    done | sort | column -t -N Origin,Version,TW-Version
+}
+
+init_check
+[ $# -eq 0 ] && {
+    info "Usage: $0 package-name ..."
+    exit 99
+}
+while (($#)); do
+    list_versions "$1"
+    shift
+done
