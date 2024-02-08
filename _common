@@ -39,11 +39,11 @@ runcli() {
     set +e
     errorlog=$(mktemp -t runcli-errorlog-XXXX)
     # shellcheck disable=SC2064
-    output=$("${args[@]}" 2>"$errorlog")
+    output=$("${args[@]}" 2> "$errorlog")
     rc=$?
     set -e
     if [[ -s "$errorlog" ]]; then
-        read -r errstr <"$errorlog"
+        read -r errstr < "$errorlog"
         warn "$1 ($(caller)): (${args[*]}) stderr: >>>$errstr<<<"
     fi
     rm "$errorlog"
@@ -57,7 +57,7 @@ runcli() {
 runjq() {
     local rc output
     local jq_output_limit="${jq_output_limit:-15}"
-    input=$(</dev/stdin)
+    input=$(< /dev/stdin)
     set +e
     output=$(echo "$input" | jq "$@" 2>&1)
     rc=$?
@@ -231,7 +231,7 @@ get_image() {
 find_latest_published_tumbleweed_image() {
     local latest_builds build image=null assetname
     local tw_group_id=$1 arch=$2 machine=$3 type=$4
-    read -r -a latest_builds <<<"$(latest_published_tw_builds "$tw_group_id")"
+    read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
     if [[ "${#latest_builds[@]}" -eq 0 ]]; then
         warn "Unable to find latest published Tumbleweed builds."
         exit 1

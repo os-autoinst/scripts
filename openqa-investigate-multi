@@ -18,4 +18,4 @@ main() {
     exit $rc
 }
 
-caller 0 >/dev/null || main "$@"
+caller 0 > /dev/null || main "$@"

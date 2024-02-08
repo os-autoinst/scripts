@@ -87,7 +87,7 @@ clone() {
     # shellcheck disable=SC2207
     clone_ids=($(echo "$out" | runjq -r 'values[]'))
     for id in "${clone_ids[@]}"; do
-        "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$id" >/dev/null
+        "${client_call[@]}" --json --data "{\"priority\": $((base_prio + prio_add))}" -X PUT jobs/"$id" > /dev/null
     done
 }
 
@@ -214,7 +214,7 @@ fetch-investigation-results() {
     investigate_comment=$("${client_call[@]}" -X GET jobs/"$origin_job_id"/comments | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry*:"))] | min_by(.id)') || return $?
     [[ $investigate_comment == 'null' ]] && return
     output=$(echo "$investigate_comment" | runjq -r '.text') || return $?
-    mapfile -t comment_lines <<<"$output"
+    mapfile -t comment_lines <<< "$output"
 
     for line in "${comment_lines[@]}"; do
         if [[ $line =~ :investigate:([^:*]+).*t\#([0-9]+) ]]; then
@@ -244,7 +244,7 @@ identify-issue-type() {
     product_issue=false test_issue=false
 
     output=$(fetch-investigation-results "$origin_job_id") || return $?
-    mapfile -t result_lines <<<"$output"
+    mapfile -t result_lines <<< "$output"
 
     for line in "${result_lines[@]}"; do
         if [[ $line =~ ^([^|]+)\|([^|]+)\|([^|]+) ]]; then
@@ -303,7 +303,7 @@ post-investigate() {
     # gracefully
     out=$("${client_call[@]}" -X POST jobs/"$origin_job_id"/comments text="$comment" 2>&1) || rc=$?
     if [[ "$rc" -ne 0 ]]; then
-        status=$(echo "$out" | runjq .error_status 2>/dev/null || echo "unknown")
+        status=$(echo "$out" | runjq .error_status 2> /dev/null || echo "unknown")
         if [[ "$status" != "404" ]]; then
             echoerr "Unexpected error encountered when posting comments on job $origin_job_id after investigation job $id failed: '$out'"
             return 2
@@ -377,4 +377,4 @@ main() {
     investigate "$@"
 }
 
-caller 0 >/dev/null || main "$@"
+caller 0 > /dev/null || main "$@"
