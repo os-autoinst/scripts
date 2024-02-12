@@ -1,0 +1,59 @@
+#!/bin/bash
+set -eux -o pipefail
+
+openqa_url=${openqa_url:-https://openqa.opensuse.org}
+distri=${distri:-opensuse}
+flavor=${flavor:-DVD}
+arch=${arch:-x86_64}
+version=${version:-Tumbleweed}
+test_name=${test_name:-ping_client}
+
+tmpfile=$(mktemp)
+trap 'rm -f "$tmpfile"' EXIT
+
+cat > "$tmpfile" << EOF
+---
+products:
+  mm-ping-test:
+    distri: $distri
+    flavor: $flavor
+    arch: $arch
+    version: $version
+
+machines:
+  64bit:
+    backend: qemu
+    settings:
+      WORKER_CLASS: qemu_x86_64,tap
+
+.common: &common
+  BOOT_HDD_IMAGE: '1'
+  DESKTOP: textmode
+  IS_MM_SERVER: '1'
+  NICTYPE: tap
+  QEMU_DISABLE_SNAPSHOTS: '1'
+  YAML_SCHEDULE: schedule/functional/mm_ping.yaml
+
+job_templates:
+  ping_server:
+    product: mm-ping-test
+    machine: 64bit
+    settings:
+      <<: *common
+      HOSTNAME: server
+  ping_client:
+    product: mm-ping-test
+    machine: 64bit
+    settings:
+      <<: *common
+      HOSTNAME: client
+      PARALLEL_WITH: ping_server
+EOF
+
+openqa-cli schedule \
+    --monitor \
+    --host "$openqa_url" \
+    --param-file SCENARIO_DEFINITIONS_YAML="$tmpfile" \
+    DISTRI="$distri" VERSION="$version" FLAVOR="$flavor" ARCH="$arch" \
+    BUILD="$(date -Im)" _GROUP_ID=0 \
+    HDD_1="$(openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" flavor="$flavor" test="$test_name" latest=1 | jq -r '.jobs | map(select(.result == "passed")) | max_by(.settings.BUILD) .settings.HDD_1')"
