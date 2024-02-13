@@ -56,7 +56,7 @@ update_package() {
     reenable_buildtime_services
     # ignore those updates
     rm -f _service:*-test.changes
-    cp -v .osc/*-test.changes . 2>/dev/null || :
+    cp -v .osc/*-test.changes . 2> /dev/null || :
     for file in _service:*; do
         # shellcheck disable=SC2001
         mv -v "$file" "$(echo "$file" | sed -e 's,.*:,,')"
@@ -101,7 +101,7 @@ sync_changesrevision() {
     $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$factory_rev" "$path"/_servicedata
     if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
         $osc up "$path"
-        $osc cat "$submit_target" "$package" "$package".changes >"$path/$package".changes
+        $osc cat "$submit_target" "$package" "$package".changes > "$path/$package".changes
         $osc ci -m "sync changesrevision with $submit_target" "$path"
         $osc up --server-side-source-service-files "$path"
     fi
@@ -110,7 +110,7 @@ sync_changesrevision() {
 generate_os-autoinst-distri-opensuse-deps_changelog() {
     dir=$1
     package=$2
-    $osc cat "$submit_target" "$package" "$package".changes >"$package"-factory.changes
+    $osc cat "$submit_target" "$package" "$package".changes > "$package"-factory.changes
     {
         echo "-------------------------------------------------------------------"
         echo "$(LANG=c date -u) - Dominik Heidler <dheidler@suse.de>"
@@ -120,7 +120,7 @@ generate_os-autoinst-distri-opensuse-deps_changelog() {
             | sed -e 's/Requires:\s*/dependency /g' -e 's/^-/- Removed /g' -e 's/^+/- Added /g'
         echo
         cat "$package"-factory.changes
-    } >"$dir/$package/$package".changes
+    } > "$dir/$package/$package".changes
 }
 
 handle_auto_submit() {
@@ -128,7 +128,7 @@ handle_auto_submit() {
     $osc service wait "$src_project" "$package"
     $osc co --server-side-source-service-files "$src_project"/"$package"
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" ]]; then
-        $osc cat "$submit_target" "$package" "$package.spec" >"$package-factory.spec"
+        $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
         if diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec | grep "^[+-]Requires"; then
             # dependency added or removed
             generate_os-autoinst-distri-opensuse-deps_changelog "$src_project" "$package"

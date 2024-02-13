@@ -27,4 +27,4 @@ main() {
     print_summary
 }
 
-caller 0 >/dev/null || main "$@"
+caller 0 > /dev/null || main "$@"

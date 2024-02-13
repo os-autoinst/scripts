@@ -46,4 +46,4 @@ hook() {
     fi
 }
 
-caller 0 >/dev/null || hook "$@"
+caller 0 > /dev/null || hook "$@"

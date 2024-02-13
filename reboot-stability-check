@@ -26,4 +26,4 @@ main() {
     done
 }
 
-caller 0 >/dev/null || main "$@"
+caller 0 > /dev/null || main "$@"
