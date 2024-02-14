@@ -62,7 +62,7 @@ update_package() {
         mv -v "$file" "$(echo "$file" | sed -e 's,.*:,,')"
     done
     version=$(sed -n 's/^Version:\s*//p' ./*.spec || sed -n 's/^version:\s*//p' ./*.obsinfo)
-    rm -f ./*rpmlintrc _servicedata
+    rm -f ./*rpmlintrc _servicedata node_modules.sums package-lock.json
     $osc addremove
     sed -i '/rpmlintrc/d' ./*.spec || true
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" || "$package" =~ "container" ]]; then
