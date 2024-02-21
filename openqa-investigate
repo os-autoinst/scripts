@@ -112,7 +112,7 @@ trigger_jobs() {
         echo "$test_log. Skipping test regression investigation job."
         last_good_tests=''
     else
-        vars_last_good=$(runcurl "${curl_args[@]}" -sS "$host_url/tests/$last_good"/file/vars.json) || return $?
+        vars_last_good=$(fetch-vars-json "$last_good") || return $?
         last_good_tests=$(echo "$vars_last_good" | runjq -r '.TEST_GIT_HASH') || return $?
         # here we could apply the same approach for needles, not only tests
         # With https://github.com/os-autoinst/os-autoinst/pull/1358 we could
