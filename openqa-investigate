@@ -241,7 +241,7 @@ identify-issue-type() {
     local origin_job_id=$1
     local state result investigate_type passed output result_lines
     local pass_lgt='' pass_lgb='' pass_lgtb=''
-    product_issue=false test_issue=false
+    product_issue=false test_issue=false infra_issue=false
 
     output=$(fetch-investigation-results "$origin_job_id") || return $?
     mapfile -t result_lines <<< "$output"
@@ -263,6 +263,8 @@ identify-issue-type() {
         product_issue=true
     elif ([[ -z "$pass_lgtb" ]] || "$pass_lgtb") && [[ -n "$pass_lgt" ]] && "$pass_lgt" && ([[ -z "$pass_lgb" ]] || ! "$pass_lgb"); then
         test_issue=true
+    elif ([[ -n "$pass_lgtb" ]] && ! "$pass_lgtb") && ([[ -n "$pass_lgt" ]] && ! "$pass_lgt") && ([[ -n "$pass_lgb" ]] && ! "$pass_lgb"); then
+        infra_issue=true
     fi
 }
 
@@ -288,12 +290,15 @@ post-investigate() {
         comment+=" failed."$'\n\n'
         local product_issue=false
         local test_issue=false
+        local infra_issue=false
         identify-issue-type "$origin_job_id" || return $?
 
         if "$product_issue"; then
             comment+="📋 **Jobs including the last good build are ok, likely a product issue**."
         elif "$test_issue"; then
             comment+="📋 **Jobs including the last good test are ok, likely a test issue**."
+        elif "$infra_issue"; then
+            comment+="📋 **All investigation jobs failed, likely an issue with the test environment (settings, external resources, infrastructure)**."
         else
             comment+="📋 **Likely not a sporadic failure**."
         fi

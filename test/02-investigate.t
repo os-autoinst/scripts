@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 81
+plan tests 85
 
 host=localhost
 url=https://localhost
@@ -325,6 +325,7 @@ last_good_tests_and_build|4|$t4"
     }
     product_issue=false
     test_issue=false
+    infra_issue=false
     identify-issue-type 999
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
     is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
@@ -378,6 +379,16 @@ last_good_tests_and_build|4|$t4"
     identify-issue-type 999
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
     is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
+    t2="failed" t3="failed" t4="failed"
+    identify-issue-type 999
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$infra_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="failed" t3="" t4=""
+    identify-issue-type 999
+    is "$infra_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 
     # test when last good tests or build do not exist
     fetch-investigation-results() {
