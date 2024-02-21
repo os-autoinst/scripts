@@ -1,0 +1,14 @@
+---
+name: 'Clone job'
+description: 'Clone openQA job mentioned in PR description'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: os-autoinst/scripts
+        path: scripts
+    - name: Clone and monitor job mentioned in PR description
+      run: scripts/openqa-clone-and-monitor-job-from-pr
+      shell: bash

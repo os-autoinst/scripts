@@ -27,7 +27,7 @@ Url:            https://github.com/os-autoinst/scripts
 # The following line is generated from dependencies.yaml
 %define main_requires bash coreutils curl grep html-xml-utils jq openQA-client openssh-clients osc perl >= 5.010 perl(Data::Dumper) perl(FindBin) perl(Getopt::Long) perl(Mojo::File) perl(Text::Markdown) perl(YAML::PP) sed sudo xmlstarlet yq
 # The following line is generated from dependencies.yaml
-%define test_requires perl(Test::Most) perl(Test::Warnings)
+%define test_requires perl(Test::MockModule) perl(Test::Most) perl(Test::Output) perl(Test::Warnings)
 # The following line is generated from dependencies.yaml
 %define devel_requires python3-yamllint shfmt
 Requires:       %main_requires
