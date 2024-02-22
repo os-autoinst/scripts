@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 81
+plan tests 85
 
 host=localhost
 url=https://localhost
@@ -28,7 +28,7 @@ fetch-vars-json() {
     fi
 }
 rc=0
-out=$(clone 41 42  2>&1 > /dev/null) || rc=$?
+out=$(clone 41 42 2>&1 > /dev/null) || rc=$?
 is "$rc" 1 'fails when unable to query job data'
 is "$out" "unable to query job data for 42: " 'query error on stderr'
 
@@ -38,106 +38,182 @@ out=$(clone 41 42 2>&1 > /dev/null) || rc=$?
 is "$rc" 2 'fails when no jobs could be restarted'
 is "$out" "Unable to clone job 42: it is part of a directly chained cluster (not supported)" 'restart error on stderr'
 
-openqa-cli() {
+# Mocking
+client-get-job() {
+    local tid=$1
     # GET jobs/id
-    if [[ "$1 $2" == "--json jobs/10024" ]]; then
-        echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
-    elif [[ "$1 $2" == "--json jobs/10030" ]]; then
-        echo '{"job": { "test": "vim", "priority": "50", "settings":{"CASEDIR": "https://github.com/os-autoinst/os-autoinst-testrepo.git"} } }'
-    elif [[ "$1 $2" == "--json jobs/10027" ]]; then
-        echo '{"job": { "test": "vim", "clone_id" : 10028 } }'
-    elif [[ "$1 $2" == "--json jobs/3000" ]]; then
-        echo '{"job": { "test": "vim", "result": "failed" } }'
-    elif [[ "$1 $2" == "--json jobs/3001" ]]; then
-        echo '{"job": { "test": "vim:investigate:last_good_tests", "result": "failed" } }'
-    elif [[ "$1 $2" == "--json jobs/3002" ]]; then
-        echo '{"job": { "test": "vim", "result": "failed" } }'
-    elif [[ "$1 $2" == "--json jobs/3003" ]]; then
-        echo '{"job": { "test": "vim", "result": "failed" } }'
-    elif [[ "$1 $2" == "--json jobs/30001" ]]; then
-        echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
-    elif [[ "$1 $2" == "--json jobs/30002" ]]; then
-        echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
-    elif [[ "$1 $2" == "--json jobs/30003" ]]; then
-        echo '{"job": { "test": "vim:investigate:retry", "result": "softfailed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
-    elif [[ "$1 $2" == "--json jobs/30004" ]]; then
-        echo '{"job": { "test": "vim:investigate:retry", "result": "softfailed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
-    elif [[ "$1 $2" == "--json jobs/30005" ]]; then
-        echo '{"job": { "test": "vim-other:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
-    elif [[ "$1 $2" =~ --json.jobs/3003[134] ]]; then
-        echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
-    elif [[ "$1 $2" == "--json jobs/30032" ]]; then
-        echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
-
+    case "$tid" in
+        10024)
+            echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
+            ;;
+        10030)
+            echo '{"job": { "test": "vim", "priority": "50", "settings":{"CASEDIR": "https://github.com/os-autoinst/os-autoinst-testrepo.git"} } }'
+            ;;
+        10027)
+            echo '{"job": { "test": "vim", "clone_id" : 10028 } }'
+            ;;
+        3000)
+            echo '{"job": { "test": "vim", "result": "failed" } }'
+            ;;
+        3001)
+            echo '{"job": { "test": "vim:investigate:last_good_tests", "result": "failed" } }'
+            ;;
+        3002)
+            echo '{"job": { "test": "vim", "result": "failed" } }'
+            ;;
+        3003)
+            echo '{"job": { "test": "vim", "result": "failed" } }'
+            ;;
+        30001)
+            echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
+            ;;
+        30002)
+            echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
+            ;;
+        30003)
+            echo '{"job": { "test": "vim:investigate:retry", "result": "softfailed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
+            ;;
+        30004)
+            echo '{"job": { "test": "vim:investigate:retry", "result": "softfailed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
+            ;;
+        30005)
+            echo '{"job": { "test": "vim-other:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3000"} } }'
+            ;;
+        3003[134])
+            echo '{"job": { "test": "vim:investigate:retry", "result": "failed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
+            ;;
+        30032)
+            echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
+            ;;
+        *)
+            echo '{"debug": "client-get-job '"$tid"'"}'
+            ;;
+    esac
+}
+client-get-job-state() {
+    local tid=$1
     # GET experimental/jobs/id/status
-    elif [[ "$2" =~ experimental/jobs/(30001|30002)/status ]]; then
-        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
-    elif [[ "$2" =~ experimental/jobs/(30003|30004)/status ]]; then
-        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "passed" }'
-    elif [[ "$2" =~ experimental/jobs/(30021|30022)/status ]]; then
-        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
-    elif [[ "$2" =~ experimental/jobs/(30023|30024)/status ]]; then
-        echo '{ "state": "running", "test": "vim:investigate:retry", "result": "none" }'
-    elif [[ "$2" =~ experimental/jobs/(30031|30033)/status ]]; then
-        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
-    elif [[ "$2" =~ experimental/jobs/(30032|30034)/status ]]; then
-        echo '{ "state": "done", "test": "vim:investigate:retry", "result": "passed" }'
-
-    # POST jobs/id/comments
-    elif [[ $@ == "-X POST jobs/10030/comments text=Starting investigation for job 10031" ]]; then
-        echo '{"id": 1234}'
-    elif [[ $@ =~ $'-X POST jobs/10031/comments text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
-        echo true > "$comment_for_job_31_created"
-    elif [[ $@ == "-X POST jobs/10032/comments text=Starting investigation for job 10032" ]]; then
-        echo '{"id": 1237}'
-    elif [[ $@ =~ "-X POST jobs/3000/comments" ]]; then
-        warn "Commenting 3000 ($@)"
-        exit 99
-    elif [[ $@ =~ "-X POST jobs/30002/comments" ]]; then
-        warn "Commenting 30002 ($@)"
-        exit 99
-    elif [[ $@ =~ "-X POST jobs/3003/comments" ]]; then
-        warn "Commenting 3003 ($@)"
-        exit 99
-
+    case "$tid" in
+        30001 | 30002)
+            echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
+            ;;
+        30003 | 30004)
+            echo '{ "state": "done", "test": "vim:investigate:retry", "result": "passed" }'
+            ;;
+        30021 | 30022)
+            echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
+            ;;
+        30023 | 30024)
+            echo '{ "state": "running", "test": "vim:investigate:retry", "result": "none" }'
+            ;;
+        30031 | 30033)
+            echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
+            ;;
+        30032 | 30034)
+            echo '{ "state": "done", "test": "vim:investigate:retry", "result": "passed" }'
+            ;;
+        *)
+            echo '{"debug": "client-get-job-state '"$tid"'"}'
+            ;;
+    esac
+}
+client-get-job-comments() {
+    local tid=$1
     # GET jobs/id/comments
-    elif [[ $@ == "-X GET jobs/10030/comments" ]]; then
-        echo '[{"id": 1234, "text":"Starting investigation for 10031"},{"id": 1235, "text":"unrelated comment"}]'
-    elif [[ $@ == "-X GET jobs/10032/comments" ]]; then
-        echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Starting investigation for job 10032"}]'
-    elif [[ $@ == "-X GET jobs/3000/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30001\n*a:investigate:last_good_tests:coffee*: t#30002\n*a:investigate:last_good_build:2001*: t#30003\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30004"}]'
-    elif [[ $@ == "-X GET jobs/3002/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30021\n*a:investigate:last_good_tests:coffee*: t#30022\n*a:investigate:last_good_build:2001*: t#30023\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#34024"}]'
-    elif [[ $@ == "-X GET jobs/3003/comments" ]]; then
-        echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30031\n*a:investigate:last_good_tests:coffee*: t#30032\n*a:investigate:last_good_build:2001*: t#30033\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30034"}]'
-
+    case "$tid" in
+        10030)
+            echo '[{"id": 1234, "text":"Starting investigation for 10031"},{"id": 1235, "text":"unrelated comment"}]'
+            ;;
+        10032)
+            echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Starting investigation for job 10032"}]'
+            ;;
+        3000)
+            echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30001\n*a:investigate:last_good_tests:coffee*: t#30002\n*a:investigate:last_good_build:2001*: t#30003\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30004"}]'
+            ;;
+        3002)
+            echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30021\n*a:investigate:last_good_tests:coffee*: t#30022\n*a:investigate:last_good_build:2001*: t#30023\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#34024"}]'
+            ;;
+        3003)
+            echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30031\n*a:investigate:last_good_tests:coffee*: t#30032\n*a:investigate:last_good_build:2001*: t#30033\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30034"}]'
+            ;;
+        *)
+            echo '{"debug": "client-get-job-comments '"$tid"'"}'
+            ;;
+    esac
+}
+client-post-job-comment() {
+    local tid=$1 text=$2
+    # POST jobs/id/comments
+    case "$tid" in
+        10030)
+            echo '{"id": 1234}'
+            ;;
+        10031)
+            echo true > "$comment_for_job_31_created"
+            ;;
+        10032)
+            echo '{"id": 1237}'
+            ;;
+        3000)
+            warn "Commenting 3000 ($@)"
+            exit 99
+            ;;
+        30002)
+            warn "Commenting 30002 ($@)"
+            exit 99
+            ;;
+        3003)
+            warn "Commenting 3003 ($@)"
+            exit 99
+            ;;
+        *)
+            echo '{"debug": "client-post-job-comment '"$tid"'"}'
+            ;;
+    esac
+}
+client-put-job-comment() {
+    local tid=$1 cid=$2 text=$3
     # PUT jobs/id/comments/id
-    elif [[ $@ =~ $'-X PUT jobs/10030/comments/1234 text=Automatic investigation jobs for job 10031:\n\nfoo' ]]; then
+    if [[ $tid -eq 10030 && $cid -eq 1234 ]]; then
         echo true > "$comment_1234_updated"
-
-    # DELETE jobs/id/comments/id
-    elif [[ $@ == '-X DELETE jobs/10030/comments/1234' ]]; then
-        echo true > "$comment_1234_deleted"
-
-    # GET tests/id/dependencies_ajax
-    elif [[ $@ == '--apibase  --json tests/10027/dependencies_ajax' ]]; then
-        echo '{"cluster":{}, "edges":[], "nodes":[{"id":10027,"state":"done","result":"passed"}]}'
-    elif [[ $@ == '--apibase  --json tests/10028/dependencies_ajax' ]]; then
-        echo '{"cluster":{}, "edges":[], "nodes":[{"id":10028,"state":"done","result":"failed"}]}'
-    elif [[ $@ == '--apibase  --json tests/10030/dependencies_ajax' ]]; then
-        echo '{"cluster":{"cluster_foo":[10028,10030],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"uploading","result":"none"},{"id":10030,"state":"done","result":"passed"}]}'
-    elif [[ $@ == '--apibase  --json tests/10032/dependencies_ajax' ]]; then
-        echo '{"cluster":{"cluster_foo":[10028,10032],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"cancelled","result":"none"},{"id":10032,"state":"done","result":"failed"},{"id":29,"state":"running","result":"running"}]}'
-    elif [[ $@ == '--apibase  --json tests/10031/dependencies_ajax' ]]; then
-        # job with cancelled job in the cluster (should be treated like a done job)
-        echo '{"cluster":{"cluster_foo":[10028,10031],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"cancelled","result":"none"},{"id":10031,"state":"done","result":"failed"}]}'
-
-    # fallback
-    else
-        args="$@"
-        echo '{"debug": "openqa-cli '"${args//$'\n'/ }"'"}'
     fi
+}
+client-delete-job-comment() {
+    local tid=$1 cid=$2
+    # DELETE jobs/id/comments/id
+    if [[ $tid -eq 10030 && $cid -eq 1234 ]]; then
+        echo true > "$comment_1234_deleted"
+    fi
+}
+get-dependencies-ajax() {
+    local tid=$1
+    # GET tests/id/dependencies_ajax
+    case "$tid" in
+        10027)
+            echo '{"cluster":{}, "edges":[], "nodes":[{"id":10027,"state":"done","result":"passed"}]}'
+            ;;
+        10028)
+            echo '{"cluster":{}, "edges":[], "nodes":[{"id":10028,"state":"done","result":"failed"}]}'
+            ;;
+        10030)
+            echo '{"cluster":{"cluster_foo":[10028,10030],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"uploading","result":"none"},{"id":10030,"state":"done","result":"passed"}]}'
+            ;;
+        10032)
+            echo '{"cluster":{"cluster_foo":[10028,10032],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"cancelled","result":"none"},{"id":10032,"state":"done","result":"failed"},{"id":29,"state":"running","result":"running"}]}'
+            ;;
+        10031)
+            # job with cancelled job in the cluster (should be treated like a done job)
+            echo '{"cluster":{"cluster_foo":[10028,10031],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"cancelled","result":"none"},{"id":10031,"state":"done","result":"failed"}]}'
+            ;;
+        *)
+            echo '{"debug": "get-dependencies-ajax '"$tid"'"}'
+            ;;
+    esac
+}
+openqa-cli() {
+    # fallback
+    args="$@"
+    echo '{"debug": "openqa-cli '"${args//$'\n'/ }"'"}'
 }
 
 clone_call=echo
@@ -249,6 +325,7 @@ last_good_tests_and_build|4|$t4"
     }
     product_issue=false
     test_issue=false
+    infra_issue=false
     identify-issue-type 999
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
     is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
@@ -303,6 +380,16 @@ last_good_tests_and_build|4|$t4"
     is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
     is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
 
+    t2="failed" t3="failed" t4="failed"
+    identify-issue-type 999
+    is "$product_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$test_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+    is "$infra_issue" "true" "$t1+$t2+$t3+$t4 -> true"
+
+    t2="failed" t3="" t4=""
+    identify-issue-type 999
+    is "$infra_issue" "false" "$t1+$t2+$t3+$t4 -> false"
+
     # test when last good tests or build do not exist
     fetch-investigation-results() {
         echo "retry|1|failed
@@ -335,9 +422,12 @@ is "$rc" 0 'skip with success if we do not own first investigation comment'
 like "$got" '' 'no output when skipping'
 
 # Make auto-deleting temp files for testing subprocesses:
-+fs:mktemp; comment_1234_updated=$temp
-+fs:mktemp; comment_1234_deleted=$temp
-+fs:mktemp; comment_for_job_31_created=$temp
++fs:mktemp
+comment_1234_updated=$temp
++fs:mktemp
+comment_1234_deleted=$temp
++fs:mktemp
+comment_for_job_31_created=$temp
 
 # test finalizing investigation comment when no investigation jobs were needed
 ok "$(force=true finalize_investigation_comment 10031 10030 1234 '' 2>&1)" \

@@ -260,3 +260,36 @@ fetch-vars-json() {
     local tid=$1
     runcurl "${curl_args[@]}" -sS "$host_url/tests/$tid"/file/vars.json || return $?
 }
+
+client-get-job() {
+    local tid=$1
+    openqa-cli "${client_args[@]}" --json jobs/"$tid" || return $?
+}
+client-put-job() {
+    local tid=$1 data=$2
+    "${client_call[@]}" --json --data "$data" -X PUT jobs/"$tid"
+}
+client-get-job-state() {
+    local tid=$1
+    openqa-cli "${client_args[@]}" --json experimental/jobs/"$tid"/status
+}
+client-get-job-comments() {
+    local tid=$1
+    "${client_call[@]}" -X GET jobs/"$tid"/comments || return $?
+}
+client-post-job-comment() {
+    local tid=$1 text=$2
+    "${client_call[@]}" -X POST jobs/"$tid"/comments text="$text" || return $?
+}
+client-put-job-comment() {
+    local tid=$1 cid=$2 text=$3
+    "${client_call[@]}" -X PUT jobs/"$tid"/comments/"$cid" text="$text"
+}
+client-delete-job-comment() {
+    local tid=$1 cid=$2
+    "${client_call[@]}" -X DELETE jobs/"$id"/comments/"$cid" || return $?
+}
+get-dependencies-ajax() {
+    local tid=$1
+    openqa-cli "${client_args[@]}" --apibase '' --json tests/"$tid"/dependencies_ajax
+}
