@@ -1,0 +1,110 @@
+#!/usr/bin/env perl
+# Copyright SUSE LLC
+
+=head1 NAME
+
+openqa-clone-and-monitor-job-from-pr
+
+=head1 SYNOPSIS
+
+Clones and monitors openQA jobs mentioned in a PR description as CI action. This
+script is supposed to be used via the GitHub action defined in
+C<actions/clone-job/action.yaml> like this:
+
+=begin text
+---
+name: Run openQA tests
+on:
+  pull_request_target:
+  workflow_dispatch:
+env:
+  OPENQA_HOST: ${{ secrets.OPENQA_URL }}
+  OPENQA_API_KEY: ${{ secrets.OPENQA_API_KEY }}
+  OPENQA_API_SECRET: ${{ secrets.OPENQA_API_SECRET }}
+  GH_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+  GH_REF: ${{ github.event.pull_request.head.ref }}
+  GH_PR_BODY: ${{ github.event.pull_request.body }}
+jobs:
+  clone_and_monitor_job_from_pr:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.opensuse.org/devel/openqa/containers/tumbleweed:client
+    steps:
+      - uses: os-autoinst/scripts/actions/clone-job@master
+=end text
+
+It will then clone and monitor an openQA job when a PR mentioning one via e.g.
+C<@openqa: Clone https://openqa.opensuse.org/tests/123456> is created. By
+default it will clone the job on o3 into the "Development / GitHub" group. To
+use a different openQA instance and group, set the environment variables
+C<OPENQA_HOST> and C<OPENQA_SCHEDULE_GROUP_ID> accordingly.
+
+For local testing you may also invoke the script manually. Have a look at the
+handling of environment variables at the beginning of the script code as you
+need to set certain additional environment variables, the
+`test/05-clone-and-monitor.t` can also clarify this script's behavior from user
+perspective.
+
+=back
+
+=cut
+
+package openqa_clone_and_monitor_job_from_pr;    # for testing
+
+use Mojo::Base -strict, -signatures;
+use Mojo::JSON qw(decode_json);
+
+my $expected_url = $ENV{OPENQA_HOST} // 'https://openqa.opensuse.org';
+my $group_id = $ENV{OPENQA_SCHEDULE_GROUP_ID} // 118;
+my $pr_body = $ENV{GH_PR_BODY} // '';
+my $gh_repo = $ENV{GH_REPO} or die 'GH_REPO must be set';
+my $gh_ref = $ENV{GH_REF} or die 'GH_REF must be set';
+my $gh_srv = $ENV{GITHUB_SERVER_URL} or die 'GITHUB_SERVER_URL must be set';
+my $api_key = $ENV{OPENQA_API_KEY} or die 'OPENQA_API_KEY must be set';
+my $api_secret = $ENV{OPENQA_API_SECRET} or die 'OPENQA_API_SECRET must be set';
+my @secrets = ('--apikey', $api_key, '--apisecret', $api_secret);
+my @vars = ("BUILD=$gh_repo.git#$gh_ref", "_GROUP_ID=$group_id", "CASEDIR=$gh_srv/$gh_repo.git#$gh_ref");
+
+sub _parse_urls ($text) {
+    my @urls;
+    while ($text =~ /(\@openqa:?\s+Clone\s+(https?:[^\s]+))/ig) {
+        push @urls, $2 if index($2, $expected_url) == 0;
+    }
+    return \@urls if @urls;
+    print 'No test cloned; the PR description does not contain ';    # uncoverable statement
+    print "a command like '\@openqa: Clone $expected_url/tests/<JOB_ID>'.\n";    # uncoverable statement
+    exit 0;
+}
+
+sub _handle_cmd_error ($command, @args) {
+    if ($? == -1) { die "Failed to execute '$command @args': $!\n" }
+    elsif ($? & 127) { die sprintf("'$command' received signal %d\n", $? & 127) }
+    elsif ($? >> 8) { die sprintf("'$command' exited with non-zero exist status %d\n", $? >> 8) }
+}
+
+sub _run_cmd ($command, @args) { system $command, @args; _handle_cmd_error $command, @args }
+
+sub _run_cmd_capturing_output ($command, @args) {
+    open my $fh, '-|', $command, @args or die "Failed to execute '$command @args': $!\n";
+    my $output = do { local $/; <$fh> };
+    close $fh;
+    _handle_cmd_error $command, @args;
+    return $output;
+}
+
+sub _clone_job ($url) {
+    my @args = (@secrets, qw(--json-output --skip-chained-deps --within-instance), $url, @vars);
+    my $json = _run_cmd_capturing_output 'openqa-clone-job', @args;
+    return values %{decode_json($json)};
+}
+
+sub run () {
+    my $urls = _parse_urls($pr_body);
+    my @job_ids = map { _clone_job $_ } @$urls;
+    my @quoted_url_list = join(', ', map { "'$_'" } @$urls);
+    my @job_url_list = map { "- $expected_url/tests/$_\n" } @job_ids;
+    print "Cloned @quoted_url_list into:\n @job_url_list";
+    _run_cmd 'openqa-cli', 'monitor', '--host', $expected_url, @secrets, @job_ids;
+}
+
+run unless caller;

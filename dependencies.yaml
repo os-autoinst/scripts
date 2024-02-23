@@ -36,7 +36,9 @@ main_requires:
   html-xml-utils:
   xmlstarlet:
 test_requires:
+  perl(Test::Output):
   perl(Test::Warnings):
+  perl(Test::MockModule):
   perl(Test::Most):
 devel_requires:
   python3-yamllint:

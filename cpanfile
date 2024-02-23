@@ -12,7 +12,9 @@ requires 'Text::Markdown';
 requires 'YAML::PP';
 
 on 'test' => sub {
+    requires 'Test::MockModule';
     requires 'Test::Most';
+    requires 'Test::Output';
     requires 'Test::Warnings';
 
 };
