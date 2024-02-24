@@ -55,7 +55,7 @@ get_package_version() {
 get_tw_version() {
     local package
     package="$(basename "$1")"
-    test -n "$ZYPPER" || return
+    test -n "$ZYPPER" -o -n "$ZYPPER_VERSION" || return
     debug "Getting Tumbleweed version for '$package'"
     zypper -n --no-refresh info "$package" | grep ^Version | cut -f2 -d: | tr -d ' '
 }
@@ -73,6 +73,7 @@ list_requirements() {
     debug "Getting build requirements from '$1.spec'"
     tmpfile="$(mktemp)"
     $osc cat devel:openQA "$1" _service:obs_scm:"$1.spec" > "$tmpfile"
+    sed -i -e '/node_modules.spec.inc/d' "$tmpfile"
     {
         rpmspec -q -D "sysusers_requires BuildRequires: sysuser-tools" --buildrequires "$tmpfile"
         rpmspec -q -D "sysusers_requires BuildRequires: sysuser-tools" --requires "$tmpfile"
@@ -120,7 +121,7 @@ get_source_packages() {
 }
 
 search_provides() {
-    test -n "$ZYPPER" || return
+    test -n "$ZYPPER" -o -n "$ZYPPER_WHATPROVIDES" || return
     debug "Searching what provides '$1'"
     local -a provides
     readarray -t provides < <(zypper -n --no-refresh --xmlout se --provides "$1" | parse_zypper)
@@ -148,8 +149,8 @@ list_codestreams() {
 
 list_versions() {
     for stream in $(list_codestreams "$1" | sort -u); do
-        version="$(get_package_version "$stream")"
-        tw="$(get_tw_version "$stream")"
+        version="$(get_package_version "$stream" || true)"
+        tw="$(get_tw_version "$stream" || true)"
         echo -e "$stream\t${version:--}\t${tw:--}"
     done | sort | column -t -N Origin,Version,TW-Version
 }

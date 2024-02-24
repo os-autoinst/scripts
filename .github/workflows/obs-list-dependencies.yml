@@ -1,0 +1,46 @@
+---
+name: Complete list of openQA+os-autoinst dependencies packages not currently in SLE
+# yamllint disable-line rule:truthy
+on:
+  schedule:
+    - cron: '0 4 * * 6'
+  workflow_dispatch:
+jobs:
+  obs-check-package-origin:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.opensuse.org/opensuse/tumbleweed:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable source repositories and install script dependencies
+        run: |
+          zypper -n mr --enable repo-source
+          zypper -n --gpg-auto-import-keys ref
+          zypper -n in osc perl rpm-build which yq
+      - name: Configure osc
+        run: |
+          mkdir -p ~/.config/osc/
+          cat > ~/.config/osc/oscrc <<EOF
+          [general]
+          apiurl = https://api.opensuse.org/
+
+          [https://api.opensuse.org]
+          user = $OSC_USER
+          pass = $OSC_PASS
+          credentials_mgr_class = osc.credentials.PlaintextConfigFileCredentialsManager
+          EOF
+        env:
+          OSC_USER: ${{ secrets.OSC_USER }}
+          OSC_PASS: ${{ secrets.OSC_PASS }}
+      - name: Get package lists
+        run: |
+          ./obs-check-package-origin os-autoinst > packages-os-autoinst.txt
+          ./obs-check-package-origin openQA > packages-openQA.txt
+        env:
+          DEBUG: 1
+          ZYPPER_VERSION: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-list
+          path: packages-*.txt
+          overwrite: true
