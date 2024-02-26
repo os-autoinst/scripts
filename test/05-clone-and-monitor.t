@@ -14,8 +14,8 @@ $ENV{OPENQA_API_KEY} = 'key';
 $ENV{OPENQA_API_SECRET} = 'secret';
 $ENV{GITHUB_SERVER_URL} = 'gh-srv-url';
 $ENV{GH_PR_BODY} = 'Merge my changes
-@openqa: Clone http://127.0.0.1:9526/tests/4240
-@openqa: Clone http://127.0.0.1:9526/tests/4239
+openqa: Clone http://127.0.0.1:9526/tests/4240
+openqa: Clone http://127.0.0.1:9526/tests/4239
 footnote';
 
 require "$FindBin::RealBin/../openqa-clone-and-monitor-job-from-pr";

@@ -67,12 +67,12 @@ my @vars = ("BUILD=$gh_repo.git#$gh_ref", "_GROUP_ID=$group_id", "CASEDIR=$gh_sr
 
 sub _parse_urls ($text) {
     my @urls;
-    while ($text =~ /(\@openqa:?\s+Clone\s+(https?:[^\s]+))/ig) {
+    while ($text =~ /(openqa:\s+Clone\s+(https?:[^\s]+))/ig) {
         push @urls, $2 if index($2, $expected_url) == 0;
     }
     return \@urls if @urls;
     print 'No test cloned; the PR description does not contain ';    # uncoverable statement
-    print "a command like '\@openqa: Clone $expected_url/tests/<JOB_ID>'.\n";    # uncoverable statement
+    print "a command like 'openqa: Clone $expected_url/tests/<JOB_ID>'.\n";    # uncoverable statement
     exit 0;
 }
 
