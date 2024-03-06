@@ -51,7 +51,7 @@ job_templates:
 EOF
 
 hdd=$(openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" flavor="$flavor" test="$test_name" latest=1 | jq -r '.jobs | map(select(.result == "passed")) | max_by(.settings.BUILD) .settings.HDD_1')
-openqa-cli schedule \
+time openqa-cli schedule \
     --monitor \
     --host "$openqa_url" \
     --param-file SCENARIO_DEFINITIONS_YAML="$tmpfile" \
