@@ -70,7 +70,7 @@ clone() {
     [[ -n ${*:5} ]] && clone_settings+=("${@:5}")
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
-    clone_settings+=($(echo "$clone_job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "="')) || return $?
+    clone_settings+=($(echo "$clone_job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "=none"')) || return $?
     clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$origin")
     out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
     if [[ $dry_run = 1 ]]; then
