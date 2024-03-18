@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 85
+plan tests 87
 
 host=localhost
 url=https://localhost
@@ -21,6 +21,8 @@ fetch-vars-json() {
     local tid=$1
     if [[ $tid -eq 10020 ]]; then
         echo '{"TEST_GIT_URL": "https://github.com/os-autoinst/os-autoinst-distri-openQA.git"}'
+    elif [[ $tid -eq 10026 ]]; then
+        echo '{"TEST_GIT_URL": "UNKNOWN (origin remote not found)"}'
     elif [[ $tid -eq 10022 ]]; then
         echo '{"WORKER_CLASS": "foo,duh,bar"}'
     else
@@ -231,6 +233,10 @@ has "$got" '_TRIGGER_JOB_DONE_HOOK=1' "job is cloned with _TRIGGER_JOB_DONE_HOOK
 try clone 10023 10024 foo refspec
 is "$rc" 0 "Successful clone"
 like "$got" 'CASEDIR=.*/os-autoinst-distri-opensuse.git#refspec' "job is cloned and it uses default CASEDIR"
+
+try clone 10026 10024 foo refspec
+is "$rc" 0 "Successful clone"
+like "$got" 'Can not clone refspec' "job with non-git TEST_GIT_URL is not cloned"
 
 try clone 10020 10024 foo refspec
 is "$rc" 0 "Successful clone"
