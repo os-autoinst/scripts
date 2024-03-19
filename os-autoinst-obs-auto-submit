@@ -155,7 +155,7 @@ handle_auto_submit() {
 }
 
 [ "$dry_run" = "1" ] && prefix="echo"
-osc="${osc:-"$prefix osc"}"
+osc="${osc:-"$prefix retry -e -- osc"}"
 
 TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
 trap 'rm -rf "$TMPDIR"' EXIT
