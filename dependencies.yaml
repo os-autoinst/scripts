@@ -33,7 +33,6 @@ main_requires:
   perl(Mojo::File):
   perl(Text::Markdown):
   perl(YAML::PP):
-  retry:
   html-xml-utils:
   xmlstarlet:
 test_requires:
