@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -e
 
 export LC_ALL=C
 src_project="${src_project:-"devel:openQA"}"
@@ -88,7 +88,7 @@ last_revision() {
         file=_service:$service:$file
     fi
     local line
-    line=$(grep -m1 'Update to version' <($osc cat "$project/$package/$file"))
+    line=$($osc cat "$project/$package/$file" | grep 'Update to version' | head -n1)
     # shellcheck disable=SC2001
     echo "$line" | sed -e 's,.*\.\([^.]*\):$,\1,'
 }
