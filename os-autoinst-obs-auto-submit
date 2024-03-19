@@ -65,8 +65,9 @@ update_package() {
     rm -f ./*rpmlintrc _servicedata node_modules.sums package-lock.json
     $osc addremove
     sed -i '/rpmlintrc/d' ./*.spec || true
+    local ci_args=""
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" || "$package" =~ "container" ]]; then
-        local ci_args="--noservice"
+        ci_args="--noservice"
     fi
     $osc ci -m "Offline generation of ${version}" $ci_args
     wait_for_package_build
