@@ -154,6 +154,7 @@ handle_auto_submit() {
     )
 }
 
+prefix="${prefix:-""}"
 [ "$dry_run" = "1" ] && prefix="echo"
 osc="${osc:-"$prefix retry -e -- osc"}"
 
