@@ -72,7 +72,7 @@ update_package() {
     $osc ci -m "Offline generation of ${version}" $ci_args
     wait_for_package_build
     cmd="$osc sr"
-    req=$(factory_request "$package")
+    req=$(factory_request "$package" || :)
     # TODO: check if it's a different revision than HEAD
     if test -n "$req"; then
         cmd="$cmd -s $req"
