@@ -89,7 +89,12 @@ last_revision() {
         file=_service:$service:$file
     fi
     local line
-    line=$(grep -m1 'Update to version' <($osc cat "$project/$package/$file"))
+    # prevent SIGPIPE triggering osc cat to fail with the command group piping
+    # exceeding output to /dev/null
+    line=$($osc cat "$project/$package/$file" | {
+        grep -m1 'Update to version'
+        cat > /dev/null
+    })
     # shellcheck disable=SC2001
     echo "$line" | sed -e 's,.*\.\([^.]*\):$,\1,'
 }
