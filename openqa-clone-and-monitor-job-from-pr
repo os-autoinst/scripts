@@ -34,8 +34,8 @@ jobs:
 =end text
 
 It will then clone and monitor an openQA job when a PR mentioning one via e.g.
-C<@openqa: Clone https://openqa.opensuse.org/tests/123456> is created. By
-default it will clone the job on o3 into the "Development / GitHub" group. To
+C<@openqa: Clone https://openqa.opensuse.org/tests/123456 FOO=bar> is created.
+By default it will clone the job on o3 into the "Development / GitHub" group. To
 use a different openQA instance and group, set the environment variables
 C<OPENQA_HOST> and C<OPENQA_SCHEDULE_GROUP_ID> accordingly.
 
@@ -53,6 +53,7 @@ package openqa_clone_and_monitor_job_from_pr;    # for testing
 
 use Mojo::Base -strict, -signatures;
 use Mojo::JSON qw(decode_json);
+use Text::ParseWords qw(shellwords);
 
 my $expected_url = $ENV{OPENQA_HOST} // 'https://openqa.opensuse.org';
 my $group_id = $ENV{OPENQA_SCHEDULE_GROUP_ID} // 118;
@@ -65,12 +66,16 @@ my $api_secret = $ENV{OPENQA_API_SECRET} or die 'OPENQA_API_SECRET must be set';
 my @secrets = ('--apikey', $api_key, '--apisecret', $api_secret);
 my @vars = ("BUILD=$gh_repo.git#$gh_ref", "_GROUP_ID=$group_id", "CASEDIR=$gh_srv/$gh_repo.git#$gh_ref");
 
-sub _parse_urls ($text) {
-    my @urls;
-    while ($text =~ /(openqa:\s+Clone\s+(https?:[^\s]+))/ig) {
-        push @urls, $2 if index($2, $expected_url) == 0;
+# use `shellwords` to split arguments like a shell would (so one can use quotes to avoid splitting)
+# use `grep` to filter out arguments starting with `-`/`--` to avoid users passing unexpected flags/arguments
+sub _split_and_filter_arguments ($args) { grep { $_ && $_ !~ qr/^\s*-/ } shellwords $args }
+
+sub _parse_clone_args ($text) {
+    my @clone_calls;
+    while ($text =~ /(openqa:\s+Clone\s+(https?:[^\s]+))(.*)/ig) {
+        push @clone_calls, [$2, _split_and_filter_arguments $3] if index($2, $expected_url) == 0;
     }
-    return \@urls if @urls;
+    return \@clone_calls if @clone_calls;
     print 'No test cloned; the PR description does not contain ';    # uncoverable statement
     print "a command like 'openqa: Clone $expected_url/tests/<JOB_ID>'.\n";    # uncoverable statement
     exit 0;
@@ -92,16 +97,16 @@ sub _run_cmd_capturing_output ($command, @args) {
     return $output;
 }
 
-sub _clone_job ($url) {
-    my @args = (@secrets, qw(--json-output --skip-chained-deps --within-instance), $url, @vars);
+sub _clone_job ($args) {
+    my @args = (@secrets, qw(--json-output --skip-chained-deps --within-instance), @$args, @vars);
     my $json = _run_cmd_capturing_output 'openqa-clone-job', @args;
     return values %{decode_json($json)};
 }
 
 sub run () {
-    my $urls = _parse_urls($pr_body);
-    my @job_ids = map { _clone_job $_ } @$urls;
-    my @quoted_url_list = join(', ', map { "'$_'" } @$urls);
+    my $clone_args = _parse_clone_args($pr_body);
+    my @job_ids = map { _clone_job $_ } @$clone_args;
+    my @quoted_url_list = join(', ', map { "'$_->[0]'" } @$clone_args);
     my @job_url_list = map { "- $expected_url/tests/$_\n" } @job_ids;
     print "Cloned @quoted_url_list into:\n @job_url_list";
     _run_cmd 'openqa-cli', 'monitor', '--host', $expected_url, @secrets, @job_ids;
