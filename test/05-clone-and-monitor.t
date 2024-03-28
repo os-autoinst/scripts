@@ -15,7 +15,7 @@ $ENV{OPENQA_API_SECRET} = 'secret';
 $ENV{GITHUB_SERVER_URL} = 'gh-srv-url';
 $ENV{GH_PR_BODY} = 'Merge my changes
 openqa: Clone http://127.0.0.1:9526/tests/4240
-openqa: Clone http://127.0.0.1:9526/tests/4239
+openqa: Clone http://127.0.0.1:9526/tests/4239 FOO="some value" BAR=another-value " --host"
 footnote';
 
 require "$FindBin::RealBin/../openqa-clone-and-monitor-job-from-pr";
@@ -38,9 +38,13 @@ qr(Cloned.*4240.*4239.*into:.*monitor --host http://127\.0\.0\.1:9526 --apikey k
 
 my @expected_secrets = qw(--apikey key --apisecret secret);
 my @expected_clone_options = (@expected_secrets, qw(--json-output --skip-chained-deps --within-instance));
-my @expected_vars = ('BUILD=foo.git#bar', '_GROUP_ID=118', 'CASEDIR=gh-srv-url/foo.git#bar');
+my @expected_overrides = ('BUILD=foo.git#bar', '_GROUP_ID=118', 'CASEDIR=gh-srv-url/foo.git#bar');
+my %expected_vars = (
+    4240 => \@expected_overrides,
+    4239 => ['FOO=some value', 'BAR=another-value', @expected_overrides],
+);
 my @expected_invocations;
-push @expected_invocations, [qw(openqa-clone-job), @expected_clone_options, "http://127.0.0.1:9526/tests/$_", @expected_vars] for 4240, 4239;
+push @expected_invocations, [qw(openqa-clone-job), @expected_clone_options, "http://127.0.0.1:9526/tests/$_", @{$expected_vars{$_}}] for 4240, 4239;
 push @expected_invocations, [qw(openqa-cli monitor --host http://127.0.0.1:9526), @expected_secrets, 4246, 4245];
 is_deeply \@invoked_commands, \@expected_invocations, 'expected commands invoked' or diag explain \@invoked_commands;
 
