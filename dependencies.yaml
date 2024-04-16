@@ -36,6 +36,8 @@ main_requires:
   retry:
   html-xml-utils:
   xmlstarlet:
+  python3-requests:
+  python3-beautifulsoup4:
 test_requires:
   perl(Test::Output):
   perl(Test::Warnings):
