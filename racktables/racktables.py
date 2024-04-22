@@ -14,10 +14,16 @@ class Racktables:
         self.url = url
 
     def search(self, search_payload={}):
+        params="&".join("%s=%s" % (k, v) for k, v in search_payload.items())
         req = self.s.get(
             join(self.url, "index.php"),
-            params="&".join("%s=%s" % (k, v) for k, v in search_payload.items()),
+            params=params
         )
+        status = req.status_code
+        if status == 401:
+          raise Exception("Racktables returned 401 Unauthorized. Are your credentials correct?")
+        elif status >= 300:
+          raise Exception(f"Racktables returned statuscode {status} while trying to access {req.request.url}. Manual investigation needed.")
         soup = BeautifulSoup(req.text, "html.parser")
         result_table = soup.find("table", {"class": "cooltable"})
         result_objs = result_table.find_all(
