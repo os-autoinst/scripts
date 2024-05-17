@@ -70,11 +70,13 @@ my $gh_token = $ENV{GITHUB_TOKEN} // '';
 my $api_key = $ENV{OPENQA_API_KEY} or die 'OPENQA_API_KEY must be set';
 my $api_secret = $ENV{OPENQA_API_SECRET} or die 'OPENQA_API_SECRET must be set';
 my $user = $ENV{GH_COMMENT_AUTHOR} // '';
+my $comment_url = $ENV{GH_COMMENT_URL} // '';
 my $restrict_orga = $ENV{RESTRICT_ORGA} // '';
 my $restrict_team = $ENV{RESTRICT_TEAM} // '';
 my @secrets = ('--apikey', $api_key, '--apisecret', $api_secret);
 my $gh_clone_url = $gh_repo ? "$gh_repo.git" : undef;
 my %gh_headers = (Accept => 'application/vnd.github+json', Authorization => "Bearer $gh_token");
+my $ua = Mojo::UserAgent->new;
 die 'GH_REF or GH_PR_URL must be set' unless $gh_ref || $gh_pr_url;
 die 'GH_REPO or GH_PR_URL must be set' unless $gh_repo || $gh_pr_url;
 die 'GITHUB_TOKEN and GITHUB_API_URL must be set when RESTRICT_ variables are set'
@@ -84,9 +86,9 @@ die 'GITHUB_TOKEN and GITHUB_API_URL must be set when RESTRICT_ variables are se
 # use `grep` to filter out arguments starting with `-`/`--` to avoid users passing unexpected flags/arguments
 sub _split_and_filter_arguments ($args) { grep { $_ && $_ !~ qr/^\s*-/ } shellwords $args }
 
-sub _done ($log = undef) {
+sub _done ($log = undef, $status = 0) {
     print $log if defined $log;
-    exit 0;
+    exit $status;
 }
 
 sub _parse_clone_args ($text) {
@@ -125,7 +127,6 @@ sub _clone_job ($args, $vars) {
 sub _restrict_to_team_members () {
     return undef unless $restrict_orga || $restrict_team;
     my $url = "$gh_api/orgs/$restrict_orga/teams/$restrict_team/memberships/$user";
-    my $ua = Mojo::UserAgent->new;
     my $res = $ua->get($url, \%gh_headers)->res;
     my $body = $res->body // '';
     my $state = eval { $res->json('/state') } // '';
@@ -135,7 +136,6 @@ sub _restrict_to_team_members () {
 
 sub _determine_gh_ref_and_clone_url () {
     return undef if $gh_ref;
-    my $ua = Mojo::UserAgent->new;
     my $res = $ua->get($gh_pr_url, \%gh_headers)->res;
     my $body = $res->body // '';
     my $json = Mojo::JSON::Pointer->new(eval { $res->json } // {});
@@ -145,6 +145,19 @@ sub _determine_gh_ref_and_clone_url () {
     _done "No test cloned; unable to determine ref and clone URL of PR via '$gh_pr_url'.\n$body"
         unless defined $gh_ref && defined $gh_clone_url;
     $gh_statuses_url =~ s/\{sha\}/$gh_ref/ if $gh_statuses_url;
+}
+
+sub _update_status ($status) {
+    my $repo = $ENV{GITHUB_REPOSITORY};
+    my $run_id = $ENV{GITHUB_RUN_ID};
+    return undef unless $gh_statuses_url && $repo && $run_id;
+    my $target_url = "$gh_srv/$repo/actions/runs/$run_id";
+    my $ctx = "Run openQA test mentioned in comment '$comment_url' by '$user'";
+    my $description = $status eq 'pending' ? 'Monitoring cloned job(s)' : 'Job(s) have finished';
+    my %payload = (state => $status, target_url => $target_url, context => $ctx, description => $description);
+    my $res = $ua->post($gh_statuses_url, \%gh_headers, json => \%payload)->res;
+    my $body = $res->body;
+    print "Unable to update status on GitHub via '$gh_statuses_url'.\n$body\n" unless $res->is_success;
 }
 
 sub run () {
@@ -157,7 +170,11 @@ sub run () {
     my @quoted_url_list = join(', ', map { "'$_->[0]'" } @$clone_args);
     my @job_url_list = map { "- $expected_url/tests/$_\n" } @job_ids;
     print "Cloned @quoted_url_list into:\n @job_url_list";
-    _run_cmd 'openqa-cli', 'monitor', '--host', $expected_url, @secrets, @job_ids;
+    _update_status 'pending';
+    eval { _run_cmd 'openqa-cli', 'monitor', '--host', $expected_url, @secrets, @job_ids };
+    my $error = $@;
+    _update_status $error ? 'failure' : 'success';
+    _done $error, $error ? 1 : 0;
 }
 
 run unless caller;
