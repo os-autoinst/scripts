@@ -31,6 +31,9 @@ $mock->redefine(_run_cmd_capturing_output => sub ($command, @args) {
     push @invoked_commands, [$command, @args];
     $mock->original('_run_cmd_capturing_output')->('echo', shift @clone_responses);
 });
+$mock->redefine(_done => sub ($log = undef, $status = 0) {
+    is $status, 0, 'successful exit';
+});
 
 combined_like { openqa_clone_and_monitor_job_from_pr::run() }
 qr(Cloned.*4240.*4239.*into:.*monitor --host http://127\.0\.0\.1:9526 --apikey key --apisecret secret 4246 4245)s,
