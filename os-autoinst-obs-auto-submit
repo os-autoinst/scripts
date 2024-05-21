@@ -69,6 +69,9 @@ update_package() {
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" || "$package" =~ "container" ]]; then
         ci_args="--noservice"
     fi
+    # We would get an empty changelog when there are no changes to files contained
+    # in this package/container. So add some text.
+    sed -i -e 's/^  \* $/  * Update to latest openQA version/' ./*.changes
     $osc ci -m "Offline generation of ${version}" $ci_args
     wait_for_package_build
     cmd="$osc sr"
