@@ -68,22 +68,48 @@ runjq() {
     return $rc
 }
 
+exp_retry() {
+    local stop_exponent=$1
+    local exponent=$2
+    if [[ "$exponent" == "$stop_exponent" ]]; then
+        warn "$stop_exponent (re)tries exceeded"
+        return 1
+    fi
+    wait_sec=$((2 ** exponent))
+    echo "Waiting ${wait_sec}s until retry #${stop_exponent}"
+    sleep "$wait_sec"
+}
+
 # Wrapper around curl that reports the HTTP status if it is not 200, and the
 # calling command and line
+# exp_retries: number of total tries - 0/unset for no retries. Sleep before each retry will double.
 runcurl() {
     local rc status_code body response
     local verbose="${verbose:-"false"}"
-    $verbose && warn "[debug] curl: Fetching ($*)"
-    set +e
-    response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
-    rc=$?
-    set -e
-    [[ "$rc" != 0 ]] && warn "curl ($(caller)): Error fetching ($*): $response" && return 1
-    status_code=$(echo "$response" | tail -1)
-    [[ "$status_code" != 200 ]] && warn "curl ($(caller)): Error fetching url ($*): Got Status $status_code" && return 1
-    # remove last line
-    body=$(echo "$response" | tac | tail -n+2 | tac)
-    echo "$body"
+    local exp_retries="${exp_retries:-"0"}"
+    for retry_exponent in $(seq 0 "$exp_retries"); do
+        $verbose && warn "[debug] curl: Fetching ($*)"
+        set +e
+        response=$(curl -w "\n%{http_code}\n" "$@" 2>&1)
+        rc=$?
+        set -e
+        if [[ "$rc" != 0 ]]; then
+            warn "curl ($(caller)): Error fetching ($*): $response"
+            # shellcheck disable=SC2015
+            exp_retry "$exp_retries" "$retry_exponent" && continue || break
+        fi
+        status_code=$(echo "$response" | tail -1)
+        if [[ "$status_code" != 200 ]]; then
+            warn "curl ($(caller)): Error fetching url ($*): Got Status $status_code"
+            # shellcheck disable=SC2015
+            exp_retry "$exp_retries" "$retry_exponent" && continue || break
+        fi
+        # remove last line
+        body=$(echo "$response" | tac | tail -n+2 | tac)
+        echo "$body"
+        return 0
+    done
+    return 1
 }
 
 openqa-api-get() {
