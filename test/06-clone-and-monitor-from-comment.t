@@ -63,7 +63,7 @@ subtest 'test cloned if user member of required team, status updated on GitHub' 
     );
     my @fake_responses = (
         '{"state":"active"}',
-        '{"head":{"repo":{"clone_url":"https://github.com/foo-orga/foo.git","statuses_url":"api.gh-srv.url/repos/os-autoinst/openSUSE/statuses/{sha}"},"sha":"bar"}}',
+        '{"head":{"repo":{"clone_url":"https://github.com/foo-orga/foo.git"},"sha":"bar"},"statuses_url":"api.gh-srv.url/repos/os-autoinst/openSUSE/statuses/bar"}',
     );
     $ua_mock->redefine(get => sub ($ua, $url, $gh_headers) {
         is $url, shift @expected_gh_urls, 'GitHub API queried';
