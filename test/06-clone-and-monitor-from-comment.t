@@ -63,7 +63,7 @@ subtest 'test cloned if user member of required team, status updated on GitHub' 
     );
     my @fake_responses = (
         '{"state":"active"}',
-        '{"head":{"repo":{"clone_url":"foo","statuses_url":"api.gh-srv.url/repos/os-autoinst/openSUSE/statuses/{sha}"},"sha":"bar"}}',
+        '{"head":{"repo":{"clone_url":"https://github.com/foo-orga/foo.git","statuses_url":"api.gh-srv.url/repos/os-autoinst/openSUSE/statuses/{sha}"},"sha":"bar"}}',
     );
     $ua_mock->redefine(get => sub ($ua, $url, $gh_headers) {
         is $url, shift @expected_gh_urls, 'GitHub API queried';
@@ -84,6 +84,15 @@ subtest 'test cloned if user member of required team, status updated on GitHub' 
     combined_like { openqa_clone_and_monitor_job_from_pr::run() } qr/pretend monotoring failed/, 'attempted to cloned and monitor job';
     is scalar @expected_gh_urls, 0, 'all expected get requests made' or diag explain \@expected_gh_urls;
     is scalar @expected_gh_post_urls, 0, 'all expected post requests made' or diag explain \@expected_gh_post_urls;
+    my @expected_cmds = (
+        [qw(openqa-cli monitor --host http://127.0.0.1:9526 --apikey key --apisecret secret 1)],
+    );
+    my @expected_jobs = ([
+        [qw(http://127.0.0.1:9526/tests/4239 FROM=comment)],
+        [qw(BUILD=foo-orga/foo.git#bar _GROUP_ID=118 CASEDIR=https://github.com/foo-orga/foo.git#bar)],
+    ]);
+    is_deeply \@invoked_commands, \@expected_cmds, 'expected commands invoked' or diag explain \@invoked_commands;
+    is_deeply \@cloned_jobs, \@expected_jobs, 'expected jobs cloned' or diag explain \@cloned_jobs;
 };
 
 done_testing;
