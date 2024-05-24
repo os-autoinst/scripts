@@ -71,9 +71,11 @@ my $api_key = $ENV{OPENQA_API_KEY} or die 'OPENQA_API_KEY must be set';
 my $api_secret = $ENV{OPENQA_API_SECRET} or die 'OPENQA_API_SECRET must be set';
 my $user = $ENV{GH_COMMENT_AUTHOR} // '';
 my $comment_url = $ENV{GH_COMMENT_URL} // '';
+my $cloned_by_url = $comment_url // $ENV{GH_PR_HTML_URL};
 my $restrict_orga = $ENV{RESTRICT_ORGA} // '';
 my $restrict_team = $ENV{RESTRICT_TEAM} // '';
 my @secrets = ('--apikey', $api_key, '--apisecret', $api_secret);
+my @cloned_by_vars = $cloned_by_url ? ("CLONED_BY=$cloned_by_url") : ();
 my $gh_clone_url = $gh_repo ? "$gh_srv/$gh_repo" : undef;
 my %gh_headers = (Accept => 'application/vnd.github+json', Authorization => "Bearer $gh_token");
 my $ua = Mojo::UserAgent->new;
@@ -165,7 +167,7 @@ sub run () {
     _determine_gh_ref_and_clone_url;
 
     my $clone_args = _parse_clone_args($pr_body);
-    my @vars = ("BUILD=$gh_repo#$gh_ref", "_GROUP_ID=$group_id", "CASEDIR=$gh_clone_url#$gh_ref");
+    my @vars = ("BUILD=$gh_repo#$gh_ref", "_GROUP_ID=$group_id", "CASEDIR=$gh_clone_url#$gh_ref", @cloned_by_vars);
     my @job_ids = map { _clone_job $_, \@vars } @$clone_args;
     my @quoted_url_list = join(', ', map { "'$_->[0]'" } @$clone_args);
     my @job_url_list = map { "- $expected_url/tests/$_\n" } @job_ids;

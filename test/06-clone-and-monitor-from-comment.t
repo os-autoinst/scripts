@@ -89,7 +89,7 @@ subtest 'test cloned if user member of required team, status updated on GitHub' 
     );
     my @expected_jobs = ([
         [qw(http://127.0.0.1:9526/tests/4239 FROM=comment)],
-        [qw(BUILD=foo-orga/foo.git#bar _GROUP_ID=118 CASEDIR=https://github.com/foo-orga/foo.git#bar)],
+        [qw(BUILD=foo-orga/foo.git#bar _GROUP_ID=118 CASEDIR=https://github.com/foo-orga/foo.git#bar CLONED_BY=link-to-comment)],
     ]);
     is_deeply \@invoked_commands, \@expected_cmds, 'expected commands invoked' or diag explain \@invoked_commands;
     is_deeply \@cloned_jobs, \@expected_jobs, 'expected jobs cloned' or diag explain \@cloned_jobs;
