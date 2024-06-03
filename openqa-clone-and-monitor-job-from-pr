@@ -80,9 +80,9 @@ that (`read:org` permission).
 
 For local testing you may also invoke the script manually. Have a look at the
 handling of environment variables at the beginning of the script code as you
-need to set certain additional environment variables, the
-`test/05-clone-and-monitor.t` can also clarify this script's behavior from user
-perspective.
+need to set certain additional environment variables. The test
+`test/05-clone-and-monitor.t` can also clarify the behavior of this script from
+user perspective.
 
 =back
 
