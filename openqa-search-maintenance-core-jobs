@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+
+set -e
+
+usage() {
+    cat << EOF
+Usage: $(basename "$0") -a SUSE:Maintenance:II:RR [-d days]
+
+The goal of this script is to fill the section
+"regression tests" in the log of QA test reports.
+For a given update, search inside job groups:
+- Maintenance: Single Incidents / Core Incidents
+- Maintenance: Aggregated updates / Core Maintenance Updates
+the regression tests related with the update.
+It searches by default within the last 5 days for "Aggregated updates" builds.
+
+Usage: examples
+  $(basename "$0") -a SUSE:Maintenance:34576:337335
+  $(basename "$0") -a SUSE:Maintenance:34564:337279 -d 10
+EOF
+}
+
+# Maintenance: Single Incidents / Core Incidents
+declare -A dict_group=(
+    ["15-SP1"]=233
+    ["15-SP2"]=306
+    ["15-SP3"]=367
+    ["15-SP4"]=439
+    ["15-SP5"]=490
+    ["15-SP6"]=546
+    ["12-SP3"]=106
+    ["12-SP5"]=282
+    ["15-SP4-TERADATA"]=521
+    ["12-SP3-TERADATA"]=191
+)
+
+readonly url_dashboard_qam="${url_dashboard_qam:-"http://dashboard.qam.suse.de"}"
+readonly url_openqa="${url_openqa:-"https://openqa.suse.de"}"
+readonly url_qam="${url_qam:-"https://qam.suse.de"}"
+
+_ok() {
+    echo -e "\033[01;32m$1\033[0m"
+}
+
+_ko() {
+    echo -e "\033[01;31m$1\033[0m"
+}
+
+_warn() {
+    echo -e "\033[01;33m$1\033[0m"
+}
+
+_title() {
+    echo -e "\033[01;36m$1\033[0m"
+}
+
+search_maintenance_single_incidents() {
+    _title "Maintenance: Single Incidents / Core Incidents"
+    local review_request_id=$1
+
+    local ID
+    ID="$(echo "$review_request_id" | awk -F':' '{printf "%s", $3}')" # The ID of the update
+
+    local incident_settings
+    incident_settings=$(curl -sk -X GET "${url_dashboard_qam}/api/incident_settings/$ID")
+
+    local build
+    build=$(echo "$incident_settings" | jq -r '.[0].settings.BUILD')
+
+    local versions
+    versions=$(echo "$incident_settings" | jq -r '.[].settings.VERSION' | sort | uniq)
+
+    local versions_teradata
+    versions_teradata=$(echo "$incident_settings" | jq -r '[.[]| { KEY:(.settings.VERSION + "|" +.settings.FLAVOR)}] | .[].KEY' | grep TERADATA | sed -e 's/|.*-TERADATA$/-TERADATA/' | sort | uniq)
+
+    for version in $versions $versions_teradata; do
+        local groupid=${dict_group[$version]}
+        [[ -z "$groupid" ]] && continue
+
+        local count_url="${url_openqa}/api/v1/jobs/overview?distri=sle&version=${version%%-TERADATA}&build=${build}&groupid=${groupid}"
+        local count
+        count=$(curl -sk -X GET "$count_url" | jq -r '. | length')
+        [[ $count -eq 0 ]] && continue
+
+        printf 'Version: "%s" Build: "%s"\n' "$version" "$build"
+        version=${version%%-TERADATA}
+        printf '%s/tests/overview?distri=sle&version=%s&build=%s&groupid=%s\n' "$url_openqa" "$version" "$build" "$groupid"
+
+        local running_url="${url_openqa}/api/v1/jobs/overview?distri=sle&version=${version}&build=${build}&groupid=${groupid}&state=scheduled&state=running"
+        local running
+        running=$(curl -sk -X GET "$running_url" | jq -r '. | length')
+        [[ $running -gt 0 ]] && {
+            _warn "RUNNING / SCHEDULED ($running jobs) Awaiting completion..."
+            echo ""
+            continue
+        }
+
+        local failed_url="${url_openqa}/api/v1/jobs/overview?distri=sle&version=${version}&build=${build}&groupid=${groupid}&result=failed&result=incomplete&result=timeout_exceeded"
+        local failed
+        failed=$(curl -sk -X GET "$failed_url" | jq -r '. | length')
+        [[ $failed -eq 0 ]] && _ok "PASSED"
+        [[ $failed -gt 0 ]] && _ko "FAILED ($failed jobs)"
+        echo ""
+    done
+    echo "---"
+}
+
+search_maintenance_aggregated() {
+    _title "Maintenance: Aggregated updates / Core Maintenance Updates"
+    local review_request_id=$1
+    local days=${2:-5}
+    local groupid="414" # Maintenance: Aggregated updates / Core Maintenance Updates
+
+    local ID
+    ID="$(echo "$review_request_id" | awk -F':' '{printf "%s", $3}')" # The ID of the update
+
+    local versions
+    versions=$(curl -sk -X GET "${url_dashboard_qam}/api/incident_settings/$ID" | jq -r '.[].settings.VERSION' | sort | uniq)
+
+    for version in $versions; do
+        [[ -z "${dict_group[$version]}" ]] && continue
+
+        for day in $(seq 0 "$days"); do
+            local build
+            build="$(date +%Y%m%d -d "$day day ago")-1"
+
+            local URL="${url_openqa}/api/v1/jobs/overview?distri=sle&version=${version}&build=${build}&groupid=${groupid}&state=done"
+
+            local id
+            id=$(curl -sk -X GET "$URL" | jq -r '.[0].id | select( . != null)')
+
+            [[ -z "$id" ]] && continue
+
+            local json
+            json=$(curl -sk -X GET "${url_openqa}/api/v1/jobs/${id}")
+
+            local issues
+            issues=$(echo "$json" | jq -r '.job.settings | to_entries | .[] | .key + "=" + (.value | @sh)' | grep -E '_TEST_ISSUES=' | perl -lpe "s/.*=//;s/,/ /g" | tr -d "'")
+
+            for issue in $issues; do
+                [[ $issue -eq $ID ]] && {
+                    echo "Version: '$version' Update: '$ID'"
+                    echo "Build $build contains $ID"
+                    echo "${url_openqa}/tests/overview?distri=sle&version=${version}&build=${build}&groupid=${groupid}"
+
+                    local running_url="${url_openqa}/api/v1/jobs/overview?distri=sle&version=${version}&build=${build}&groupid=${groupid}&state=scheduled&state=running"
+                    local running
+                    running=$(curl -sk -X GET "$running_url" | jq -r '. | length')
+                    [[ $running -gt 0 ]] && {
+                        _warn "RUNNING / SCHEDULED ($running jobs) Awaiting completion..."
+                        echo ""
+                        continue
+                    }
+
+                    local failed_url="${url_openqa}/api/v1/jobs/overview?distri=sle&version=${version}&build=${build}&groupid=${groupid}&result=failed&result=incomplete&result=timeout_exceeded"
+                    local failed
+                    failed=$(curl -sk -X GET "$failed_url" | jq -r '. | length')
+                    [[ $failed -eq 0 ]] && _ok "PASSED"
+                    [[ $failed -gt 0 ]] && _ko "FAILED ($failed jobs)"
+                    echo ""
+                    break 2
+                }
+            done
+        done
+    done
+    echo "---"
+}
+
+search_build_checks() {
+    _title "Build checks"
+    local review_request_id=$1
+    local index
+    index="${url_qam}/testreports/${review_request_id}/build_checks"
+    local logs
+    logs=$(curl -sLk -X GET "$index" | perl -lne '/a href="(.*?\.log)"/ && print "$1"')
+    if [[ -n $logs ]]; then
+        echo "Build checks url: $index"
+        for log in $logs; do
+            echo "curl -sLk '$index/$log' | grep -B1 -A9 -i -E 'summary'"
+            curl -sLk "$index/$log" | grep -B1 -A9 -i -E 'summary' || true
+            echo ""
+        done
+    fi
+    echo "---"
+}
+
+while getopts :a:d: name; do
+    case $name in
+        a) review_request_id="$OPTARG" ;;
+        d) days="$OPTARG" ;;
+        ?)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -z "$review_request_id" ]]; then
+    usage
+    exit 1
+fi
+
+days="${days:-5}"
+
+search_maintenance_single_incidents "$review_request_id"
+search_maintenance_aggregated "$review_request_id" "$days"
+search_build_checks "$review_request_id"
