@@ -80,6 +80,18 @@ exp_retry() {
     sleep "$wait_sec"
 }
 
+# shorten a string in the middle, if it is too large
+shorten_string() {
+    local sstring="$1"
+    local max_str_len=${max_str_len:-"120"}
+    local max_str_len_half=$((max_str_len / 2))
+    if [[ ${#sstring} -gt $max_str_len ]]; then
+        sstring_end=$(echo "$sstring" | cut -c "$((${#sstring} - max_str_len_half))-")
+        sstring="$(echo "$sstring" | cut -c "-${max_str_len_half}")…${sstring_end}"
+    fi
+    echo "$sstring"
+}
+
 # Wrapper around curl that reports the HTTP status if it is not 200, and the
 # calling command and line
 # exp_retries: number of total tries - 0/unset for no retries. Sleep before each retry will double.
@@ -94,6 +106,7 @@ runcurl() {
         rc=$?
         set -e
         if [[ "$rc" != 0 ]]; then
+            response=$(shorten_string "$response")
             warn "curl ($(caller)): Error fetching ($*): $response"
             # shellcheck disable=SC2015
             exp_retry "$exp_retries" "$retry_exponent" && continue || break
