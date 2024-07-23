@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 #worker="${worker:-"openqaworker4"}"
 host="${host:-"openqa.opensuse.org"}"
 failed_since="${failed_since:-"$(date -I)"}"
@@ -29,22 +29,26 @@ EOF
     exit "$1"
 }
 
-opts=$(getopt -o h -l help -n "$0" -- "$@") || usage 1
-eval set -- "$opts"
-while true; do
-    case "$1" in
-        -h | --help) usage 0 ;;
-        --)
-            shift
-            break
-            ;;
-        *) break ;;
-    esac
-done
+main() {
+    opts=$(getopt -o h -l help -n "$0" -- "$@") || usage 1
+    eval set -- "$opts"
+    while true; do
+        case "$1" in
+            -h | --help) usage 0 ;;
+            --)
+                shift
+                break
+                ;;
+            *) break ;;
+        esac
+    done
 
-[ "$dry_run" = "1" ] && client_prefix="echo"
-# shellcheck disable=SC2029
-for i in $(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"select id from jobs where (${worker_string}${result} and clone_id is null and t_finished >= '$failed_since'$additional_filters);\" openqa"); do
-    $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/restart
-    [ -n "$comment" ] && $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/comments text="$comment"
-done
+    [ "$dry_run" = "1" ] && client_prefix="echo"
+    # shellcheck disable=SC2029
+    for i in $(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"select id from jobs where (${worker_string}${result} and clone_id is null and t_finished >= '$failed_since'$additional_filters);\" openqa"); do
+        $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/restart
+        [ -n "$comment" ] && $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/comments text="$comment"
+    done
+}
+
+caller 0 > /dev/null || main "$@"
