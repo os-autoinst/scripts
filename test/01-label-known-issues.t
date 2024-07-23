@@ -101,7 +101,7 @@ send-email() {
     echo "$email" >&2
 }
 out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "" "" "$job_data") || true
-like "$out" "\[$testurl\].*Unknown test issue, to be reviewed"
+like "$out" "\[$testurl\].*Unknown test issue, to be reviewed" 'unknown issue found'
 
 openqa_label_known_issues=$(dirname $0)/../openqa-label-known-issues
 out=$($openqa_label_known_issues 2>&1)
