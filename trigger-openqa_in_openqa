@@ -1,9 +1,5 @@
 #!/bin/bash -ex
 
-# Trigger tests on an openQA instance testing openQA itself.
-#
-# Can be configured by variables.
-
 set -euo pipefail
 
 # shellcheck source=/dev/null
@@ -69,5 +65,32 @@ trigger() {
         "${ARGS[@]}" \
         | tee job_post_response
 }
+
+usage() {
+    cat << EOF
+Usage: $0 [OPTIONS]
+
+Triggers tests on an openQA instance testing openQA itself.
+
+Can be configured additionally with environment variables.
+
+Options:
+ -h, --help         display this help
+EOF
+    exit "$1"
+}
+
+opts=$(getopt -o h -l help -n "$0" -- "$@") || usage 1
+eval set -- "$opts"
+while true; do
+    case "$1" in
+        -h | --help) usage 0 ;;
+        --)
+            shift
+            break
+            ;;
+        *) break ;;
+    esac
+done
 
 main
