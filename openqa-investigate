@@ -1,391 +1,178 @@
-#!/bin/bash
+import requests
+import json
+import argparse
+import os
+import re
+import time
+import subprocess
 
-# Usage
-# echo jobnumber | openqa-investigate-multi
+errorlog = ""
 
-# http://redsymbol.net/articles/unofficial-bash-strict-mode/
-set -euo pipefail
+def warn(message):
+    print(message, file=sys.stderr)
 
-# shellcheck source=/dev/null
-. "$(dirname "${BASH_SOURCE[0]}")"/_common
+def runcli(args):
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, check=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        warn(f"Command {args} failed with error: {e.stderr}")
+        return None
 
-host="${host:-"openqa.opensuse.org"}"
-scheme="${scheme:-"https"}"
-host_url="$scheme://$host"
-dry_run="${dry_run:-"0"}"
-verbose="${verbose:-"false"}"
-prio_add="${prio_add:-"100"}"
-exclude_name_regex="${exclude_name_regex:-":investigate:"}"
-exclude_no_group="${exclude_no_group:-"true"}"
-# exclude_group_regex checks a combined string "<parent job group name> / <job group name>"
-exclude_group_regex="${exclude_group_regex:-"Development.*/ "}"
-force=${force:-false}
-retries=${retries:-"3"}
-OPENQA_CLI_RETRY_SLEEP_TIME_S=${OPENQA_CLI_RETRY_SLEEP_TIME_S:-20}
-client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
-jq_output_limit="${jq_output_limit:-15}"
-curl_args=(-L --user-agent "openqa-investigate")
-echoerr() { echo "$@" >&2; }
+def runjq(input_data, jq_filter):
+    try:
+        result = subprocess.run(['jq', jq_filter], input=input_data, capture_output=True, text=True, check=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        warn(f"jq error: {e.stderr}")
+        return None
 
-clone() {
-    local origin id name_suffix refspec unsupported_cluster_jobs pending_cluster_jobs name base_prio clone_settings casedir repo out clone_id
-    origin=${1:?"Need 'origin'"}
-    id=${2:?"Need 'id'"}
-    name_suffix=${3+":$3"}
-    refspec=${4+$4}
-    local clone_job_data
-    if [[ "$origin" == "$id" ]]; then
-        clone_job_data=$job_data
-    else
-        clone_job_data=$(client-get-job "$id")
-    fi
-    # shellcheck disable=SC2181
-    [[ $? != 0 ]] && echoerr "unable to query job data for $id: $clone_job_data" && return 1
+def exp_retry(stop_exponent, exponent):
+    if exponent == stop_exponent:
+        warn(f"{stop_exponent} (re)tries exceeded")
+        return False
+    wait_sec = 2 ** exponent
+    print(f"Waiting {wait_sec}s until retry #{stop_exponent}")
+    time.sleep(wait_sec)
+    return True
 
-    # fail on jobs with directly chained dependencies (not supported)
-    unsupported_cluster_jobs=$(echo "$clone_job_data" | runjq -r '(.job.children["Directly chained"] | length) + (.job.parents["Directly chained"] | length)') || return $?
-    [[ $unsupported_cluster_jobs != 0 ]] \
-        && echoerr "Unable to clone job $id: it is part of a directly chained cluster (not supported)" && return 2
+def runcurl(url, retries=0, verbose=False):
+    for retry_exponent in range(retries + 1):
+        if verbose:
+            warn(f"[debug] curl: Fetching ({url})")
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.text
+        except requests.RequestException as e:
+            warn(f"curl error: {e}")
+            if not exp_retry(retries, retry_exponent):
+                break
+    return None
 
-    name="$(echo "$clone_job_data" | runjq -r '.job.test'):investigate$name_suffix" || return $?
-    base_prio=$(echo "$clone_job_data" | runjq -r '.job.priority') || return $?
-    clone_settings=("TEST+=:investigate$name_suffix" '_TRIGGER_JOB_DONE_HOOK=1' '_GROUP_ID=0' 'BUILD=')
-    if [[ $refspec ]]; then
-        vars_json=$(fetch-vars-json "$origin")
-        testgiturl=$(echo "$vars_json" | runjq -r '.TEST_GIT_URL')
-        casedir=$(echo "$clone_job_data" | runjq -r '.job.settings.CASEDIR') || return $?
-        if [[ $testgiturl != null ]]; then
-            if [[ ! $testgiturl =~ ^https?://[^[:space:]]+$ ]]; then
-                warn "Can not clone refspec of job $origin with unknown/invalid git url TEST_GIT_URL='$testgiturl'"
-                return 0
-            fi
-            casedir=$testgiturl
-        fi
-        [[ $casedir == null ]] && casedir=''
-        repo=${casedir:-'https://github.com/os-autoinst/os-autoinst-distri-opensuse.git'}
-        clone_settings+=("CASEDIR=${repo%#*}#${refspec}")
-        if [[ $name_suffix =~ (last_good_tests_and_build) ]]; then
-            worker_vars_settings=$(echo "$vars_json" | runjq -r '.WORKER_CLASS') || return $?
-            if [[ $worker_vars_settings != null ]]; then
-                clone_settings+=("WORKER_CLASS=${worker_vars_settings}")
-            else
-                name+="(unidentified worker class in vars.json)"
-            fi
-        fi
-    fi
-    [[ -n ${*:5} ]] && clone_settings+=("${@:5}")
-    # clear "PUBLISH_" settings to avoid overriding production assets
-    # shellcheck disable=SC2207
-    clone_settings+=($(echo "$clone_job_data" | runjq -r '.job.settings | keys[] | select (startswith("PUBLISH_")) | . + "=none"')) || return $?
-    clone_settings+=("OPENQA_INVESTIGATE_ORIGIN=$host_url/t$origin")
-    out=$($clone_call "$host_url/tests/$id" "${clone_settings[@]}")
-    if [[ $dry_run = 1 ]]; then
-        echo "$out"
-        out="{ \"$origin\": 42}"
-    fi
+def openqa_api_get(host_url, endpoint):
+    headers = {'User-Agent': 'openqa-investigate (https://github.com/os-autoinst/scripts)'}
+    response = requests.get(f"{host_url}/{endpoint}", headers=headers)
+    response.raise_for_status()
+    return response.json()
 
-    # output: { "$id": $clone_id }
-    clone_id=$(echo "$out" | runjq -r ".\"$id\"")
-    # Create markdown list entry
-    echo "* *$name*: t#$clone_id"
+def comment_on_job(host_url, job_id, comment, force_result=None):
+    if enable_force_result and force_result:
+        comment = f"label:force_result:{force_result}:{comment}"
+    response = requests.post(f"{host_url}/jobs/{job_id}/comments", data={'text': comment})
+    response.raise_for_status()
 
-    # set priority of cloned jobs
-    # shellcheck disable=SC2207
-    clone_ids=($(echo "$out" | runjq -r 'values[]'))
-    for id in "${clone_ids[@]}"; do
-        client-put-job "$id" "{\"priority\": $((base_prio + prio_add))}" > /dev/null
-    done
-}
+def search_log(log_file, search_term, grep_timeout=5):
+    try:
+        result = subprocess.run(['grep', '-qPzo', search_term, log_file], timeout=grep_timeout, capture_output=True, text=True)
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        warn(f"grep was killed, possibly timed out: cmd=>grep -qPzo '{search_term}' '{log_file}'")
+        return False
+    except subprocess.CalledProcessError as e:
+        warn(f"grep failed: cmd=>grep -qPzo '{search_term}' '{log_file}' output='{e.stderr}'")
+        return False
 
-trigger_jobs() {
-    id="${1:?"Need 'job_id'"}"
-    # for 1. current job/build + current test -> check if reproducible/sporadic
-    clone "$id" "$id" 'retry' '' "${@:2}"
+def label_on_issue(host_url, job_id, search_term, label, restart=False, force_result=None):
+    log_file = get_log_file(job_id)
+    if search_log(log_file, search_term):
+        comment_on_job(host_url, job_id, label, force_result)
+        if restart:
+            response = requests.post(f"{host_url}/jobs/{job_id}/restart")
+            response.raise_for_status()
 
-    job_url="$host_url/tests/$id"
-    investigation=$(runcurl "${curl_args[@]}" -sS "$job_url"/investigation_ajax) || return $?
-    last_good_exists=$(echo "$investigation" | runjq -r '.last_good') || return $?
-    if [[ "$last_good_exists" = "null" || "$last_good_exists" = "not found" ]]; then
-        echo "No last good recorded, skipping regression investigation jobs" && return 0
-    fi
-    last_good=$(echo "$investigation" | runjq -r '.last_good.text') || return $?
-    [[ ! $last_good =~ ^[0-9]+$ ]] && echo ".last_good.text not found: investigation for test $id returned '$investigation'" >&2 && return 1
+def handle_unreviewed(testurl, log_file, reason, group_id, email_unreviewed, from_email, notification_address=None, job_data=None, dry_run=False):
+    # This function has been simplified due to email sending being specific to a particular environment
+    header = f"[{testurl}]({testurl}): Unknown test issue, to be reviewed\n-> [autoinst-log.txt]({testurl}/file/autoinst-log.txt)\n"
+    excerpt = "Last lines before SUT shutdown:\n\n" + get_log_excerpt(log_file)
 
-    # for 2. current job/build + last good test (+ last good needles) ->
-    #   check for test (+needles) regression
-    test_log=$(echo "$investigation" | runjq -r '.test_log') || return $?
-    if echo "$test_log" | grep -q "No.*changes recorded"; then
-        echo "$test_log. Skipping test regression investigation job."
-        last_good_tests=''
-    else
-        vars_last_good=$(fetch-vars-json "$last_good") || return $?
-        last_good_tests=$(echo "$vars_last_good" | runjq -r '.TEST_GIT_HASH') || return $?
-        # here we could apply the same approach for needles, not only tests
-        # With https://github.com/os-autoinst/os-autoinst/pull/1358 we could
-        # theoretically use TEST_GIT_REFSPEC but this would act on the shared
-        # test case dir within either the common openQA folder or the common
-        # worker cache and hence influence other tests.
-        # So better we use CASEDIR with a git refspec, only slightly less
-        # efficient and also needing to know which git repo to use
-        #refspec_arg="TEST_GIT_REFSPEC=$last_good_tests"
-        refspec_arg=$last_good_tests
-        clone "$id" "$id" "last_good_tests:$last_good_tests" "$refspec_arg" "${@:2}"
-    fi
+    if email_unreviewed and group_id != 'null':
+        group_data = openqa_api_get(host_url, f"job_groups/{group_id}")
+        group_description = group_data[0].get('description', '')
+        group_mailto = re.search(r".*MAILTO: (\S+).*", group_description)
+        group_mailto = group_mailto.group(1) if group_mailto else notification_address
+        clone_id = job_data['job'].get('clone_id')
 
-    # 3. last good job/build + current test -> check for product regression
-    if ! echo "$investigation" | grep -q '\<BUILD\>'; then
-        echo "Current job has same build as last good, product regression unlikely. Skipping product regression investigation job."
-        last_good_build=''
-    else
-        vars_last_good=${vars_last_good:-$(runcurl "${curl_args[@]}" -sS "$host_url/tests/$last_good"/file/vars.json)} || return $?
-        last_good_build=$(echo "$vars_last_good" | runjq -r '.BUILD') || return $?
-        # here we clone with unspecified test refspec, i.e. this could be a
-        # more recent tests version. As an alternative we could explicitly
-        # checkout the git version from "first bad"
-        clone "$id" "$last_good" "last_good_build:$last_good_build" '' "${@:2}"
-    fi
+        if group_mailto and not clone_id:
+            group_name = group_data[0].get('name')
+            job_name = job_data['job'].get('name')
+            job_result = job_data['job'].get('result')
+            info = f"* Name: {job_name}\n* Result: {job_result}\n* Reason: {reason}\n\nIt might be a product bug, an outdated needle, test code needing adaptation or a test infrastructure related problem.\nAdding a [bugref](http://open.qa/docs/#_bug_references) that can be [carried over](http://open.qa/docs/#carry-over) will prevent these mails for this issue. If the carry-over is not sufficient, you may want to create a ticket with [auto-review-regex](https://github.com/os-autoinst/scripts/blob/master/README.md#auto-review---automatically-detect-known-issues-in-openqa-jobs-label-openqa-jobs-with-ticket-references-and-optionally-retrigger)."
+            email = f"[{job_name}]({testurl})\n{header}\n{info}\n\n{excerpt}"
+            subject = f"Unreviewed issue (Group {group_id} {group_name})"
+            if not dry_run:
+                send_email(group_mailto, email, from_email, subject)
 
-    # 4. last good job/build + last good test -> check for other problem
-    #    sources, e.g. infrastructure
-    if [[ -z $last_good_tests ]]; then
-        echo "No test regression expected. Not triggered 'good build+test' as it would be the same as 3., good build + current test"
-    elif [[ -z $last_good_build ]]; then
-        echo "No product regression expected. Not triggered 'good build+test' as it would be the same as 2., current build + good test"
-    else
-        clone "$id" "$last_good" "last_good_tests_and_build:$last_good_tests+$last_good_build" "$refspec_arg" "${@:2}"
-    fi
-}
+def send_email(mailto, email, from_email, subject):
+    # This function will just print the email to the console in this example
+    print(f"To: {mailto}\nFrom: {from_email}\nSubject: {subject}\n\n{email}")
 
-query_dependency_data_or_postpone() {
-    local id=$1 job_data=$2 dependency_data pending_cluster_jobs cluster_jobs
+def get_log_file(job_id):
+    # Placeholder for actual log file retrieval logic
+    return f"/path/to/logs/{job_id}.log"
 
-    # postpone if not all dependencies are done/cancelled
-    # note: This "AJAX" route is normally used to render the dependencies tab in the web UI.
-    dependency_data=$(get-dependencies-ajax "$id")
-    cluster_jobs=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | unique") || return $?
-    # shellcheck disable=SC2016
-    pending_cluster_jobs=$(echo "$dependency_data" | runjq --argjson cluster_jobs "$cluster_jobs" -r '[.nodes[] | select([.id] | inside($cluster_jobs)) | select([.state] | inside(["done", "cancelled"]) | not)] | length') || return $?
-    [[ $pending_cluster_jobs != 0 ]] \
-        && echoerr "Postponing to investigate job $id: waiting until $pending_cluster_jobs pending parallel job(s) finished" && return 142
+def get_log_excerpt(log_file):
+    try:
+        with open(log_file, 'r') as f:
+            lines = f.readlines()
+            excerpt = ""
+            # Simulated logic for getting log excerpts
+            for line in lines[-15:]:
+                excerpt += line
+            return excerpt
+    except FileNotFoundError:
+        return "(No log excerpt found)"
 
-    # do not skip the job
-    echo "$dependency_data"
-    return 255
-}
+def query_dependency_data_or_postpone(job_id, job_data):
+    response = requests.get(f"{host_url}/tests/{job_id}/dependencies_ajax")
+    if response.status_code == 404:
+        warn(f"Job {job_id} dependencies not found, postponing")
+        return 142
+    response.raise_for_status()
+    return response.json()
 
-sync_via_investigation_comment() {
-    local id=$1 first_cluster_job_id=$2
+def sync_via_investigation_comment(job_id, first_cluster_job_id):
+    comments = requests.get(f"{host_url}/jobs/{job_id}/comments").json()
+    comment_id = next((comment['id'] for comment in comments if comment['text'].startswith("Starting investigation for job")), None)
+    first_comment_id = next((comment['id'] for comment in comments if comment['text'].startswith("Starting investigation for job")), None)
+    if comment_id != first_comment_id:
+        warn(f"Found existing comment id {first_comment_id}, assuming cluster jobs are already investigated and skipping")
+        requests.delete(f"{host_url}/jobs/{first_cluster_job_id}/comments/{comment_id}")
+        return 255
+    return 0
 
-    [[ $dry_run = 1 ]] && return 255
-    comment_id=$(client-post-job-comment "$first_cluster_job_id" "Starting investigation for job $id" | runjq -r '.id') || return $?
-    first_comment_id=$(client-get-job-comments "$first_cluster_job_id" | runjq -r '[.[] | select(.text | contains("investigation"))] | min_by(.id) | .id') || return $?
+def main():
+    parser = argparse.ArgumentParser(description="Trigger investigation jobs")
+    parser.add_argument("job_id", type=int, help="Job ID to investigate")
+    parser.add_argument("additional_params", nargs="*", help="Additional parameters for job investigation")
 
-    # delete comment again in case a concurrent job could start the investigation before us
-    if [[ $comment_id != "$first_comment_id" ]]; then
-        echoerr "Skipping investigation of job $id: job cluster is already being investigated, see comment on job $first_cluster_job_id"
-        client-delete-job-comment "$first_cluster_job_id" "$comment_id" && return 0
-    fi
+    args = parser.parse_args()
 
-    echo "$comment_id"
-    return 255
-}
+    if dry_run == 1:
+        job_state = runjq(client_get_job_state(args.job_id), ".job.state")
+        if job_state == "done":
+            warn("Job is already done, cannot investigate further")
+            return 142
 
-finalize_investigation_comment() {
-    local id=$1 first_cluster_job_id=$2 comment_id=$3 comment_text=$4
+    job_data = client_get_job(args.job_id)
+    job_group = runjq(job_data, ".job.group.name")
+    if exclude_no_group and job_group == "null":
+        warn(f"Skipping investigation of job {args.job_id} as it is not in any group")
+        return 142
 
-    # delete comment again if there were no investigation jobs needed after all
-    if ! [[ $comment_text ]]; then
-        client-delete-job-comment "$first_cluster_job_id" "$comment_id"
-        return 0
-    fi
+    if re.search(exclude_group_regex, job_group) or re.search(exclude_name_regex, runjq(job_data, ".job.test")):
+        warn(f"Skipping investigation of job {args.job_id} as it is excluded by name or group")
+        return 142
 
-    local comment="Automatic investigation jobs for job $id:
+    dependency_data = query_dependency_data_or_postpone(args.job_id, job_data)
+    if dependency_data == 142:
+        return 142
 
-$comment_text
+    first_cluster_job_id = runjq(dependency_data, f'[.nodes[] | select([.id] | inside([{args.job_id}]))] | .[0].id')
+    if sync_via_investigation_comment(args.job_id, first_cluster_job_id) == 255:
+        return 255
 
-💡[*Detailed explanation of this comment*](https://github.com/os-autoinst/scripts#More-details-and-examples-about-openqa-investigate-comments)"
-    client-put-job-comment "$first_cluster_job_id" "$comment_id" "$comment"
+    trigger_jobs(args.job_id, *args.additional_params)
 
-    # also write a comment on the job we're actually investigating
-    if [[ $first_cluster_job_id != "$id" ]]; then
-        client-post-job-comment "$id" "$comment"
-    fi
-}
-
-fetch-investigation-results() {
-    local origin_job_id=$1
-    local state job investigate_type other_id result investigate_comment output comment_lines
-
-    [[ $dry_run = 1 ]] && return 0
-    investigate_comment=$(client-get-job-comments "$origin_job_id" | runjq -r '[.[] | select(.text | contains("Automatic investigation jobs for job") and contains(":investigate:retry*:"))] | min_by(.id)') || return $?
-    [[ $investigate_comment == 'null' ]] && return
-    output=$(echo "$investigate_comment" | runjq -r '.text') || return $?
-    mapfile -t comment_lines <<< "$output"
-
-    for line in "${comment_lines[@]}"; do
-        if [[ $line =~ :investigate:([^:*]+).*t\#([0-9]+) ]]; then
-            investigate_type=${BASH_REMATCH[1]}
-            other_id=${BASH_REMATCH[2]}
-            job=$(client-get-job-state "$other_id")
-            state=$(echo "$job" | runjq -r '.state') || return $?
-            # at least one job is not finished, come back later
-            [[ $state != 'done' ]] && return 142
-
-            result=$(echo "$job" | runjq -r '.result') || return $?
-            echo "$investigate_type|$other_id|$result"
-        fi
-    done
-}
-
-is-ok() {
-    [[ $1 == passed || $1 == softfailed ]]
-}
-
-identify-issue-type() {
-    # Fetch job data for all 4 investigation jobs. If one is not yet finished,
-    # return special 142 to retrigger this hook later again.
-    local origin_job_id=$1
-    local state result investigate_type passed output result_lines
-    local pass_lgt='' pass_lgb='' pass_lgtb=''
-    product_issue=false test_issue=false infra_issue=false
-
-    output=$(fetch-investigation-results "$origin_job_id") || return $?
-    mapfile -t result_lines <<< "$output"
-
-    for line in "${result_lines[@]}"; do
-        if [[ $line =~ ^([^|]+)\|([^|]+)\|([^|]+) ]]; then
-            investigate_type=${BASH_REMATCH[1]} result=${BASH_REMATCH[3]}
-            is-ok "$result" && passed=true || passed=false
-            if [[ $investigate_type == last_good_tests_and_build ]]; then
-                pass_lgtb=$passed
-            elif [[ $investigate_type == last_good_build ]]; then
-                pass_lgb=$passed
-            elif [[ $investigate_type == last_good_tests ]]; then
-                pass_lgt=$passed
-            fi
-        fi
-    done
-    if ([[ -z "$pass_lgtb" ]] || "$pass_lgtb") && ([[ -z "$pass_lgt" ]] || ! "$pass_lgt") && [[ -n "$pass_lgb" ]] && "$pass_lgb"; then
-        product_issue=true
-    elif ([[ -z "$pass_lgtb" ]] || "$pass_lgtb") && [[ -n "$pass_lgt" ]] && "$pass_lgt" && ([[ -z "$pass_lgb" ]] || ! "$pass_lgb"); then
-        test_issue=true
-    elif ([[ -n "$pass_lgtb" ]] && ! "$pass_lgtb") && ([[ -n "$pass_lgt" ]] && ! "$pass_lgt") && ([[ -n "$pass_lgb" ]] && ! "$pass_lgb"); then
-        infra_issue=true
-    fi
-}
-
-post-investigate() {
-    local id=$1 retry_name=$2
-    local rc=0 status
-    [[ ! "$retry_name" =~ investigate:retry$ ]] && echo "Job is ':investigate:' already, skipping investigation" && return 0
-    # We are in the investigate:retry job now. From here we will check the
-    # results of the other investigation jobs, if necessary
-    retry_result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
-    investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
-    origin_job_id=${investigate_origin#"$host_url/t"}
-    origin_job_data=$(client-get-job "$origin_job_id") || return $?
-    origin_name="$(echo "$origin_job_data" | runjq -r '.job.test')" || return $?
-    # cluster jobs might have the same OPENQA_INVESTIGATE_ORIGIN as the root retry job
-    [[ $retry_name != "$origin_name:investigate:retry" ]] && echo "Job $retry_name ($id) is not a retry of $origin_name ($origin_job_id)" && return 0
-
-    comment="Investigate retry job *$retry_name*: t#$id"
-    if is-ok "$retry_result"; then
-        comment+=" $retry_result."$'\n\n'
-        comment+="📋 **Likely a sporadic failure**."
-    else
-        comment+=" failed."$'\n\n'
-        local product_issue=false
-        local test_issue=false
-        local infra_issue=false
-        identify-issue-type "$origin_job_id" || return $?
-
-        if "$product_issue"; then
-            comment+="📋 **Jobs including the last good build are ok, likely a product issue**."
-        elif "$test_issue"; then
-            comment+="📋 **Jobs including the last good test are ok, likely a test issue**."
-        elif "$infra_issue"; then
-            comment+="📋 **All investigation jobs failed, likely an issue with the test environment (settings, external resources, infrastructure)**."
-        else
-            comment+="📋 **Likely not a sporadic failure**."
-        fi
-    fi
-
-    # meanwhile the original job might have been deleted already, handle
-    # gracefully
-    out=$(client-post-job-comment "$origin_job_id" "$comment" 2>&1) || rc=$?
-    if [[ "$rc" -ne 0 ]]; then
-        status=$(echo "$out" | runjq .error_status 2> /dev/null || echo "unknown")
-        if [[ "$status" != "404" ]]; then
-            echoerr "Unexpected error encountered when posting comments on job $origin_job_id after investigation job $id failed: '$out'"
-            return 2
-        fi
-    fi
-}
-
-# crosscheck
-# 1. current job/build + current test -> check if reproducible/sporadic
-# 2. current job/build + last good test (+ last good needles) -> check for
-#    test (+needles) regression
-# 3. last good job/build + current test -> check for product regression
-# 4. last good job/build + last good test -> check for other problem
-#    sources, e.g. infrastructure
-investigate() {
-    local id="${1##*/}"
-    local rc=0
-
-    job_data=$(client-get-job "$id")
-    # shellcheck disable=SC2181
-    [[ $? != 0 ]] && echoerr "unable to query job data for $id: $job_data" && return 1
-    old_name="$(echo "$job_data" | runjq -r '.job.test')" || return $?
-    if [[ "$old_name" =~ ":investigate:" ]]; then
-        post-investigate "$id" "$old_name" || return $?
-        return 0
-    fi
-    clone="$(echo "$job_data" | runjq -r '.job.clone_id')" || return $?
-    if ! "$force" && [[ "$clone" != "null" ]]; then
-        echoerr "Job $id already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
-        return 0
-    fi
-
-    # determine dependency data or postpone if cluster not done
-    dependency_data=$(query_dependency_data_or_postpone "$id" "$job_data") || rc=$?
-    [[ $rc != 255 ]] && return $rc
-
-    # determine the job in the cluster with the lowest ID to use that for commenting/synchronization
-    first_cluster_job_id=$(echo "$dependency_data" | runjq -r "[$id, [.cluster[] | select(contains([$id]))]] | flatten | min") || return $?
-
-    [[ "$old_name" =~ $exclude_name_regex ]] && echo "Job name '$old_name' matches \$exclude_name_regex '$exclude_name_regex', skipping investigation" && return 0
-    group="$(echo "$job_data" | runjq -r '.job.parent_group + " / " + .job.group')" || return $?
-    [[ "$group" = " / " ]] && [[ "$exclude_no_group" = "true" ]] && echo "Job w/o job group, \$exclude_no_group is set, skipping investigation" && return 0
-    [[ "$group" =~ $exclude_group_regex ]] && echo "Job group '$group' matches \$exclude_group_regex '$exclude_group_regex', skipping investigation" && return 0
-
-    # Optionally we can find "first failed", could extend openQA investigation
-    # method instead for we are just working based on supplied job which can
-    # have more, ambiguous potential changes that we need to bisect on
-
-    # sync by writing initial investigation comment (edited later)
-    rc=0
-    comment_id=$(sync_via_investigation_comment "$id" "$first_cluster_job_id") || rc=$?
-    [[ $rc != 255 ]] && return $rc
-
-    out=$(trigger_jobs "$id" "${@:2}")
-    $verbose && echo "$0, id: '$id', out: '$out'"
-    finalize_investigation_comment "$id" "$first_cluster_job_id" "$comment_id" "$out"
-}
-
-main() {
-    local id=${1:?"Need 'job_id'"}
-    client_prefix=''
-    [ "$dry_run" = "1" ] && client_prefix="echo"
-    set +u
-    if [[ -z "${client_call[*]}" ]]; then
-        client_call=(openqa-cli "${client_args[@]}")
-        client_prefix="${client_prefix:-runcli}"
-        client_call=("$client_prefix" "${client_call[@]}")
-    fi
-    set -u
-    clone_call="${clone_call:-"$client_prefix openqa-clone-job --json-output --skip-chained-deps --max-depth 0 --parental-inheritance --within-instance"}"
-    investigate "$@"
-}
-
-caller 0 > /dev/null || main "$@"
+if __name__ == "__main__":
+    main()
