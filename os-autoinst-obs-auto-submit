@@ -178,30 +178,31 @@ EOF
     exit "$1"
 }
 
-opts=$(getopt -o h -l help -n "$0" -- "$@") || usage 1
-eval set -- "$opts"
-while true; do
-    case "$1" in
-        -h | --help) usage 0 ;;
-        --)
-            shift
-            break
-            ;;
-        *) break ;;
-    esac
-done
-
-prefix="${prefix:-""}"
-[ "$dry_run" = "1" ] && prefix="echo"
-osc="${osc:-"$prefix retry -e -- osc"}"
-
-TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
-trap 'rm -rf "$TMPDIR"' EXIT
-
-(
-    cd "$TMPDIR"
-    auto_submit_packages=${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}
-    for package in $auto_submit_packages; do
-        handle_auto_submit "$package"
+main() {
+    opts=$(getopt -o h -l help -n "$0" -- "$@") || usage 1
+    eval set -- "$opts"
+    while true; do
+        case "$1" in
+            -h | --help) usage 0 ;;
+            --)
+                shift
+                break
+                ;;
+            *) break ;;
+        esac
     done
-)
+    prefix="${prefix:-""}"
+    [ "$dry_run" = "1" ] && prefix="echo"
+    osc="${osc:-"$prefix retry -e -- osc"}"
+    TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
+    trap 'rm -rf "$TMPDIR"' EXIT
+    (
+        cd "$TMPDIR"
+        auto_submit_packages=${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}
+        for package in $auto_submit_packages; do
+            handle_auto_submit "$package"
+        done
+    )
+}
+
+caller 0 > /dev/null || main "$@"
