@@ -87,6 +87,7 @@ subtest 'test cloned if user member of required team, status updated on GitHub' 
     my @expected_cmds = (
         [qw(openqa-cli monitor --host http://127.0.0.1:9526 --apikey key --apisecret secret 1)],
     );
+    no warnings 'qw';
     my @expected_jobs = ([
         [qw(http://127.0.0.1:9526/tests/4239 FROM=comment)],
         [qw(BUILD=foo-orga/foo.git#bar _GROUP_ID=118 CASEDIR=https://github.com/foo-orga/foo.git#bar CLONED_BY=link-to-comment)],
