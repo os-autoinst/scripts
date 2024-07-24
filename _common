@@ -86,8 +86,7 @@ shorten_string() {
     local max_str_len=${max_str_len:-"120"}
     local max_str_len_half=$((max_str_len / 2))
     if [[ ${#sstring} -gt $max_str_len ]]; then
-        sstring_end=$(echo "$sstring" | cut -c "$((${#sstring} - max_str_len_half))-")
-        sstring="$(echo "$sstring" | cut -c "-${max_str_len_half}")…${sstring_end}"
+        sstring=${sstring:0:$max_str_len_half}…${sstring: -$max_str_len_half}
     fi
     echo "$sstring"
 }
