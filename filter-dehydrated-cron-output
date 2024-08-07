@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+usage() {
+    cat << EOF
+Usage: dehydrated --cron | $0 [OPTIONS]
+
+Filter dehydrated cron output to only contain error messages as upstream suggested in
+https://github.com/dehydrated-io/dehydrated/issues/47#issuecomment-221867853
+
+Options:
+ -h, --help         display this help
+EOF
+    exit "$1"
+}
+main() {
+    opts=$(getopt -o h -l help -n "$0" -- "$@") || usage 1
+    eval set -- "$opts"
+    while true; do
+        case "$1" in
+            -h | --help) usage 0 ;;
+            --)
+                shift
+                break
+                ;;
+            *) break ;;
+        esac
+    done
+    grep -v "^# INFO" | perl -0pe "s/Processing (.*)*\n \+ (.*)unchanged.\n \+ Checking .*\.\.\.\n \+ Valid till (.*) \(Longer than .* Skipping renew!//gm" | grep -v "^$"
+}
+caller 0 > /dev/null || main "$@"
