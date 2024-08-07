@@ -176,8 +176,8 @@ search_build_checks() {
     if [[ -n $logs ]]; then
         echo "Build checks url: $index"
         for log in $logs; do
-            echo "curl -sLk '$index/$log' | grep -B1 -A9 -i -E 'summary'"
-            curl -sLk "$index/$log" | grep -B1 -A9 -i -E 'summary' || true
+            echo "curl -sLk '$index/$log' | grep ' + exit '"
+            curl -sLk "$index/$log" | grep '+ exit ' || true
             echo ""
         done
     fi
