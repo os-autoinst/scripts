@@ -73,6 +73,10 @@ list_requirements() {
     debug "Getting build requirements from '$1.spec'"
     tmpfile="$(mktemp)"
     $osc cat devel:openQA "$1" _service:obs_scm:"$1.spec" > "$tmpfile"
+    if [ $? != 0 ]; then
+        error "$osc cat devel:openQA $1 _service:obs_scm:$1.spec"
+        exit 1
+    fi
     sed -i -e '/node_modules.spec.inc/d' "$tmpfile"
     {
         rpmspec -q -D "sysusers_requires BuildRequires: sysuser-tools" --buildrequires "$tmpfile"
