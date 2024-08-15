@@ -92,7 +92,7 @@ list_requirements() {
 
 get_codestream() {
     debug "Getting codestream for package '$1'"
-    $osc sm "$1" 2> /dev/null || true
+    $osc sm "$1" 2> /dev/null | cut -f1 -d' ' || true
 }
 
 find_source_package() {
