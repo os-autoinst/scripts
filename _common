@@ -171,7 +171,6 @@ handle_unreviewed() {
     local testurl=$1 out=$2 reason=$3 group_id=$4 email_unreviewed=$5 from_email=$6 notification_address=${7:-} job_data=${8:-} dry_run=${9:-}
     local group_data group_name group_description group_mailto header email excerpt=$snip_start
     local job_name job_result info
-    to_review+=("$testurl ${reason:0:50}")
     header="[$testurl]($testurl): Unknown test issue, to be reviewed"$'\n'"-> [autoinst-log.txt]($testurl/file/autoinst-log.txt)"$'\n'
     excerpt="Last lines before SUT shutdown:"$'\n'$'\n'"$snip_start"
     # Look for different termination points with likely context
