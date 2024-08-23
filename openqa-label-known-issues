@@ -6,7 +6,7 @@
 set -o pipefail -o errtrace
 
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+. "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
@@ -41,14 +41,14 @@ handle_unreachable() {
         # the page might be gone, try the scheme+host we configured (might be different one though)
         if ! grep -q "$host_url" <<< "$testurl"; then
             echoerr "'$testurl' is not reachable and 'host_url' parameter does not match '$testurl', can not check further, continuing with next"
-            return
+            return 1
         fi
         if ! curl "${curl_args[@]}" -s --head "$host_url"; then
             echoerr "'$host_url' is not reachable, bailing out"
             curl "${curl_args[@]}" --head "$host_url"
         fi
         echoerr "'$testurl' is not reachable, assuming deleted, continuing with next"
-        return
+        return 1
     fi
     # resorting to downloading the job details page instead of the
     # log, overwrites $out
@@ -61,7 +61,7 @@ handle_unreachable() {
     if hxnormalize -x "$out" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
         "${client_call[@]}" -X POST jobs/"$id"/comments text='poo#62456 test incompletes after failing in GRU download task on "Inactivity timeout" with no logs'
         "${client_call[@]}" -X POST jobs/"$id"/restart
-        return
+        return 1
     fi
 }
 
@@ -136,19 +136,23 @@ investigate_issue() {
     echo "$reason" >> "$out"
     if [[ "$curl_output" != "200" ]] && [[ "$curl_output" != "301" ]]; then
         # if we can not even access the page it is something more critical
-        handle_unreachable "$testurl" "$out"
-        # Assume autoinst-log.txt still not found but process job anyway due to reason var
-        if [[ -n $reason ]] && [[ $curl_output = "404" ]] && [[ $reason != null ]]; then
-            label_on_issues_from_issue_tracker "$id"
+        handle_unreachable "$testurl" "$out" || return
+        [[ $curl_output != 404 ]] && return
         # Checking timestamp
-        elif [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
+        if [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
             # if the page is there but not even an autoinst-log.txt exists
             # then the job might be too old and logs are already deleted.
-            echoerr "'$testurl' does not have autoinst-log.txt but is rather old, ignoring"
+            echoerr "'$testurl' job#${id} without autoinst-log.txt older than 14 days. Do not label"
             return
         fi
-    elif label_on_issues_from_issue_tracker "$id"; then
-        return
+        # not unreachable, no log, no reason, not too old
+        if [[ -z $reason ]] || [[ $reason = null ]]; then
+            echoerr "'$testurl' does not have autoinst-log.txt or reason, cannot label"
+            return
+        fi
+    fi
+
+    label_on_issues_from_issue_tracker "$id" && return
 
     ## Issues without tickets, e.g. potential singular, manual debug jobs,
     # wrong user settings, etc.
@@ -156,11 +160,9 @@ investigate_issue() {
     # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
     # but we should check if the issue already exists, e.g. same
     # subject line
-    elif label_on_issues_without_tickets "$id"; then
-        return
-    else
-        handle_unreviewed "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address" "$job_data" "$dry_run"
-    fi
+    label_on_issues_without_tickets "$id" && return
+
+    handle_unreviewed "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address" "$job_data" "$dry_run"
 }
 
 label_issue() {
