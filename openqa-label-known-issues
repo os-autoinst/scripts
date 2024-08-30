@@ -138,25 +138,23 @@ investigate_issue() {
     if [[ "$curl_output" != "200" ]] && [[ "$curl_output" != "301" ]]; then
         # if we can not even access the page it is something more critical
         handle_unreachable "$testurl" "$out" || return
-
+        # If we something other than a 404, we should not continue
+        [[ $curl_output != 404 ]] && return
+        # Checking timestamp
+        if [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
+            # if the page is there but not even an autoinst-log.txt exists
+            # then the job might be too old and logs are already deleted.
+            echoerr "'$testurl' does not have autoinst-log.txt but is rather old, ignoring"
+            return
+        fi
+        # not unreachable, no log, no reason, not too old
         if [[ -z $reason ]] || [[ $reason = null ]]; then
-            # Checking timestamp
-            if [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
-                # if the page is there but not even an autoinst-log.txt exists
-                # then the job might be too old and logs are already deleted.
-                echoerr "'$testurl' does not have autoinst-log.txt but is rather old, ignoring"
-                return
-            # not unreachable, no log, no reason, not too old
-            echoerr "'$testurl' does not have autoinst-log.txt and no reason, cannot label"
+            echoerr "'$testurl' does not have autoinst-log.txt or reason, cannot label"
             return
         fi
-        # If we got a 404, continue with the next step
-        if [[ $curl_output != 404 ]]; then
-            return
-        fi
+    fi
 
-    if label_on_issues_from_issue_tracker "$id"; then
-        return
+    label_on_issues_from_issue_tracker "$id" && return
 
     ## Issues without tickets, e.g. potential singular, manual debug jobs,
     # wrong user settings, etc.
@@ -164,11 +162,9 @@ investigate_issue() {
     # $client_prefix curl -s -H "Content-Type: application/json" -X POST -H "X-Redmine-API-Key: $(sed -n 's/redmine-token = //p' ~/.query_redminerc)" --data '{"issue": {"project_id": 36, "category_id": 152, priority_id: 5, "subject": "test from command line"}}' https://progress.opensuse.org/issues.json
     # but we should check if the issue already exists, e.g. same
     # subject line
-    if label_on_issues_without_tickets "$id"; then
-        return
-    else
-        handle_unreviewed "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address" "$job_data" "$dry_run"
-    fi
+    label_on_issues_without_tickets "$id" && return
+
+    handle_unreviewed "$testurl" "$out" "$reason" "$group_id" "$email_unreviewed" "$from_email" "$notification_address" "$job_data" "$dry_run"
 }
 
 label_issue() {
