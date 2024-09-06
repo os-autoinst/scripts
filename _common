@@ -126,7 +126,19 @@ runcurl() {
 
 openqa-api-get() {
     client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
-    openqa-cli "${client_args[@]}" --json "$@"
+    local rc response
+    set +e
+    response=$(openqa-cli "${client_args[@]}" --json "$@" 2>&1)
+    rc=$?
+    set -e
+    # write the response always to stdout (even in error case) so the caller can make sense of it
+    echo "$response"
+    [[ $rc == 0 ]] && return 0
+    # print a warning in the error case including the response (which would otherwise not be logged as the caller is expected
+    # to capture the output)
+    response=$(shorten_string "$response")
+    warn "openqa-cli ($(caller)): Error making API request ($*): $response"
+    return 1
 }
 
 comment_on_job() {
