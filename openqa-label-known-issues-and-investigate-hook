@@ -37,7 +37,7 @@ hook() {
     local url=$host_url/tests/$id
     local rc=0
     job_data=$(openqa-api-get "jobs/$id") || rc=$?
-    local not_found_regex='404 Not Found'
+    # shellcheck disable=SC2154
     [[ $job_data =~ $not_found_regex ]] && warn "Ignoring non-existent job $id" && return
     [[ $rc != 0 ]] && return $rc
     state="$(echo "$job_data" | runjq -r '.job.state')" || return $?
