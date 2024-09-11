@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 87
+plan tests 88
 
 host=localhost
 url=https://localhost
@@ -32,7 +32,7 @@ fetch-vars-json() {
 rc=0
 out=$(clone 41 42 2>&1 > /dev/null) || rc=$?
 is "$rc" 1 'fails when unable to query job data'
-is "$out" "unable to query job data for 42: " 'query error on stderr'
+like "$out" "unable to query job data for 42: " 'query error on stderr'
 
 cli_rc=0
 consider_parallel_and_directly_chained_clusters=1
@@ -86,6 +86,9 @@ client-get-job() {
             ;;
         30032)
             echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
+            ;;
+        404)
+            echo '404 Not Found'
             ;;
         *)
             echo '{"debug": "client-get-job '"$tid"'"}'
@@ -318,6 +321,11 @@ test-post-investigate() {
     local job_data='{"job": { "result": "failed", "settings": { "OPENQA_INVESTIGATE_ORIGIN": "https://localhost/t3002" } } }'
     try post-investigate 2039 "vim:investigate:retry"
     is "$rc" 142 'post-investigate returned 142 (not all jobs finished yet) (2039)'
+
+    # test does not exist anymore
+    local job_data='{"job": { "result": "failed", "settings": { "OPENQA_INVESTIGATE_ORIGIN": "https://localhost/t404" } } }'
+    try post-investigate 2040 "vim:investigate:retry"
+    is "$rc" 0 'post-investigate returned 0 if the original job does not exist anymore'
 
     # various combinations of investigation results
     t1="fail"

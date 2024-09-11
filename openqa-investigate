@@ -283,7 +283,10 @@ post-investigate() {
     retry_result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
     investigate_origin="$(echo "$job_data" | runjq -r '.job.settings.OPENQA_INVESTIGATE_ORIGIN')" || return 1
     origin_job_id=${investigate_origin#"$host_url/t"}
-    origin_job_data=$(client-get-job "$origin_job_id") || return $?
+    origin_job_data=$(client-get-job "$origin_job_id") || rc=$?
+    # shellcheck disable=SC2154
+    [[ $origin_job_data =~ $not_found_regex ]] && echo "Skipping posting investigation comment on original job $origin_job_id as it does not exist anymore" && return 0
+    [[ $rc != 0 ]] && return $rc
     origin_name="$(echo "$origin_job_data" | runjq -r '.job.test')" || return $?
     # cluster jobs might have the same OPENQA_INVESTIGATE_ORIGIN as the root retry job
     [[ $retry_name != "$origin_name:investigate:retry" ]] && echo "Job $retry_name ($id) is not a retry of $origin_name ($origin_job_id)" && return 0
