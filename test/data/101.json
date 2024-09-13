@@ -1,0 +1,23 @@
+{
+    "job": {
+	"id": 101,
+	"group_id": 326,
+	"parents": {
+            "Chained": [],
+            "Directly chained": [],
+            "Parallel": []
+	},
+	"result": "incomplete",
+	"settings": {
+            "ARCH": "x86_64",
+            "BUILD": "testing",
+            "DISTRI": "Tumbleweed",
+            "FLAVOR": "Online",
+            "WORKER_CLASS": "qemu_x86_64"
+	},
+	"state": "done",
+	"t_finished": "yyyy-mm-ddT16:53:05",
+	"t_started": "yyyy-mm-dd16:45:53",
+	"test": "footest_incomplete"
+    }
+}
