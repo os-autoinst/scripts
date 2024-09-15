@@ -35,7 +35,8 @@ echoerr() { echo "$@" >&2; }
 
 handle_unreachable() {
     local testurl=$1
-    local out=$2
+    local out
+    out=$(cat "$2")
 
     if ! curl "${curl_args[@]}" -s --head "$testurl" -o /dev/null; then
         # the page might be gone, try the scheme+host we configured (might be different one though)
@@ -51,7 +52,7 @@ handle_unreachable() {
         return 1
     fi
     # resorting to downloading the job details page instead of the
-    # log, overwrites $out
+    # log
     if ! curl "${curl_args[@]}" -s "$testurl" -o "$out"; then
         echoerr "'$testurl' can be reached but not downloaded, bailing out"
         curl "${curl_args[@]}" "$testurl"
