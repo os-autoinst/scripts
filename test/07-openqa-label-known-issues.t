@@ -9,6 +9,7 @@ source openqa-label-known-issues
 client_args=(api --host "$host_url")
 
 export KEEP_REPORT_FILE=1
+export KEEP_JOB_HTML_FILE=1
 
 client_output=''
 mock-client-output() {
@@ -29,9 +30,9 @@ openqa-cli() {
 }
 curl() {
     if [[ "$7" =~ /(404|414|101|102)/file/autoinst-log.txt ]]; then
-        echo -n "404"
+	echo -n "404"
     else
-        echo -n "200"
+	echo -n "200"
     fi
 }
 comment_on_job() {
@@ -42,8 +43,16 @@ out=''
 hxnormalize() {
     cat "$2"
 }
+
 hxselect() {
-    cat -
+    if [ -p /dev/stdin ]; then
+	in="$(cat)"
+	if echo "$in" | grep -q "incomplete"; then
+	    echo "$in" | awk -F'title="' '{split($2, a, "\""); print a[1]}'
+	    return 0
+	fi
+	cat -
+    fi
 }
 
 try investigate_issue
@@ -60,47 +69,54 @@ action
 Job incompletes with reason auto_review:\"(?m)api failure$\" (and no further details)
 action"
 
+setup() {
+  local id=$1
+  declare -g id=$id
+  declare -g testurl="https://openqa.opensuse.org/tests/${id}"
+  declare -g tmplog=$(mktemp)
+  declare -g out=$tmplog
+  declare -g tmpjobpage=$(mktemp)
+}
+
 # test data with reason but 404 in curl respond
-id=404
-testurl="https://openqa.opensuse.org/tests/${id}"
+setup 404
+older40d_date=$(date -uIs -d '-40days')
+echo -n "Result:<b>incomplete</b>finished<abbr class=\"timeago\" title=\"${older40d_date}\"</abbr>>" > $tmpjobpage
+export JOB_HTML_FILE=$tmpjobpage
 try-client-output investigate_issue $id
-is "$rc" 0 'investigate_issue with missing autoinst-log and with reason in job_data'
+is "$rc" 0 'investigate_issue with missing autoinst-log and with reason in job_data' #ok 3
 has "$got" "without autoinst-log.txt older than 14 days. Do not label" "exits succefully when is old job without autoinst-log.txt"
 
 # all assets are missing
-id=101
-testurl="https://openqa.opensuse.org/tests/${id}"
-# `cur_date` is used on the following 4 test cases
-cur_date=$(date +%F)
-sed -i "s/yyyy-mm-dd/${cur_date}/" "$dir/data/${id}.json"
-+fs:mktemp
-tmplog=$temp
-echo -n "Result: <b>incomplete</b>, finished <abbr class=\"timeago\" title=\"${cur_date}T08:06:42Z\"</abbr>>" > $tmplog
+setup 101
+# `older1d_date` is used on the following 4 test cases
+older1d_date=$(date -uIs -d '-1days')
+sed -i "s/yyyy-mm-dd/${older1d_date}/" "$dir/data/${id}.json"
+echo -n "Result:<b>incomplete</b>finished<abbr class=\"timeago\" title=\"${older1d_date}\"</abbr>>" > $tmpjobpage
+html_out=$tmpjobpage
+export JOB_HTML_FILE=$tmpjobpage
+echo > $tmplog
 out=$tmplog
 try-client-output investigate_issue $id
-is "$rc" 0 'investigate_issue with missing autoinst-log but with reason in job_data'
+is "$rc" 0 'investigate_issue with missing autoinst-log but with reason in job_data' # ok 4
 has "$got" "does not have autoinst-log.txt or reason, cannot label" "investigation exits when no reason and autoinst-log"
 # Cleanup 404.json
-sed -i "s/${cur_date}/yyyy-mm-dd/" "$dir/data/${id}.json"
+sed -i "s/${older1d_date}/yyyy-mm-dd/" "$dir/data/${id}.json"
 
 # Unknown reason - not included in issues
-id=102
-testurl="https://openqa.opensuse.org/tests/${id}"
-echo -n "Result: <b>incomplete</b>, finished <abbr class=\"timeago\" title=\"${cur_date}T08:06:42Z\"</abbr>>" > $tmplog
+setup 102
 echo -n "\nthe reason is whatever" >> $tmplog
 out=$tmplog
 try-client-output investigate_issue $id
 is "$rc" 0 'investigate no old issue with missing autoinst-log and unknown reason in job_data'
 has "$got" "Unknown test issue, to be reviewed" "investigation still label Unknown reason"
 
-id=414
-testurl="https://openqa.opensuse.org/tests/${id}"
+setup 414
 try-client-output investigate_issue $id
 is "$rc" 0 'investigate_issue with missing old autoinst-log and without reason in job_data'
 has "$got" "does not have autoinst-log.txt or reason, cannot label" "investigation exits successfully when no reason and no autoinst-log"
 
-id=200
-testurl="https://openqa.opensuse.org/tests/${id}"
+setup 200
 cp $autoinst_log $tmplog
 out=$tmplog
 try-client-output investigate_issue $id
