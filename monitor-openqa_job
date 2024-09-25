@@ -1,12 +1,5 @@
 #!/bin/bash -ex
 
-# Monitor an openQA job by polling the status of a job over the API.
-#
-# Continuously polls the openQA API for the status of the specified jobs until
-# all jobs finish. After the jobs have finished this program exits with an exit
-# code corresponding to the jobs' result. For example all jobs pass it would exit
-# this program with exit code 0 for success; otherwise with 1.
-
 set -euo pipefail
 
 # configuration variables with defaults.
@@ -18,38 +11,72 @@ obs_component="${obs_component:-"package"}"
 obs_package_name="${1:-""}"
 comment_on_obs=${comment_on_obs:-}
 
-# shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+usage() {
+    cat << EOF
+Usage: $0 [OPTIONS]
 
-[[ -f job_post_response ]] || (echo "Need job response status file 'job_post_response'" && exit 2)
-declare -A failed_versions
-failed_jobs=()
-for job_id in $(job_ids job_post_response); do
-    echo "Waiting for job $job_id to finish"
-    while sleep "${sleep_time}"; do
-        job_state=$($openqa_cli api --host "$host" jobs/"$job_id" | jq -r '.job.state')
-        [[ $job_state = 'done' ]] && break
+Monitor an openQA job by polling the status of a job over the API.
+
+Continuously polls the openQA API for the status of the specified jobs until
+all jobs finish. After the jobs have finished this program exits with an exit
+code corresponding to the jobs' result. For example all jobs pass it would
+exit this program with exit code 0 for success; otherwise with 1.
+
+Options:
+ -h, --help         display this help
+EOF
+    exit "$1"
+}
+
+main() {
+    opts=$(getopt -o h -l help -n "$0" -- "$@") || usage 1
+    eval set -- "$opts"
+    while true; do
+        case "$1" in
+            -h | --help) usage 0 ;;
+            --)
+                shift
+                break
+                ;;
+            *) break ;;
+        esac
     done
-    response=$($openqa_cli api --host "$host" jobs/"$job_id")
-    result=$(echo "$response" | jq -r '.job.result')
-    echo "Result of job $job_id: $result"
-    if [[ $result != 'passed' ]] && [[ -n $obs_package_name ]]; then
-        version=$(echo "$response" | jq -r '.job.settings.VERSION')
-        failed_versions[$version]=1
-        failed_jobs+=("$job_id")
-    fi
-done
 
-[[ ${failed_jobs[*]} ]] || exit 0
-[[ $comment_on_obs ]] || exit 1
+    # shellcheck source=/dev/null
+    . "$(dirname "$0")"/_common
 
-osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">.*test.* failed.*/\1/p' | while read -r id; do
+    [[ -f job_post_response ]] || (echo "Need job response status file 'job_post_response'" && exit 2)
+    declare -A failed_versions
+    failed_jobs=()
+    for job_id in $(job_ids job_post_response); do
+        echo "Waiting for job $job_id to finish"
+        while sleep "${sleep_time}"; do
+            job_state=$($openqa_cli api --host "$host" jobs/"$job_id" | jq -r '.job.state')
+            [[ $job_state = 'done' ]] && break
+        done
+        response=$($openqa_cli api --host "$host" jobs/"$job_id")
+        result=$(echo "$response" | jq -r '.job.result')
+        echo "Result of job $job_id: $result"
+        if [[ $result != 'passed' ]] && [[ -n $obs_package_name ]]; then
+            version=$(echo "$response" | jq -r '.job.settings.VERSION')
+            failed_versions[$version]=1
+            failed_jobs+=("$job_id")
+        fi
+    done
+
+    [[ ${failed_jobs[*]} ]] || exit 0
+    [[ $comment_on_obs ]] || exit 1
+
+    osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">.*test.* failed.*/\1/p' | while read -r id; do
     osc api -X DELETE /comment/"$id"
-done
-comment="openQA-in-openQA test(s) failed (job IDs: ${failed_jobs[*]}), see https://openqa.opensuse.org/tests/overview?"
-for version in "${!failed_versions[@]}"; do
-    comment+="version=${version}&"
-done
-comment+="groupid=$openqa_groupid"
-osc api --data="$comment" -X POST "/comments/${obs_component}/$obs_package_name"
-exit 1
+    done
+    comment="openQA-in-openQA test(s) failed (job IDs: ${failed_jobs[*]}), see https://openqa.opensuse.org/tests/overview?"
+    for version in "${!failed_versions[@]}"; do
+        comment+="version=${version}&"
+    done
+    comment+="groupid=$openqa_groupid"
+    osc api --data="$comment" -X POST "/comments/${obs_component}/$obs_package_name"
+    exit 1
+}
+
+caller 0 > /dev/null || main "$@"
