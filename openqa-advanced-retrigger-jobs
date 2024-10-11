@@ -6,14 +6,25 @@ worker_string="${WORKER+"assigned_worker_id in (select id from workers where (ho
 result="${result:-"result='incomplete'"}"
 additional_filters="${additional_filters+" and $additional_filters"}"
 comment="${comment:-""}"
+max_jobs_per_request=25
 dry_run="${dry_run:-"0"}"
 [ "$dry_run" = "1" ] && client_prefix="echo"
 sql_command="select id from jobs where (${worker_string}${result} and clone_id is null and t_finished >= '$failed_since'$additional_filters);"
-query_params=()
 # shellcheck disable=SC2029
 job_ids=${JOB_IDS:-$(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"$sql_command\" openqa")}
-for job_id in $job_ids; do query_params+=("jobs=$job_id"); done
-[[ $comment ]] && query_params+=("comment=$comment")
+
+query_params=()
 [[ $cli_protocol ]] && host=$cli_protocol://$host
 [[ $cli_port ]] && host+=:$cli_port
-$client_prefix openqa-cli api --host "$host" -X POST jobs/restart "${query_params[@]}"
+restart-jobs() {
+    [[ ${#query_params[@]} -lt 1 ]] && return
+    [[ $comment ]] && query_params+=("comment=$comment")
+    $client_prefix openqa-cli api --host "$host" -X POST jobs/restart "${query_params[@]}"
+    query_params=()
+}
+
+for job_id in $job_ids; do
+    query_params+=("jobs=$job_id")
+    [[ ${#query_params[@]} -ge "$max_jobs_per_request" ]] && restart-jobs
+done
+restart-jobs
