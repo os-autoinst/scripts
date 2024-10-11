@@ -14,4 +14,6 @@ query_params=()
 job_ids=${JOB_IDS:-$(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"$sql_command\" openqa")}
 for job_id in $job_ids; do query_params+=("jobs=$job_id"); done
 [[ $comment ]] && query_params+=("comment=$comment")
+[[ $cli_protocol ]] && host=$cli_protocol://$host
+[[ $cli_port ]] && host+=:$cli_port
 $client_prefix openqa-cli api --host "$host" -X POST jobs/restart "${query_params[@]}"
