@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 #worker="${worker:-"openqaworker4"}"
 host="${host:-"openqa.opensuse.org"}"
 failed_since="${failed_since:-"$(date -I)"}"
@@ -9,8 +9,10 @@ additional_filters="${additional_filters+" and $additional_filters"}"
 comment="${comment:-""}"
 dry_run="${dry_run:-"0"}"
 [ "$dry_run" = "1" ] && client_prefix="echo"
+sql_command="select id from jobs where (${worker_string}${result} and clone_id is null and t_finished >= '$failed_since'$additional_filters);"
+query_params=()
 # shellcheck disable=SC2029
-for i in $(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"select id from jobs where (${worker_string}${result} and clone_id is null and t_finished >= '$failed_since'$additional_filters);\" openqa"); do
-    $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/restart
-    [ -n "$comment" ] && $client_prefix openqa-cli api --host "$host" -X POST jobs/"$i"/comments text="$comment"
-done
+job_ids=${JOB_IDS:-$(ssh "$host" "sudo -u geekotest psql --no-align --tuples-only --command=\"$sql_command\" openqa")}
+for job_id in $job_ids; do query_params+=("jobs=$job_id"); done
+[[ $comment ]] && query_params+=("comment=$comment")
+$client_prefix openqa-cli api --host "$host" -X POST jobs/restart "${query_params[@]}"
