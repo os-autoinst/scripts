@@ -102,3 +102,7 @@ send-email() {
 }
 out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "" "" "$job_data" ) || true
 like "$out" "\[$testurl\].*Unknown test issue, to be reviewed"
+
+openqa_label_known_issues=$(dirname "$0")/../openqa-label-known-issues
+out=$($openqa_label_known_issues 2>&1)
+like "$out" "Need.*testurl"
