@@ -345,3 +345,17 @@ get-dependencies-ajax() {
     local tid=$1
     openqa-cli "${client_args[@]}" --apibase '' --json tests/"$tid"/dependencies_ajax
 }
+
+list_packages() {
+    local obs_project=$1
+    osc ls "$obs_project" | grep -v '\-test$'
+}
+
+delete_packages_from_obs_project() {
+    local obs_project=$1
+    local packages
+    packages=$(list_packages "$obs_project") || true # osc ls returns non-zero return code for empty projects
+    for package in $packages; do
+        osc rdelete -m "Cleaning up $package to allow triggering new jobs" "$obs_project" "$package"
+    done
+}

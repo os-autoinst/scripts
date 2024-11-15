@@ -1,0 +1,18 @@
+#!/bin/bash -e
+
+# Cleans up a project on OBS
+
+# read/validate arguments
+obs_project=$1 confirmation=$2
+[[ $obs_project ]] || exit 1
+if [[ $confirmation != 'I am sure' ]]; then
+    echo "Skipping, pass 'I am sure' as 2nd argument to confirm"
+    exit 2
+fi
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+. "$(dirname "$0")"/_common
+
+delete_packages_from_obs_project "$obs_project"

@@ -16,6 +16,7 @@ host="${host:-"https://openqa.opensuse.org"}"
 openqa_groupid="${openqa_groupid:-"24"}"
 obs_component="${obs_component:-"package"}"
 obs_package_name="${1:-""}"
+staging_project=${staging_project:-devel:openQA:testing}
 comment_on_obs=${comment_on_obs:-}
 
 # shellcheck source=/dev/null
@@ -41,6 +42,11 @@ for job_id in $(job_ids job_post_response); do
 done
 
 [[ ${failed_jobs[*]} ]] || exit 0
+
+# delete packages from staging project in error case as we will not continue submitting those packages
+delete_packages_from_obs_project "$staging_project"
+
+# comment on failed jobs
 [[ $comment_on_obs ]] || exit 1
 
 osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">.*test.* failed.*/\1/p' | while read -r id; do

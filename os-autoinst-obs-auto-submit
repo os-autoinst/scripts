@@ -3,8 +3,9 @@
 set -euo pipefail
 
 export LC_ALL=C
-src_project="${src_project:-"devel:openQA"}"
-dst_project="${dst_project:-"${src_project}:tested"}"
+src_project=${src_project:-devel:openQA}
+dst_project=${dst_project:-${src_project}:tested}
+staging_project=${staging_project:-${src_project}:testing}
 submit_target="${submit_target:-"openSUSE:Factory"}"
 submit_target_escaped=$(echo -n "$submit_target" | sed -e 's|\:|_|g') # avoid, e.g. "repoid 'openSUSE:Factory' is illegal"
 dry_run="${dry_run:-"0"}"
@@ -12,6 +13,9 @@ osc_poll_interval="${osc_poll_interval:-2}"
 osc_build_start_poll_tries="${osc_build_start_poll_tries:-30}"
 XMLSTARLET=$(command -v xmlstarlet || true)
 [[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" && exit 1)
+
+# shellcheck source=/dev/null
+. "$(dirname "$0")"/_common
 
 factory_request() {
     local package=$1
@@ -161,11 +165,17 @@ handle_auto_submit() {
         cd "$dst_project"/"$package"
         update_package "$package"
     )
+
+    # delete package from staging project
+    [[ $from_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
 }
 
 prefix="${prefix:-""}"
 [ "$dry_run" = "1" ] && prefix="echo"
 osc="${osc:-"$prefix retry -e -- osc"}"
+
+# submit from staging project if specified
+[[ $staging_project && $staging_project != none ]] && src_project=$staging_project from_staging=1
 
 TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
 trap 'rm -rf "$TMPDIR"' EXIT
