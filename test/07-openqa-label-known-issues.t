@@ -40,20 +40,6 @@ comment_on_job() {
     echo "$comment"
 }
 out=''
-hxnormalize() {
-    cat "$2"
-}
-
-hxselect() {
-    if [ -p /dev/stdin ]; then
-	in="$(cat)"
-	if echo "$in" | grep -q "incomplete"; then
-	    echo "$in" | awk -F'title="' '{split($2, a, "\""); print a[1]}'
-	    return 0
-	fi
-	cat -
-    fi
-}
 
 try investigate_issue
 is "$rc" 1 'id required'
