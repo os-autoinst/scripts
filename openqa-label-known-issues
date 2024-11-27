@@ -29,14 +29,19 @@ client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github
 
 out="${REPORT_FILE:-$(mktemp -t openqa-label-known-issues--output-XXXX)}"
 trap 'error-handler "$LINENO"' ERR
-trap 'test "$KEEP_REPORT_FILE" == "1" || rm "$out"' EXIT
+trap '_cleanup' EXIT
+
+_cleanup() {
+    test "$KEEP_REPORT_FILE" == "1" || rm "$out"
+    test "$KEEP_JOB_HTML_FILE" == "1" || rm -f "$html_out"
+}
 
 echoerr() { echo "$@" >&2; }
 
 handle_unreachable() {
     local testurl=$1
-    local out=$2
-
+    local timeago
+    html_out=${JOB_HTML_FILE:-$(mktemp -t openqa-label-known-issues--job-details-XXXX)}
     if ! curl "${curl_args[@]}" -s --head "$testurl" -o /dev/null; then
         # the page might be gone, try the scheme+host we configured (might be different one though)
         if ! grep -q "$host_url" <<< "$testurl"; then
@@ -51,16 +56,25 @@ handle_unreachable() {
         return 1
     fi
     # resorting to downloading the job details page instead of the
-    # log, overwrites $out
-    if ! curl "${curl_args[@]}" -s "$testurl" -o "$out"; then
+    # log
+    if ! curl "${curl_args[@]}" -s "$testurl" -o "${html_out}"; then
         echoerr "'$testurl' can be reached but not downloaded, bailing out"
         curl "${curl_args[@]}" "$testurl"
         exit 2
     fi
 
-    if hxnormalize -x "$out" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
+    if hxnormalize -x "${html_out}" | hxselect -s '\n' -c '.links_a .resborder' | grep -qPzo '(?s)Gru job failed.*connection error.*Inactivity timeout'; then
         "${client_call[@]}" -X POST jobs/"$id"/comments text='poo#62456 test incompletes after failing in GRU download task on "Inactivity timeout" with no logs'
         "${client_call[@]}" -X POST jobs/"$id"/restart
+        return 1
+    fi
+
+    # Checking timestamp given by job details page
+    timeago=$(grep timeago "$html_out" | hxselect -s '\n' -c '.timeago::attr(title)')
+    if [[ $(date -uIs -d '-14days') > $timeago ]]; then
+        # if the page is there but not even an autoinst-log.txt exists
+        # then the job might be too old and logs are already deleted.
+        echoerr "'$testurl' job#${id} without autoinst-log.txt older than 14 days. Do not label"
         return 1
     fi
 }
@@ -116,7 +130,8 @@ label_on_issues_without_tickets() {
 }
 
 investigate_issue() {
-    local id="${1##*/}"
+    local testurl=$1
+    local id="${testurl##*/}"
     local reason
     local curl_output
     echo "Requesting jobs/${id} via openqa-cli"
@@ -136,15 +151,9 @@ investigate_issue() {
     echo "$reason" >> "$out"
     if [[ "$curl_output" != "200" ]] && [[ "$curl_output" != "301" ]]; then
         # if we can not even access the page it is something more critical
-        handle_unreachable "$testurl" "$out" || return
+        handle_unreachable "$testurl" "$out" || return 0
+
         [[ $curl_output != 404 ]] && return
-        # Checking timestamp
-        if [[ $(date -uIs -d '-14days') > $(grep timeago "$out" | hxselect -s '\n' -c '.timeago::attr(title)') ]]; then
-            # if the page is there but not even an autoinst-log.txt exists
-            # then the job might be too old and logs are already deleted.
-            echoerr "'$testurl' job#${id} without autoinst-log.txt older than 14 days. Do not label"
-            return
-        fi
         # not unreachable, no log, no reason, not too old
         if [[ -z $reason ]] || [[ $reason = null ]]; then
             echoerr "'$testurl' does not have autoinst-log.txt or reason, cannot label"
@@ -166,7 +175,7 @@ investigate_issue() {
 }
 
 label_issue() {
-    testurl="${1:?"Need 'testurl'"}"
+    local testurl="${1:?"Need 'testurl'"}"
     [[ "$dry_run" = "1" ]] && client_prefix="echo"
     if [[ -z "$client_call" ]]; then
         client_call=(openqa-cli "${client_args[@]}")

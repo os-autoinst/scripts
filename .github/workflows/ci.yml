@@ -12,7 +12,7 @@ jobs:
           python --version
           pytest --version
       - run: |
-          sudo apt-get install cpanminus
+          sudo apt-get install cpanminus html-xml-utils
           sudo cpanm -n -M https://cpan.metacpan.org --installdeps .
       - name: unit- and integration tests
         run: |
