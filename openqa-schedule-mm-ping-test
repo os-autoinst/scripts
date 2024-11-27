@@ -33,7 +33,7 @@ machines:
   DESKTOP: textmode
   IS_MM_SERVER: '1'
   NICTYPE: tap
-  EXPECTED_NM_CONNECTIVITY: none
+  EXPECTED_NM_CONNECTIVITY: '(limited|full)'
   QEMU_DISABLE_SNAPSHOTS: '1'
   YAML_SCHEDULE: schedule/functional/mm_ping.yaml
 
