@@ -67,7 +67,7 @@ setup() {
 # test data with reason but 404 in curl respond
 setup 404
 older40d_date=$(date -uIs -d '-40days')
-echo -n "Result:<b>incomplete</b>finished<abbr class=\"timeago\" title=\"${older40d_date}\"</abbr>>" > $tmpjobpage
+echo -n "Result:<b>incomplete</b>finished<abbr class=\"timeago\" title=\"${older40d_date}\"></abbr>" > $tmpjobpage
 export JOB_HTML_FILE=$tmpjobpage
 try-client-output investigate_issue $testurl
 is "$rc" 0 'investigate_issue with missing autoinst-log and with reason in job_data' #ok 3
@@ -78,7 +78,7 @@ setup 101
 # `older1d_date` is used on the following 4 test cases
 older1d_date=$(date -uIs -d '-1days')
 sed -i "s/yyyy-mm-dd/${older1d_date}/" "$dir/data/${id}.json"
-echo -n "Result:<b>incomplete</b>finished<abbr class=\"timeago\" title=\"${older1d_date}\"</abbr>>" > $tmpjobpage
+echo -n "Result:<b>incomplete</b>finished<abbr class=\"timeago\" title=\"${older1d_date}\"></abbr>" > $tmpjobpage
 html_out=$tmpjobpage
 export JOB_HTML_FILE=$tmpjobpage
 echo > $tmplog
