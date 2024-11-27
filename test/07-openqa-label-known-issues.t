@@ -41,7 +41,7 @@ comment_on_job() {
 }
 out=''
 
-try investigate_issue
+try investigate_issue || true
 is "$rc" 1 'id required'
 # error in tap output is from here
 
