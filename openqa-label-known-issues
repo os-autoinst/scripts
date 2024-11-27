@@ -130,7 +130,8 @@ label_on_issues_without_tickets() {
 }
 
 investigate_issue() {
-    local id="${1##*/}"
+    local testurl=$1
+    local id="${testurl##*/}"
     local reason
     local curl_output
     echo "Requesting jobs/${id} via openqa-cli"
@@ -174,7 +175,7 @@ investigate_issue() {
 }
 
 label_issue() {
-    testurl="${1:?"Need 'testurl'"}"
+    local testurl="${1:?"Need 'testurl'"}"
     [[ "$dry_run" = "1" ]] && client_prefix="echo"
     if [[ -z "$client_call" ]]; then
         client_call=(openqa-cli "${client_args[@]}")
