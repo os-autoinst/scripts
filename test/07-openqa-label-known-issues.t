@@ -30,9 +30,9 @@ openqa-cli() {
 }
 curl() {
     if [[ "$7" =~ /(404|414|101|102)/file/autoinst-log.txt ]]; then
-	echo -n "404"
+        echo -n "404"
     else
-	echo -n "200"
+        echo -n "200"
     fi
 }
 comment_on_job() {
