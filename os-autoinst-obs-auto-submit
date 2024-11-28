@@ -174,6 +174,12 @@ osc="${osc:-"$prefix retry -e -- osc"}"
 # submit from staging project if specified
 [[ $staging_project && $staging_project != none ]] && src_project=$staging_project from_staging=1
 
+if [[ -e job_post_skip_submission ]]; then
+    echo "Skipping submission, reason: "
+    cat job_post_skip_submission
+    exit 0
+fi
+
 TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
 trap 'rm -rf "$TMPDIR"' EXIT
 

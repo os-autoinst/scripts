@@ -61,8 +61,12 @@ create_devel_openqa_snapshot() {
     auto_submit_packages=$(list_packages "$dst_project")
     staged_packages=$(list_packages "$staging_project") || true # osc ls returns non-zero return code for empty projects
     if [[ $staged_packages ]]; then
-        echo "Skipping, there are still openQA-in-openQA tests pending"
-        exit 0
+        echo "Only triggering tests from $src_project (not overriding $staging_project and doing a submission) because openQA-in-openQA tests or a submission is still pending (as $staging_project still contains packages)" \
+            | tee job_post_skip_submission
+        staging_project=$src_project
+        return
+    elif [[ -e job_post_skip_submission ]]; then
+        rm job_post_skip_submission
     fi
     echo "Creating snapshots under $staging_project"
     for package in $auto_submit_packages; do
