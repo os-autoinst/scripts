@@ -11,6 +11,7 @@ submit_target_escaped=$(echo -n "$submit_target" | sed -e 's|\:|_|g') # avoid, e
 dry_run="${dry_run:-"0"}"
 osc_poll_interval="${osc_poll_interval:-2}"
 osc_build_start_poll_tries="${osc_build_start_poll_tries:-30}"
+throttle_days=${throttle_days:-2}
 XMLSTARLET=$(command -v xmlstarlet || true)
 [[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" && exit 1)
 
@@ -177,6 +178,12 @@ osc="${osc:-"$prefix retry -e -- osc"}"
 if [[ -e job_post_skip_submission ]]; then
     echo "Skipping submission, reason: "
     cat job_post_skip_submission
+    exit 0
+fi
+
+# throttle number of submissions to allow only one SR within a certain number of days
+if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep --quiet 'Created by'; then
+    echo "Skipping submission, there is still a pending SR younger than $throttle_days."
     exit 0
 fi
 
