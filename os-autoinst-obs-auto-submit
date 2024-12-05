@@ -182,8 +182,9 @@ if [[ -e job_post_skip_submission ]]; then
 fi
 
 # throttle number of submissions to allow only one SR within a certain number of days
-if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep --quiet 'Created by'; then
-    echo "Skipping submission, there is still a pending SR younger than $throttle_days."
+# note: Avoid using `grep --quiet` here to keep consuming input so osc does not run into "BrokenPipeError: [Errno 32] Broken pipe".
+if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep 'Created by' > /dev/null; then
+    echo "Skipping submission, there is still a pending SR younger than $throttle_days days."
     exit 0
 fi
 
