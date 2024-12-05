@@ -183,7 +183,7 @@ fi
 
 # throttle number of submissions to allow only one SR within a certain number of days
 if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep --quiet 'Created by'; then
-    echo "Skipping submission, there is still a pending SR younger than $throttle_days."
+    echo "Skipping submission, there is still a pending SR younger than $throttle_days days."
     exit 0
 fi
 
