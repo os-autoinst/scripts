@@ -41,13 +41,13 @@ goto ${selected}
 
 :leapS1
 set kernel http://download.opensuse.org/distribution/leap/15.6/repo/oss/boot/x86_64/loader/linux
-set cmdline usessh=1 sshpassword=linux network=1 install=http://download.opensuse.org/distribution/leap/15.6/repo/oss/ console=ttyS1,115200n8 root=/dev/ram0 initrd=initrd textmode=1
+set cmdline usessh=1 sshpassword=linux network=1 install=http://download.opensuse.org/distribution/leap/15.6/repo/oss/ console=tty console=ttyS1,115200n8 root=/dev/ram0 initrd=initrd textmode=1
 set initrd http://download.opensuse.org/distribution/leap/15.6/repo/oss/boot/x86_64/loader/initrd
 goto editandboot
 
 :leapS2
 set kernel http://download.opensuse.org/distribution/leap/15.6/repo/oss/boot/x86_64/loader/linux
-set cmdline usessh=1 sshpassword=linux network=1 install=http://download.opensuse.org/distribution/leap/15.6/repo/oss/ console=ttyS2,115200n8 root=/dev/ram0 initrd=initrd textmode=1
+set cmdline usessh=1 sshpassword=linux network=1 install=http://download.opensuse.org/distribution/leap/15.6/repo/oss/ console=tty console=ttyS2,115200n8 root=/dev/ram0 initrd=initrd textmode=1
 set initrd http://download.opensuse.org/distribution/leap/15.6/repo/oss/boot/x86_64/loader/initrd
 goto editandboot
 
@@ -59,25 +59,25 @@ goto editandboot
 
 :tumbleweed_KVM_autoyast
 set kernel http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT/boot/x86_64/loader/linux
-set cmdline install=http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT textmode=1 plymouth.enable=0 Y2DEBUG=1 console=ttyS1,115200 linuxrc.log=/dev/ttyS1 linuxrc.core=/dev/ttyS1 linuxrc.debug=4,trace reboot_timeout=0  kernel.softlockup_panic=1 vga=791 video=1024x768 vt.color=0x07 quiet autoyast=http://openqa.opensuse.org/assets/other/autoyast_opensuse_kvm_sshd.xml
+set cmdline install=http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT textmode=1 plymouth.enable=0 Y2DEBUG=1 console=tty console=ttyS1,115200 linuxrc.log=/dev/ttyS1 linuxrc.core=/dev/ttyS1 linuxrc.debug=4,trace reboot_timeout=0  kernel.softlockup_panic=1 vga=791 video=1024x768 vt.color=0x07 quiet autoyast=http://openqa.opensuse.org/assets/other/autoyast_opensuse_kvm_sshd.xml
 set initrd http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT/boot/x86_64/loader/initrd
 goto editandboot
 
 :tumbleweed_XEN_autoyast
 set kernel http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT/boot/x86_64/loader/linux
-set cmdline install=http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT textmode=1 plymouth.enable=0 Y2DEBUG=1 console=ttyS1,115200 linuxrc.log=/dev/ttyS1 linuxrc.core=/dev/ttyS1 linuxrc.debug=4,trace reboot_timeout=0  kernel.softlockup_panic=1 vga=791 video=1024x768 vt.color=0x07 quiet autoyast=http://openqa.opensuse.org/assets/other/autoyast_opensuse_xen_sshd.xml
+set cmdline install=http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT textmode=1 plymouth.enable=0 Y2DEBUG=1 console=tty console=ttyS1,115200 linuxrc.log=/dev/ttyS1 linuxrc.core=/dev/ttyS1 linuxrc.debug=4,trace reboot_timeout=0  kernel.softlockup_panic=1 vga=791 video=1024x768 vt.color=0x07 quiet autoyast=http://openqa.opensuse.org/assets/other/autoyast_opensuse_xen_sshd.xml
 set initrd http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT/boot/x86_64/loader/initrd
 goto editandboot
 
 :tumbleweedS1
 set kernel http://download.opensuse.org/tumbleweed/repo/oss/boot/x86_64/loader/linux
-set cmdline install=http://download.opensuse.org/tumbleweed/repo/oss plymouth.enable=0 textmode=1 Y2DEBUG=1 console=ttyS1,115200 linuxrc.log=/dev/ttyS1 linuxrc.core=/dev/ttyS1 linuxrc.debug=4,trace reboot_timeout=0 ssh=1 sshpassword=nots3cr3t kernel.softlockup_panic=1 vga=791 video=1024x768 vt.color=0x07 quiet
+set cmdline install=http://download.opensuse.org/tumbleweed/repo/oss plymouth.enable=0 textmode=1 Y2DEBUG=1 console=tty console=ttyS1,115200 linuxrc.log=/dev/ttyS1 linuxrc.core=/dev/ttyS1 linuxrc.debug=4,trace reboot_timeout=0 ssh=1 sshpassword=nots3cr3t kernel.softlockup_panic=1 vga=791 video=1024x768 vt.color=0x07 quiet
 set initrd http://download.opensuse.org/tumbleweed/repo/oss/boot/x86_64/loader/initrd
 goto editandboot
 
 :tumbleweedS2
 set kernel http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-x86_64-CURRENT/boot/x86_64/loader/linux
-set cmdline usessh=1 sshpassword=linux network=1 install=http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-i586-x86_64-CURRENT console=ttyS2,115200n8 root=/dev/ram0 initrd=initrd textmode=1
+set cmdline usessh=1 sshpassword=linux network=1 install=http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-i586-x86_64-CURRENT console=tty console=ttyS2,115200n8 root=/dev/ram0 initrd=initrd textmode=1
 set initrd http://openqa.opensuse.org/assets/repo/openSUSE-Tumbleweed-oss-i586-x86_64-CURRENT/boot/x86_64/loader/initrd
 goto editandboot
 
