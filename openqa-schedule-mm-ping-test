@@ -9,6 +9,7 @@ flavor=${flavor:-DVD}
 arch=${arch:-x86_64}
 version=${version:-Tumbleweed}
 test_name=${test_name:-ping_client}
+allowed_results=${allowed_results:-passed|obsoleted|skipped}
 
 tmpfile=$(mktemp)
 trap 'rm -f "$tmpfile"' EXIT
@@ -53,7 +54,8 @@ job_templates:
       PARALLEL_WITH: ping_server
 EOF
 
-hdd=$(runcli openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" flavor="$flavor" test="$test_name" latest=1 | runjq -r '.jobs | map(select(.result == "passed")) | max_by(.settings.BUILD) .settings.HDD_1')
+jobs=$(runcli openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" flavor="$flavor" test="$test_name" latest=1 | runjq -r .jobs)
+hdd=$(echo "$jobs" | runjq -r "map(select(.result | test(\"(${allowed_results})\"))) | max_by(.settings.BUILD) .settings.HDD_1")
 time openqa-cli schedule \
     --monitor \
     --host "$openqa_url" \
