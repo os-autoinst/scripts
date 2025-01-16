@@ -68,8 +68,15 @@ create_devel_openqa_snapshot() {
     elif [[ -e job_post_skip_submission ]]; then
         rm job_post_skip_submission
     fi
-    echo "Creating snapshots under $staging_project"
+    echo "Checking if all relevant packages are built and published before creating snapshot under $staging_project"
     for package in $auto_submit_packages; do
+        local state
+        state=$($osc results -r openSUSE_Tumbleweed -a x86_64 --no-multibuild "$src_project" "$package")
+        if grep -q -v 'succeeded\|disabled' <<< "$state"; then
+            echo -e "Package $package is not yet ready for release\n$state" | tee job_post_skip_submission
+            delete_packages_from_obs_project "$staging_project"
+            return
+        fi
         echo "Creating snapshots of $package"
         $osc release --no-delay --target-project "$staging_project" --target-repository=openSUSE_Tumbleweed -r openSUSE_Tumbleweed -a x86_64 "$src_project" "$package"
     done
