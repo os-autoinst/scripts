@@ -6,6 +6,7 @@ set -eu -o pipefail
 openqa_url=${openqa_url:-https://openqa.opensuse.org}
 distri=${distri:-opensuse}
 flavor=${flavor:-DVD}
+flavor_override=${flavor_override:-mm-monitoring} # override flavor to avoid obsoletion by other scheduled products
 arch=${arch:-x86_64}
 version=${version:-Tumbleweed}
 test_name=${test_name:-ping_client}
@@ -18,7 +19,7 @@ cat > "$tmpfile" << EOF
 products:
   mm-ping-test:
     distri: $distri
-    flavor: $flavor
+    flavor: $flavor_override
     arch: $arch
     version: $version
 
@@ -58,6 +59,6 @@ time openqa-cli schedule \
     --monitor \
     --host "$openqa_url" \
     --param-file SCENARIO_DEFINITIONS_YAML="$tmpfile" \
-    DISTRI="$distri" VERSION="$version" FLAVOR="$flavor" ARCH="$arch" \
+    DISTRI="$distri" VERSION="$version" FLAVOR="$flavor_override" ARCH="$arch" \
     BUILD="$(date -Im)" _GROUP_ID=0 \
     HDD_1="$hdd"
