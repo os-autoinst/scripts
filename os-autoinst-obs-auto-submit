@@ -143,9 +143,7 @@ handle_auto_submit() {
     $osc co --server-side-source-service-files "$src_project"/"$package"
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" ]]; then
         $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
-        set +o pipefail
-        if diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec | grep "^[+-]Requires"; then
-            set -o pipefail
+        if { diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec || :; } | grep "^[+-]Requires"; then
             # dependency added or removed
             generate_os-autoinst-distri-opensuse-deps_changelog "$src_project" "$package"
         else
