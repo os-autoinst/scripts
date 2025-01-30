@@ -80,6 +80,8 @@ create_devel_openqa_snapshot() {
         echo "Creating snapshots of $package"
         $osc release --no-delay --target-project "$staging_project" --target-repository=openSUSE_Tumbleweed -r openSUSE_Tumbleweed -a x86_64 "$src_project" "$package"
     done
+    echo "Wait until all packages are published under $staging_project"
+    $osc prjresults --watch --xml -r openSUSE_Tumbleweed -a x86_64 "$staging_project"
 }
 
 trigger() {
