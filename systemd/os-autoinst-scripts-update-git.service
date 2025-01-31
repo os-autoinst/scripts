@@ -4,5 +4,5 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/git -C /opt/os-autoinst-scripts pull --quiet --rebase origin
+ExecStart=/usr/bin/git -C /opt/os-autoinst-scripts pull --quiet --rebase origin master
 User=geekotest
