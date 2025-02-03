@@ -129,7 +129,7 @@ generate_os-autoinst-distri-opensuse-deps_changelog() {
         echo "-------------------------------------------------------------------"
         echo "$(LANG=c date -u) - Dominik Heidler <dheidler@suse.de>"
         echo
-        diff -u "$package"-factory.spec "$dir"/"$package"/_service:obs_scm:"$package".spec \
+        { diff -u "$package"-factory.spec "$dir"/"$package"/_service:obs_scm:"$package".spec || :; } \
             | grep "^[+-]Requires" \
             | sed -e 's/Requires:\s*/dependency /g' -e 's/^-/- Removed /g' -e 's/^+/- Added /g'
         echo
