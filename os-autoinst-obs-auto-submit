@@ -121,6 +121,12 @@ sync_changesrevision() {
     fi
 }
 
+get_spec_changes_in_requirements() {
+    local package=$1
+    local project=$2
+    { diff -u "$package-factory.spec" "$project/$package/_service:obs_scm:$package.spec" || :; } | grep '^[+-]Requires'
+}
+
 generate_os-autoinst-distri-opensuse-deps_changelog() {
     dir=$1
     package=$2
@@ -129,8 +135,7 @@ generate_os-autoinst-distri-opensuse-deps_changelog() {
         echo "-------------------------------------------------------------------"
         echo "$(LANG=c date -u) - Dominik Heidler <dheidler@suse.de>"
         echo
-        { diff -u "$package"-factory.spec "$dir"/"$package"/_service:obs_scm:"$package".spec || :; } \
-            | grep "^[+-]Requires" \
+        get_spec_changes_in_requirements "$package" "$dir" \
             | sed -e 's/Requires:\s*/dependency /g' -e 's/^-/- Removed /g' -e 's/^+/- Added /g'
         echo
         cat "$package"-factory.changes
@@ -143,7 +148,7 @@ handle_auto_submit() {
     $osc co --server-side-source-service-files "$src_project"/"$package"
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" ]]; then
         $osc cat "$submit_target" "$package" "$package.spec" > "$package-factory.spec"
-        if { diff -u "$package"-factory.spec "$src_project/$package/_service:obs_scm:$package".spec || :; } | grep "^[+-]Requires"; then
+        if get_spec_changes_in_requirements "$package" "$src_project"; then
             # dependency added or removed
             generate_os-autoinst-distri-opensuse-deps_changelog "$src_project" "$package"
         else
