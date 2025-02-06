@@ -250,7 +250,7 @@ is "$rc" 0 "Successful clone"
 like "$got" 'CASEDIR=.*/os-autoinst-testrepo.git#refspec' "job is cloned and CASEDIR is set correctly"
 
 try clone 10022 10030 last_good_tests_and_build:123 refspec
-has "$got" 'WORKER_CLASS=foo,duh,bar' "job assigns the same WORKER_CLASS"
+has "$got" 'WORKER_CLASS:vim=foo,duh,bar' "job assigns the WORKER_CLASS only to the origin job clone"
 
 try clone 10021 10030 last_good_tests_and_build:123 refspec
 has "$got" 'unidentified worker class in vars.json' "info shown in the name is WORKER_CLASS is empty"

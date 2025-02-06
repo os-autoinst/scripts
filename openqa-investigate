@@ -47,9 +47,10 @@ clone() {
     [[ $unsupported_cluster_jobs != 0 ]] \
         && echoerr "Unable to clone job $id: it is part of a directly chained cluster (not supported)" && return 2
 
-    name="$(echo "$clone_job_data" | runjq -r '.job.test'):investigate$name_suffix" || return $?
+    base_name="$(echo "$clone_job_data" | runjq -r '.job.test')" || return $?
+    name="$base_name:investigate$name_suffix"
     base_prio=$(echo "$clone_job_data" | runjq -r '.job.priority') || return $?
-    clone_settings=("TEST+=:investigate$name_suffix" '_TRIGGER_JOB_DONE_HOOK=1' '_GROUP_ID=0' 'BUILD=')
+    clone_settings=('_TRIGGER_JOB_DONE_HOOK=1' '_GROUP_ID=0' 'BUILD=')
     if [[ $refspec ]]; then
         vars_json=$(fetch-vars-json "$origin")
         testgiturl=$(echo "$vars_json" | runjq -r '.TEST_GIT_URL')
@@ -67,12 +68,13 @@ clone() {
         if [[ $name_suffix =~ (last_good_tests_and_build) ]]; then
             worker_vars_settings=$(echo "$vars_json" | runjq -r '.WORKER_CLASS') || return $?
             if [[ $worker_vars_settings != null ]]; then
-                clone_settings+=("WORKER_CLASS=${worker_vars_settings}")
+                clone_settings+=("WORKER_CLASS:$base_name=${worker_vars_settings}")
             else
                 name+="(unidentified worker class in vars.json)"
             fi
         fi
     fi
+    clone_settings+=("TEST+=:investigate$name_suffix")
     [[ -n ${*:5} ]] && clone_settings+=("${@:5}")
     # clear "PUBLISH_" settings to avoid overriding production assets
     # shellcheck disable=SC2207
