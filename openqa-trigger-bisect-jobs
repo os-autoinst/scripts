@@ -109,11 +109,14 @@ client_args = [
 
 
 def call(cmds, dry_run=False):
-    log.debug("call: %s" % cmds)
-    return subprocess.check_output(
-        (["echo", "Simulating: "] if dry_run else []) + cmds
-    ).decode("utf-8")
-
+    try:
+        log.debug("call: %s" % cmds)
+        return subprocess.check_output(
+            (["echo", "Simulating: "] if dry_run else []) + cmds
+        ).decode("utf-8")
+    except subprocess.CalledProcessError as e:
+        log.error("%s failed with return code %s", cmds[0], e.returncode)
+        return e.output.decode("utf-8")
 
 def openqa_comment(job, host, comment, dry_run):
     args = client_args + [

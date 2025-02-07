@@ -10,6 +10,7 @@ import os.path
 from unittest.mock import MagicMock, call
 from urllib.parse import urlparse
 
+import pytest
 import requests
 
 rootpath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -203,6 +204,19 @@ def test_triggers():
     ]
     assert prio_calls == openqa.openqa_set_job_prio.call_args_list
 
+def test_catch_CalledProcessError():
+    from subprocess import CalledProcessError
+    args = args_factory()
+    args.url = "https://openqa.opensuse.org/tests/7848818"
+    openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
+    openqa.openqa_clone = MagicMock(side_effect=CalledProcessError(returncode=255,
+                                                                   cmd='foo',
+                                                                   stderr="foo failed with return code 255"))
+    with pytest.raises(CalledProcessError) as expected:
+        openqa.main(args)
+    assert expected.value.returncode == 255
+    assert expected.value.cmd == 'foo'
+    assert "Command 'foo' returned non-zero exit status 255." in str(expected.value)
 
 def test_problems():
     args = args_factory()
