@@ -7,7 +7,8 @@ import importlib.machinery
 import importlib.util
 import json
 import os.path
-from unittest.mock import MagicMock, call
+import sys
+from unittest.mock import MagicMock, call, patch
 from urllib.parse import urlparse
 
 import pytest
@@ -67,6 +68,24 @@ cmds = [
     "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
 ]
 
+def test_catch_CalledProcessError(caplog):
+    import subprocess
+    args = args_factory()
+    args.url = "https://openqa.opensuse.org/tests/7848818"
+    openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
+    expected_err = "foo failed due to subprocess raised CalledProcessError with exit code: 255"
+    # subprocess.check_output = MagicMock(side_effect=subprocess.CalledProcessError(returncode=255,
+    #                                                                               cmd='foo',
+    #                                                                               stderr=expected_err))
+    with patch("subprocess.check_output",
+        side_effect=subprocess.CalledProcessError(returncode=255,
+                                                  cmd=cmds[0],
+                                                  stderr=expected_err)):
+        with pytest.raises(SystemExit) as exc_info:
+            openqa.main(args)
+  
+    assert exc_info.value.code == 255
+    assert expected_err in caplog.text
 
 def test_clone():
     openqa.call = MagicMock(side_effect=mocked_call)
@@ -125,7 +144,6 @@ def test_set_job_prio():
         "jobs/1234567",
     ]
     openqa.call.assert_called_once_with(args, False)
-
 
 def test_triggers():
     args = args_factory()
@@ -204,20 +222,7 @@ def test_triggers():
     ]
     assert prio_calls == openqa.openqa_set_job_prio.call_args_list
 
-def test_catch_CalledProcessError():
-    from subprocess import CalledProcessError
-    args = args_factory()
-    args.url = "https://openqa.opensuse.org/tests/7848818"
-    openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-    openqa.openqa_clone = MagicMock(side_effect=CalledProcessError(returncode=255,
-                                                                   cmd='foo',
-                                                                   stderr="foo failed with return code 255"))
-    with pytest.raises(CalledProcessError) as expected:
-        openqa.main(args)
-    assert expected.value.returncode == 255
-    assert expected.value.cmd == 'foo'
-    assert "Command 'foo' returned non-zero exit status 255." in str(expected.value)
-
+    
 def test_problems():
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")

@@ -115,8 +115,14 @@ def call(cmds, dry_run=False):
             (["echo", "Simulating: "] if dry_run else []) + cmds
         ).decode("utf-8")
     except subprocess.CalledProcessError as e:
-        log.error("%s failed with return code %s", cmds[0], e.returncode)
-        return e.output.decode("utf-8")
+        subprocess_error = json.dumps({
+            "cmd": cmds[0],
+            "returncode": e.returncode,
+            "stderr": e.stderr if e.stderr else None
+        })
+        log.error(json.loads(subprocess_error))
+        print("DEBUG: Calling sys.exit()") 
+        sys.exit(e.returncode)
 
 def openqa_comment(job, host, comment, dry_run):
     args = client_args + [
@@ -306,6 +312,7 @@ def main(args):
             params,
             args.dry_run,
         )
+
         created_job_ids = []
         try:
             created_job_ids = json.loads(out).values()
