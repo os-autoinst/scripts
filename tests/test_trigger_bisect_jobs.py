@@ -7,9 +7,11 @@ import importlib.machinery
 import importlib.util
 import json
 import os.path
-from unittest.mock import MagicMock, call
+import sys
+from unittest.mock import MagicMock, call, patch
 from urllib.parse import urlparse
 
+import pytest
 import requests
 
 rootpath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -66,6 +68,31 @@ cmds = [
     "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
 ]
 
+def test_catch_CalledProcessError(caplog):
+    import subprocess
+    args = args_factory()
+    args.url = "https://openqa.opensuse.org/tests/7848818"
+    openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
+    cmd_args = ["openqa-clone-job"]
+    exp_err = "returned non-zero exit status 255."
+    with patch("subprocess.check_output",
+        side_effect=subprocess.CalledProcessError(returncode=255,
+                                                  cmd=cmd_args,
+                                                  output=exp_err)):
+        with pytest.raises(subprocess.CalledProcessError) as e:
+            openqa.main(args)
+    assert(e.value.returncode == 255)        
+    assert f"CalledProcessError: {exp_err}" in caplog.text
+
+    exp_err = "Current job 7848818 will fail, because the repositories for the below updates are unavailable"
+    with patch("subprocess.check_output",
+        side_effect=subprocess.CalledProcessError(returncode=255,
+                                                  cmd=cmd_args,
+                                                  output=exp_err)):
+        with pytest.raises(SystemExit) as e:
+            openqa.main(args)
+    assert(e.value.code == 0)        
+    assert f"CalledProcessError: {exp_err}" in caplog.text
 
 def test_clone():
     openqa.call = MagicMock(side_effect=mocked_call)
