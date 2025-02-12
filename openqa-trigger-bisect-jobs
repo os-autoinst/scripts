@@ -7,8 +7,8 @@ import json
 import logging
 import os
 import re
-import sys
 import subprocess
+import sys
 from urllib.parse import urlparse, urlunparse
 
 import requests
@@ -170,7 +170,10 @@ def openqa_clone(
 ):
     cmd = ["openqa-clone-job"] + default_opts + cmds + default_cmds
     json_res = call(cmd, dry_run)
-    return json.loads(json_res)
+    try:
+        return json.loads(json_res)
+    except Exception as e:
+        log.error("openqa-clone-job returned non-JSON output: " + str(json_res))
 
 
 def fetch_url(url, request_type="text"):
@@ -327,15 +330,14 @@ def main(args):
             params,
             args.dry_run,
         )
+
         if out["error"] is True:
             openqa_comment(out['failed_id'], out['host'], out['stderr'], args.dry_run)
             sys.exit()
 
         created_job_ids = []
-        try:
-            created_job_ids = json.loads(out).values()
-        except Exception as e:
-            log.error("openqa-clone-job returned non-JSON output: " + out)
+        created_job_ids = out['output'].values()
+
         for job_id in sorted(created_job_ids):
             log.info(f"Created {job_id}")
             created += f"* **{test_name}**: {base_url}/t{job_id}\n"

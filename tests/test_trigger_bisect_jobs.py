@@ -56,7 +56,7 @@ def mocked_fetch_url(url, request_type="text"):
 
 
 def mocked_call(cmds, dry_run=False):
-    return cmds
+    return json.dumps(cmds)
 
 
 orig_fetch_url = openqa.fetch_url
@@ -144,7 +144,7 @@ def test_set_job_prio():
 def test_triggers():
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
-    openqa.openqa_clone = MagicMock(return_value='{"7848818": 234567}')
+    openqa.openqa_clone = MagicMock(return_value={"output": {"7848818": 234567}, "error": False})
     openqa.openqa_comment = MagicMock(return_value='')
     openqa.openqa_set_job_prio = MagicMock(return_value='')
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -218,7 +218,7 @@ def test_triggers():
     ]
     assert prio_calls == openqa.openqa_set_job_prio.call_args_list
 
-    
+
 def test_problems():
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
