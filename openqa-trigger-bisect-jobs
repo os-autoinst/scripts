@@ -111,7 +111,8 @@ client_args = [
 def call(cmds, dry_run=False):
     log.debug("call: %s" % cmds)
     return subprocess.check_output(
-        (["echo", "Simulating: "] if dry_run else []) + cmds
+        (["echo", "Simulating: "] if dry_run else []) + cmds,
+        stderr=subprocess.STDOUT
     ).decode("utf-8")
 
 
@@ -299,10 +300,19 @@ def main(args):
             ]
         )
 
-        out = openqa_clone(
-            params,
-            args.dry_run,
-        )
+        try:
+            out = openqa_clone(
+                params,
+                args.dry_run,
+            )
+        except subprocess.SubprocessError as err:
+            process_output = err.output if err.output else ""
+            log.error(f"{type(err).__name__}: {process_output} ")
+            if 'the repositories for the below updates are unavailable' not in str(process_output):
+                raise
+            else:
+                sys.exit(0)
+
         created_job_ids = []
         try:
             created_job_ids = json.loads(out).values()
