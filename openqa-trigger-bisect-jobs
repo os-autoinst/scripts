@@ -7,8 +7,8 @@ import json
 import logging
 import os
 import re
-import subprocess
 import sys
+import subprocess
 from urllib.parse import urlparse, urlunparse
 
 import requests
@@ -111,18 +111,31 @@ client_args = [
 def call(cmds, dry_run=False):
     try:
         log.debug("call: %s" % cmds)
-        return subprocess.check_output(
-            (["echo", "Simulating: "] if dry_run else []) + cmds
-        ).decode("utf-8")
-    except subprocess.CalledProcessError as e:
-        subprocess_error = json.dumps({
-            "cmd": cmds[0],
-            "returncode": e.returncode,
-            "stderr": e.stderr if e.stderr else None
-        })
-        log.error(json.loads(subprocess_error))
-        print("DEBUG: Calling sys.exit()") 
-        sys.exit(e.returncode)
+        return {
+            "output": subprocess.check_output(
+            (["echo", "Simulating: "] if dry_run else []) + cmds,
+            stderr=subprocess.STDOUT,
+            shell=True).decode("utf-8"),
+            "error": False
+        }
+    except subprocess.SubprocessError as err:
+        url_pattern = re.compile(r"(https://.*)/tests/(\d+)")
+        url_match = next(
+            ((i, item) for i, item in enumerate(cmds) 
+            if isinstance(item, str) and url_pattern.match(item)),
+            None
+        )
+        found = url_pattern.match(url_match[1])
+        error_info = {
+            "cmd": cmds,
+            "failed_id": found.group(1),
+            "host": found.group(0),
+            "err_type": type(err).__name__,
+            "stderr": err.stderr if err.stderr else "No error putput",
+            "error": True
+        }
+        log.error(error_info["stderr"])
+        return json.dumps(error_info)
 
 def openqa_comment(job, host, comment, dry_run):
     args = client_args + [
@@ -155,7 +168,9 @@ def openqa_clone(
     default_opts=["--skip-chained-deps", "--json-output", "--within-instance"],
     default_cmds=["_GROUP=0"],
 ):
-    return call(["openqa-clone-job"] + default_opts + cmds + default_cmds, dry_run)
+    cmd = ["openqa-clone-job"] + default_opts + cmds + default_cmds
+    json_res = call(cmd, dry_run)
+    return json.loads(json_res)
 
 
 def fetch_url(url, request_type="text"):
@@ -312,6 +327,9 @@ def main(args):
             params,
             args.dry_run,
         )
+        if out["error"] is True:
+            openqa_comment(out['failed_id'], out['host'], out['stderr'], args.dry_run)
+            sys.exit()
 
         created_job_ids = []
         try:

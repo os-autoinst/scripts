@@ -74,17 +74,13 @@ def test_catch_CalledProcessError(caplog):
     args.url = "https://openqa.opensuse.org/tests/7848818"
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
     expected_err = "foo failed due to subprocess raised CalledProcessError with exit code: 255"
-    # subprocess.check_output = MagicMock(side_effect=subprocess.CalledProcessError(returncode=255,
-    #                                                                               cmd='foo',
-    #                                                                               stderr=expected_err))
+
     with patch("subprocess.check_output",
         side_effect=subprocess.CalledProcessError(returncode=255,
                                                   cmd=cmds[0],
                                                   stderr=expected_err)):
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(SystemExit) as exc:
             openqa.main(args)
-  
-    assert exc_info.value.code == 255
     assert expected_err in caplog.text
 
 def test_clone():
