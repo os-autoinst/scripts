@@ -110,10 +110,14 @@ client_args = [
 
 def call(cmds, dry_run=False):
     log.debug("call: %s" % cmds)
-    return subprocess.check_output(
+    res = subprocess.run(
         (["echo", "Simulating: "] if dry_run else []) + cmds,
-        stderr=subprocess.STDOUT
-    ).decode("utf-8")
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    if len(res.stderr):
+        log.warning(f"call() {cmds[0]} stderr: {res.stderr}")
+    res.check_returncode()
+    return res.stdout.decode("utf-8");
 
 
 def openqa_comment(job, host, comment, dry_run):
@@ -148,6 +152,7 @@ def openqa_clone(
     default_cmds=["_GROUP=0"],
 ):
     return call(["openqa-clone-job"] + default_opts + cmds + default_cmds, dry_run)
+
 
 def fetch_url(url, request_type="text"):
     try:
@@ -305,15 +310,10 @@ def main(args):
                 args.dry_run,
             )
         except subprocess.SubprocessError as err:
-            process_output = err.output if err.output else ""
-            log.error(f"{type(err).__name__}: {process_output} ")
-            if 'the repositories for the below updates are unavailable' not in str(process_output):
-                raise
-            else:
+            if 'the repositories for the below updates are unavailable' in str(err.stderr):
                 sys.exit(0)
-        except Exception as err:
-            err.add_note("openqa_clone failed on unknown cause.")
-            raise
+            else:
+                raise
 
         created_job_ids = []
         try:

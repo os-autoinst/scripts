@@ -75,24 +75,26 @@ def test_catch_CalledProcessError(caplog):
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
     cmd_args = ["openqa-clone-job"]
     exp_err = "returned non-zero exit status 255."
-    with patch("subprocess.check_output",
-        side_effect=subprocess.CalledProcessError(returncode=255,
-                                                  cmd=cmd_args,
-                                                  output=exp_err)):
+    error = subprocess.CompletedProcess(
+        args=[], returncode=255,
+        stderr=exp_err,
+        stdout=''
+    )
+    with patch("subprocess.run", return_value=error):
         with pytest.raises(subprocess.CalledProcessError) as e:
             openqa.main(args)
-    assert(e.value.returncode == 255)        
-    assert f"CalledProcessError: {exp_err}" in caplog.text
+
+    assert e.value.returncode == 255
+    assert f"{exp_err}" in str(e.value.stderr)
 
     exp_err = "Current job 7848818 will fail, because the repositories for the below updates are unavailable"
-    with patch("subprocess.check_output",
-        side_effect=subprocess.CalledProcessError(returncode=255,
-                                                  cmd=cmd_args,
-                                                  output=exp_err)):
+    error.stderr=exp_err
+    with patch("subprocess.run", return_value=error):
         with pytest.raises(SystemExit) as e:
             openqa.main(args)
-    assert(e.value.code == 0)        
-    assert f"CalledProcessError: {exp_err}" in caplog.text
+
+    assert e.value.code == 0
+    assert f"{exp_err}" in caplog.text
 
 def test_clone():
     openqa.call = MagicMock(side_effect=mocked_call)
