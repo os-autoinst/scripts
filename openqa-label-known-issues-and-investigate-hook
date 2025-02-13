@@ -23,7 +23,7 @@ investigate-and-bisect() {
     rc=0
     openqa-investigate "$test" || rc=$?
     [[ "$rc" -eq 142 ]] && return "$rc"
-    openqa-trigger-bisect-jobs --url "$test" || rc=$?
+    openqa-trigger-bisect-jobs -v --url "$test" || rc=$?
     return "$rc"
 }
 
