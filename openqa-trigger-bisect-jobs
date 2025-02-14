@@ -110,9 +110,14 @@ client_args = [
 
 def call(cmds, dry_run=False):
     log.debug("call: %s" % cmds)
-    return subprocess.check_output(
-        (["echo", "Simulating: "] if dry_run else []) + cmds
-    ).decode("utf-8")
+    res = subprocess.run(
+        (["echo", "Simulating: "] if dry_run else []) + cmds,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    if len(res.stderr):
+        log.warning(f"call() {cmds[0]} stderr: {res.stderr}")
+    res.check_returncode()
+    return res.stdout.decode("utf-8");
 
 
 def openqa_comment(job, host, comment, dry_run):
@@ -299,10 +304,17 @@ def main(args):
             ]
         )
 
-        out = openqa_clone(
-            params,
-            args.dry_run,
-        )
+        try:
+            out = openqa_clone(
+                params,
+                args.dry_run,
+            )
+        except subprocess.SubprocessError as err:
+            if 'the repositories for the below updates are unavailable' in str(err.stderr):
+                sys.exit(0)
+            else:
+                raise
+
         created_job_ids = []
         try:
             created_job_ids = json.loads(out).values()
