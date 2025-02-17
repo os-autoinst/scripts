@@ -311,6 +311,8 @@ def main(args):
             )
         except subprocess.SubprocessError as err:
             if 'the repositories for the below updates are unavailable' in str(err.stderr):
+                extra_comment = "Not triggering any bisect jobs because: "
+                openqa_comment(job_id, base_url, f"{extra_comment}{err.stderr}", args.dry_run)
                 sys.exit(0)
             else:
                 raise

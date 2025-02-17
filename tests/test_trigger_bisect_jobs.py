@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os.path
 import sys
+import re
 from unittest.mock import MagicMock, call, patch
 from urllib.parse import urlparse
 
@@ -89,10 +90,15 @@ def test_catch_CalledProcessError(caplog):
 
     exp_err = "Current job 7848818 will fail, because the repositories for the below updates are unavailable"
     error.stderr=exp_err
-    with patch("subprocess.run", return_value=error):
+    comment_process = subprocess.CompletedProcess(
+        args=[], returncode=0,
+        stderr='',
+        stdout=b'doo'
+    )
+    with patch("subprocess.run", side_effect=[error, comment_process]) as mocked:
         with pytest.raises(SystemExit) as e:
             openqa.main(args)
-
+        assert re.search("jobs/.*/comments.*text=.*updates are unavailable", str(mocked.call_args_list[-1][0]))
     assert e.value.code == 0
     assert f"{exp_err}" in caplog.text
 
