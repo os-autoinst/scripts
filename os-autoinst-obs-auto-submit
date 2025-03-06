@@ -198,10 +198,12 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 (
     cd "$TMPDIR"
+    rc=0
     auto_submit_packages=${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}
     for package in $auto_submit_packages; do
-        handle_auto_submit "$package"
+        handle_auto_submit "$package" || rc=$?
         # delete package from staging project
         [[ $from_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
     done
+    exit "$rc"
 )
