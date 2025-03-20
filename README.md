@@ -227,6 +227,12 @@ It will be automatically cloned.
 
     make checkstyle
 
+Run
+
+    make shfmt
+
+to automatically format shell files.
+
 #### openqa-label-known-issues
 Generate a list of recent incomplete jobs of your local openQA instance. Here's an example using `psql`:
 

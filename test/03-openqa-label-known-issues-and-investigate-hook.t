@@ -3,7 +3,7 @@
 source test/init
 
 plan tests 22
-dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 source "$dir/../openqa-label-known-issues-and-investigate-hook"
 client_args=(api --host "$host_url")
@@ -65,7 +65,6 @@ is "$rc" 0 'successful hook (126)'
 has "$got" "- openqa-label-known-issues"
 has "$got" "- openqa-investigate"
 has "$got" "- openqa-trigger-bisect-jobs"
-
 
 export INVESTIGATE_FAIL=true
 try hook 123

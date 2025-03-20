@@ -19,7 +19,7 @@ try runcli success a b c
 is $rc 0 "runcli success"
 is "$got" "SUCCESS a b c" "runcli successful output"
 
-caller() ( builtin caller 2 )
+caller() (builtin caller 2)
 try runcli failure a b c
 unset -f caller
 is $rc 23 "runcli failure"
