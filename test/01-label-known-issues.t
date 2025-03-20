@@ -17,9 +17,9 @@ logfile2=$dir/data/01-os-autoinst.txt.2
 logfile3=$dir/data/01-os-autoinst.txt.3
 
 try-client-output() {
-  out=$logfile1
-  client_output=''
-  try "$*"' && echo "$client_output"'
+    out=$logfile1
+    client_output=''
+    try "$*"' && echo "$client_output"'
 }
 
 try-client-output comment_on_job 123 Label
@@ -74,7 +74,7 @@ client_args=(api --host http://localhost)
 testurl=https://openqa.opensuse.org/api/v1/jobs/2291399
 group_id=24
 job_data='{"job": {"name": "foo", "result": "failed"}}'
-out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "" "$job_data" 2>&1 >/dev/null) || true
+out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "" "$job_data" 2>&1 > /dev/null) || true
 has "$out" 'Subject: Unreviewed issue (Group 24 openQA)' "send-email subject like expected"
 has "$out" 'From: openqa-label-known-issues <foo@bar>' "send-email from called like expected"
 has "$out" 'To: dummy@example.com.dummy' "send-email to like expected"
@@ -83,15 +83,15 @@ has "$out" 'Content-Type: text/html' 'mail has text part'
 has "$out" 'Content-Type: text/plain' 'mail has HTML part'
 has "$out" '<li>Name: foo' 'mail contains job name'
 
-out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 >/dev/null) || true
+out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "null" true "$from_email" 2>&1 > /dev/null) || true
 is "$out" '' "send-email not called for group_id null"
 
 group_id=25
-out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 >/dev/null) || true
+out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" 2>&1 > /dev/null) || true
 is "$out" '' "send-email not called for no email address and no fallback address"
 
 notification_address=fallback@example.com
-out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" "$job_data" 2>&1 >/dev/null) || true
+out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "$from_email" "$notification_address" "$job_data" 2>&1 > /dev/null) || true
 has "$out" 'To: fallback@example.com' "send-email to like expected"
 has "$out" 'Subject: Unreviewed issue (Group 25 Lala)' "send-email subject like expected"
 
@@ -100,5 +100,5 @@ send-email() {
     echo "$mailto" >&2
     echo "$email" >&2
 }
-out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "" "" "$job_data" ) || true
+out=$(handle_unreviewed "$testurl" "$logfile1" "no reason" "$group_id" true "" "" "$job_data") || true
 like "$out" "\[$testurl\].*Unknown test issue, to be reviewed"
