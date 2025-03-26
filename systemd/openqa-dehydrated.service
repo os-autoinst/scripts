@@ -1,0 +1,9 @@
+[Unit]
+Description=Renewal openQA certificates.
+After=network.target nginx.service
+Requires=network.target
+Wants=openqa-setup-db.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/dehydrated --cron | /opt/os-autoinst-scripts/filter-dehydrated-cron-output

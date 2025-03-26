@@ -1,0 +1,10 @@
+[Unit]
+Description=Renewal openQA certificates.
+
+[Timer]
+OnCalendar=*-*-* 05:05:00
+Restart=on-failure
+Unit=openqa-dehydrated.service
+
+[Install]
+WantedBy=timers.target
