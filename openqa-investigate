@@ -12,6 +12,7 @@ set -euo pipefail
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
 host_url="$scheme://$host"
+investigation_gid=${investigation_gid:-0}
 dry_run="${dry_run:-"0"}"
 verbose="${verbose:-"false"}"
 prio_add="${prio_add:-"100"}"
@@ -50,7 +51,7 @@ clone() {
     base_name="$(echo "$clone_job_data" | runjq -r '.job.test')" || return $?
     name="$base_name:investigate$name_suffix"
     base_prio=$(echo "$clone_job_data" | runjq -r '.job.priority') || return $?
-    clone_settings=('_TRIGGER_JOB_DONE_HOOK=1' '_GROUP_ID=0' 'BUILD=')
+    clone_settings=('_TRIGGER_JOB_DONE_HOOK=1' "_GROUP_ID=$investigation_gid" 'BUILD=')
     if [[ $refspec ]]; then
         vars_json=$(fetch-vars-json "$origin")
         testgiturl=$(echo "$vars_json" | runjq -r '.TEST_GIT_URL')
