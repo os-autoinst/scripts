@@ -18,11 +18,20 @@ XMLSTARLET=$(command -v xmlstarlet || true)
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
 
+encode_variable() {
+    #  https://stackoverflow.com/a/298258
+    perl -MURI::Escape -e 'print uri_escape($ARGV[0])' "$1"
+}
+
 factory_request() {
-    local package=$1
+    local submit_target=$1
+    local dst_project=$2
+    submit_target=$(encode_variable "$submit_target")
+    dst_project=$(encode_variable "$dst_project")
+    local package=$3
     # writing xpath in url encoding is not for beginners, so don't stare at it too long :)
     local states='(state%2F%40name%3D%27declined%27%20or%20state%2F%40name%3D%27new%27%20or%20state%2F%40name%3D%27review%27)'
-    local actions="(action%2Ftarget%2F%40project%3D%27openSUSE%3AFactory%27%20and%20action%2Fsource%2F%40project%3D%27devel%3AopenQA%3Atested%27%20and%20action%2Ftarget%2F%40package%3D%27$package%27)"
+    local actions="(action%2Ftarget%2F%40project%3D%27${submit_target}%27%20and%20action%2Fsource%2F%40project%3D%27${dst_project}%27%20and%20action%2Ftarget%2F%40package%3D%27$package%27)"
     $osc api "/search/request/id?match=$states%20and%20$actions" | grep 'request id' | sed -e 's,.*id=.\([0-9]*\)[^[0-9]*$,\1,' | head -n 1
 }
 
@@ -80,7 +89,7 @@ update_package() {
     $osc ci -m "Offline generation of ${version}" $ci_args
     wait_for_package_build
     cmd="$osc sr"
-    req=$(factory_request "$package" || :)
+    req=$(factory_request "$submit_target" "$dst_project" "$package" || :)
     # TODO: check if it's a different revision than HEAD
     if test -n "$req"; then
         cmd="$cmd -s $req"
@@ -173,37 +182,76 @@ handle_auto_submit() {
     )
 }
 
-prefix="${prefix:-""}"
-[ "$dry_run" = "1" ] && prefix="echo"
-osc="${osc:-"$prefix retry -e -- osc"}"
+get_project_packages() {
+    echo "${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}"
+}
 
-# submit from staging project if specified
-[[ $staging_project && $staging_project != none && $staging_project != "$src_project" ]] && src_project=$staging_project from_staging=1
+has_pending_submission() {
+    # throttle number of submissions to allow only one SR within a certain number of days
+    # note: Avoid using `grep --quiet` here to keep consuming input so osc does not run into "BrokenPipeError: [Errno 32] Broken pipe".
+    if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep 'Created by' > /dev/null; then
+        echo "Skipping submission, there is still a pending SR younger than $throttle_days days."
+        return 1
+    fi
+    return 0
+}
 
-if [[ -e job_post_skip_submission ]]; then
-    echo "Skipping submission, reason: "
-    cat job_post_skip_submission
-    exit 0
-fi
+is_staging_specified() {
+    [[ -n $staging_project && $staging_project != none && $staging_project != "$src_project" ]] && (
+        src_project="$staging_project"
+        from_staging=1
+    ) || from_staging=0
+}
 
-# throttle number of submissions to allow only one SR within a certain number of days
-# note: Avoid using `grep --quiet` here to keep consuming input so osc does not run into "BrokenPipeError: [Errno 32] Broken pipe".
-if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep 'Created by' > /dev/null; then
-    echo "Skipping submission, there is still a pending SR younger than $throttle_days days."
-    exit 0
-fi
+submit_from_staging() {
+    # submit from staging project if specified
+    is_staging_specified
+    if [[ -e job_post_skip_submission ]]; then
+        echo "Skipping submission, reason: "
+        cat job_post_skip_submission
+        exit 0
+    fi
+    has_pending_submission || exit 0
+    (
+        cd "$TMPDIR"
+        rc=0
+        auto_submit_packages=$(get_project_packages)
+        for package in $auto_submit_packages; do
+            handle_auto_submit "$package" || rc=$?
+            # delete package from staging project
+            [[ ${from_staging:-0} -eq 1 ]] \
+                && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
+        done
+        exit "$rc"
+    )
+}
+
+submit_from_factory() {
+    (
+        cd "$TMPDIR"
+        rc=0
+        auto_submit_packages=$(get_project_packages)
+        for package in $auto_submit_packages; do
+            handle_auto_submit "$package" || rc=$?
+        done
+        exit "$rc"
+    )
+}
+
+main() {
+    if [[ $submit_target == 'openSUSE:Factory' ]]; then
+        submit_from_staging
+    else
+        submit_from_factory
+    fi
+
+}
 
 TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
 trap 'rm -rf "$TMPDIR"' EXIT
 
-(
-    cd "$TMPDIR"
-    rc=0
-    auto_submit_packages=${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}
-    for package in $auto_submit_packages; do
-        handle_auto_submit "$package" || rc=$?
-        # delete package from staging project
-        [[ $from_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
-    done
-    exit "$rc"
-)
+prefix="${prefix:-""}"
+[ "$dry_run" = "1" ] && prefix="echo"
+osc="${osc:-"$prefix retry -e -- osc"}"
+
+caller 0 > /dev/null || main "$@"
