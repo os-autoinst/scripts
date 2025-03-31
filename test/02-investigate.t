@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 88
+plan tests 90
 
 host=localhost
 url=https://localhost
@@ -87,6 +87,9 @@ client-get-job() {
         30032)
             echo '{"job": { "test": "vim:investigate:retry", "result": "passed", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "3003"} } }'
             ;;
+        10035)
+            echo '{"job": { "test": "vim", "result": "failed", "parent_group": "foo", "group": "bar", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "10035"} } }'
+            ;;
         404)
             echo '404 Not Found'
             ;;
@@ -132,6 +135,9 @@ client-get-job-comments() {
         10032)
             echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Starting investigation for job 10032"}]'
             ;;
+        10035)
+            echo '[{"id": 1236, "text":"Starting investigation for job 10035"}]'
+            ;;
         3000)
             echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30001\n*a:investigate:last_good_tests:coffee*: t#30002\n*a:investigate:last_good_build:2001*: t#30003\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30004"}]'
             ;;
@@ -158,6 +164,9 @@ client-post-job-comment() {
             ;;
         10032)
             echo '{"id": 1237}'
+            ;;
+        10035)
+            echo '{"id": 1236}'
             ;;
         3000)
             warn "Commenting 3000 ($@)"
@@ -210,6 +219,9 @@ get-dependencies-ajax() {
             # job with cancelled job in the cluster (should be treated like a done job)
             echo '{"cluster":{"cluster_foo":[10028,10031],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"cancelled","result":"none"},{"id":10031,"state":"done","result":"failed"}]}'
             ;;
+        10035)
+            echo '{"cluster":{},"edges":[], "nodes":[{"id":10035,"state":"cancelled","result":"none"}]}'
+            ;;
         *)
             echo '{"debug": "get-dependencies-ajax '"$tid"'"}'
             ;;
@@ -254,6 +266,18 @@ has "$got" 'WORKER_CLASS:vim=foo,duh,bar' "job assigns the WORKER_CLASS only to 
 
 try clone 10021 10030 last_good_tests_and_build:123 refspec
 has "$got" 'unidentified worker class in vars.json' "info shown in the name is WORKER_CLASS is empty"
+
+curl() {
+    if [[ "$@" =~ investigation_ajax ]]; then
+        echo -n '{ }'$'\n'200
+    else
+        echo -n 200
+    fi
+}
+
+try investigation_gid=888 investigate 10035
+is "$rc" 0 'success when clone with non-default _GROUP_ID'
+has "$got" "_GROUP_ID=888" "clone with correct group_id"
 
 clone_call=echo
 try investigate 10027
