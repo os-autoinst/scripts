@@ -7,7 +7,7 @@ src_project=${src_project:-devel:openQA}
 dst_project=${dst_project:-${src_project}:tested}
 staging_project=${staging_project:-${src_project}:testing}
 submit_target="${submit_target:-"openSUSE:Factory"}"
-submit_target_escaped=$(echo -n "$submit_target" | sed -e 's|\:|_|g') # avoid, e.g. "repoid 'openSUSE:Factory' is illegal"
+submit_target_extra="${submit_target_extra:-}"
 dry_run="${dry_run:-"0"}"
 osc_poll_interval="${osc_poll_interval:-2}"
 osc_build_start_poll_tries="${osc_build_start_poll_tries:-30}"
@@ -18,11 +18,23 @@ XMLSTARLET=$(command -v xmlstarlet || true)
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
 
-factory_request() {
-    local package=$1
+IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
+failed_packages=()
+
+encode_variable() {
+    #  https://stackoverflow.com/a/298258
+    perl -MURI::Escape -e 'print uri_escape($ARGV[0])' "$1"
+}
+
+get_obs_sr_id() {
+    local target=$1
+    local dst_project=$2
+    target=$(encode_variable "$target")
+    dst_project=$(encode_variable "$dst_project")
+    local package=$3
     # writing xpath in url encoding is not for beginners, so don't stare at it too long :)
     local states='(state%2F%40name%3D%27declined%27%20or%20state%2F%40name%3D%27new%27%20or%20state%2F%40name%3D%27review%27)'
-    local actions="(action%2Ftarget%2F%40project%3D%27openSUSE%3AFactory%27%20and%20action%2Fsource%2F%40project%3D%27devel%3AopenQA%3Atested%27%20and%20action%2Ftarget%2F%40package%3D%27$package%27)"
+    local actions="(action%2Ftarget%2F%40project%3D%27${target}%27%20and%20action%2Fsource%2F%40project%3D%27${dst_project}%27%20and%20action%2Ftarget%2F%40package%3D%27$package%27)"
     $osc api "/search/request/id?match=$states%20and%20$actions" | grep 'request id' | sed -e 's,.*id=.\([0-9]*\)[^[0-9]*$,\1,' | head -n 1
 }
 
@@ -31,7 +43,9 @@ reenable_buildtime_services() {
 }
 
 wait_for_package_build() {
-    local osc_query="https://api.opensuse.org/public/build/$dst_project/_result?repository=$submit_target_escaped&package=$package"
+    local target=$1
+    target_escaped=$(echo -n "$target" | sed -e 's|\:|_|g') # avoid, e.g. "repoid 'openSUSE:Factory' is illegal"
+    local osc_query="https://api.opensuse.org/public/build/$dst_project/_result?repository=$target_escaped&package=$package"
     local wip_states='\(unknown\|blocked\|scheduled\|dispatching\|building\|signing\|finished\)'
     local bad_states='\(failed\|unresolvable\|broken\)'
     local attempts="$osc_build_start_poll_tries"
@@ -78,14 +92,21 @@ update_package() {
     # in this package/container. So add some text.
     sed -i -e 's/^  \* $/  * Update to latest openQA version/' ./*.changes
     $osc ci -m "Offline generation of ${version}" $ci_args
-    wait_for_package_build
-    cmd="$osc sr"
-    req=$(factory_request "$package" || :)
-    # TODO: check if it's a different revision than HEAD
-    if test -n "$req"; then
-        cmd="$cmd -s $req"
-    fi
-    $cmd -m "Update to ${version}" "$submit_target"
+    rc=0
+    for target in "${targets[@]}"; do
+        wait_for_package_build "$target"
+        cmd="$osc sr"
+        req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
+        # TODO: check if it's a different revision than HEAD
+        if test -n "$req"; then
+            cmd="$cmd -s $req"
+        fi
+        if ! $cmd -m "Update to ${version}" "$target"; then
+            rc=$?
+            failed_packages+=("$package:$rc")
+        fi
+    done
+    return $rc
 }
 
 last_revision() {
@@ -110,9 +131,9 @@ last_revision() {
 sync_changesrevision() {
     dir=$1
     package=$2
-    factory_rev=$3
+    target_rev=$3
     path="$dir/$package"
-    $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$factory_rev" "$path"/_servicedata
+    $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$target_rev" "$path"/_servicedata
     if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
         $osc up "$path"
         $osc cat "$submit_target" "$package" "$package".changes > "$path/$package".changes
@@ -156,9 +177,9 @@ handle_auto_submit() {
             return
         fi
     else
-        factory_rev=$(last_revision "$submit_target" "$package")
-        sync_changesrevision "$src_project" "$package" "$factory_rev"
-        if [[ "$factory_rev" == "$(last_revision "$src_project" "$package")" ]]; then
+        target_rev=$(last_revision "$submit_target" "$package")
+        sync_changesrevision "$src_project" "$package" "$target_rev"
+        if [[ "$target_rev" == "$(last_revision "$src_project" "$package")" ]]; then
             echo "Latest revision already in $submit_target"
             return
         fi
@@ -173,37 +194,63 @@ handle_auto_submit() {
     )
 }
 
-prefix="${prefix:-""}"
-[ "$dry_run" = "1" ] && prefix="echo"
-osc="${osc:-"$prefix retry -e -- osc"}"
+get_project_packages() {
+    echo "${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}"
+}
 
-# submit from staging project if specified
-[[ $staging_project && $staging_project != none && $staging_project != "$src_project" ]] && src_project=$staging_project from_staging=1
+has_pending_submission() {
+    # throttle number of submissions to allow only one SR within a certain number of days
+    # note: Avoid using `grep --quiet` here to keep consuming input so osc does not run into "BrokenPipeError: [Errno 32] Broken pipe".
+    if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep 'Created by' > /dev/null; then
+        echo "Skipping submission, there is still a pending SR younger than $throttle_days days."
+        return 1
+    fi
+    return 0
+}
 
-if [[ -e job_post_skip_submission ]]; then
-    echo "Skipping submission, reason: "
-    cat job_post_skip_submission
-    exit 0
-fi
+is_staging_specified() {
+    if [[ -n $staging_project && $staging_project != none && $staging_project != "$src_project" ]]; then
+        src_project="$staging_project"
+        return 0
+    else
+        return 1
+    fi
+}
 
-# throttle number of submissions to allow only one SR within a certain number of days
-# note: Avoid using `grep --quiet` here to keep consuming input so osc does not run into "BrokenPipeError: [Errno 32] Broken pipe".
-if [[ $throttle_days != 0 ]] && $osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days" | grep 'Created by' > /dev/null; then
-    echo "Skipping submission, there is still a pending SR younger than $throttle_days days."
-    exit 0
-fi
+submit() {
+    # submit from staging project if specified
+    if [[ -e job_post_skip_submission ]]; then
+        echo "Skipping submission, reason: "
+        cat job_post_skip_submission
+        exit 0
+    fi
+    has_pending_submission || exit 0
+    (
+        cd "$TMPDIR"
+        rc=0
+        auto_submit_packages=$(get_project_packages)
+        for package in $auto_submit_packages; do
+            handle_auto_submit "$package" || rc=$?
+        done
+        # delete package from staging project
+        is_staging_specified && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
+        if [[ ${#failed_packages[@]} -gt 0 ]]; then
+            echo "Failed packages:"
+            for item in "${failed_packages[@]}"; do
+                package=${item%:*}
+                exit_status=${item#*:}
+                echo "- $package (exit status: $exit_status)"
+            done
+        fi
+        exit "$rc"
+    )
+}
 
 TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
 trap 'rm -rf "$TMPDIR"' EXIT
 
-(
-    cd "$TMPDIR"
-    rc=0
-    auto_submit_packages=${packages:-$($osc ls "$dst_project" | grep -v '\-test$')}
-    for package in $auto_submit_packages; do
-        handle_auto_submit "$package" || rc=$?
-        # delete package from staging project
-        [[ $from_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
-    done
-    exit "$rc"
-)
+prefix="${prefix:-""}"
+[ "$dry_run" = "1" ] && prefix="echo"
+osc="${osc:-"$prefix retry -e -- osc"}"
+
+caller 0 > /dev/null || submit "$@"
