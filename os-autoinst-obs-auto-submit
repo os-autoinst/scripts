@@ -18,6 +18,8 @@ XMLSTARLET=$(command -v xmlstarlet || true)
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
 
+current_prj="${submit_target_extra%:*}"
+submit_target_extra=$(osc dists | grep "$current_prj" | awk '{print $4}' | sort --version-sort | tail -n 1)
 IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
 failed_packages=()
 
