@@ -264,6 +264,11 @@ def main(args):
         if re.search(exclude_group_regex, full_group):
             return
 
+    exclude_name_regex = os.environ.get("exclude_name_regex", "")
+    if len(exclude_name_regex) > 0 and re.search(exclude_name_regex, job["test"]):
+        log.debug("job name '%s' matches 'exclude_name_regex', skipping" % job["test"])
+        return
+
     log.debug("Received job data: %s" % test_data)
     test = job["settings"]["TEST"]
     prio = int(job["priority"]) + args.priority_add
