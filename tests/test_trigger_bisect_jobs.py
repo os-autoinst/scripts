@@ -7,7 +7,6 @@ import importlib.machinery
 import importlib.util
 import json
 import os.path
-import sys
 import re
 from unittest.mock import MagicMock, call, patch
 from urllib.parse import urlparse
@@ -69,17 +68,16 @@ cmds = [
     "OPENQA_INVESTIGATE_ORIGIN=https://openqa.opensuse.org/tests/7848818",
 ]
 
+
 def test_catch_CalledProcessError(caplog):
     import subprocess
+
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-    cmd_args = ["openqa-clone-job"]
     exp_err = "returned non-zero exit status 255."
     error = subprocess.CompletedProcess(
-        args=[], returncode=255,
-        stderr=exp_err,
-        stdout=''
+        args=[], returncode=255, stderr=exp_err, stdout=""
     )
     with patch("subprocess.run", return_value=error):
         with pytest.raises(subprocess.CalledProcessError) as e:
@@ -89,18 +87,20 @@ def test_catch_CalledProcessError(caplog):
     assert f"{exp_err}" in str(e.value.stderr)
 
     exp_err = "Current job 7848818 will fail, because the repositories for the below updates are unavailable"
-    error.stderr=exp_err
+    error.stderr = exp_err
     comment_process = subprocess.CompletedProcess(
-        args=[], returncode=0,
-        stderr='',
-        stdout=b'doo'
+        args=[], returncode=0, stderr="", stdout=b"doo"
     )
     with patch("subprocess.run", side_effect=[error, comment_process]) as mocked:
         with pytest.raises(SystemExit) as e:
             openqa.main(args)
-        assert re.search("jobs/.*/comments.*text=.*updates are unavailable", str(mocked.call_args_list[-1][0]))
+        assert re.search(
+            "jobs/.*/comments.*text=.*updates are unavailable",
+            str(mocked.call_args_list[-1][0]),
+        )
     assert e.value.code == 0
     assert f"{exp_err}" in caplog.text
+
 
 def test_clone():
     openqa.call = MagicMock(side_effect=mocked_call)
@@ -165,8 +165,8 @@ def test_triggers():
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
     openqa.openqa_clone = MagicMock(return_value='{"7848818": 234567}')
-    openqa.openqa_comment = MagicMock(return_value='')
-    openqa.openqa_set_job_prio = MagicMock(return_value='')
+    openqa.openqa_comment = MagicMock(return_value="")
+    openqa.openqa_set_job_prio = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
     openqa.main(args)
     calls = [
@@ -325,7 +325,7 @@ def test_network_problems():
     try:
         openqa.main(args)
         assert False
-    except requests.exceptions.ConnectionError as e:
+    except requests.exceptions.ConnectionError:
         assert True
 
 
