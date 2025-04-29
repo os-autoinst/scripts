@@ -13,6 +13,13 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 
+"""
+Trigger openQA tests bisecting which pending operating system maintenance
+update, called "incident", might be thea reason for an openQA test failure.
+Can be called manually and is also called by openQA hook scripts, see
+http://open.qa/docs/#_enable_custom_hook_scripts_on_job_done_based_on_result
+"""
+
 USER_AGENT = 'openqa-trigger-bisect-jobs (https://github.com/os-autoinst/scripts)'
 
 logging.basicConfig()
