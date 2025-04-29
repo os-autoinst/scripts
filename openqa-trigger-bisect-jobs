@@ -262,7 +262,13 @@ def main(args):
         if "parent_group" in job:
             full_group = "%s / %s" % (job["parent_group"], full_group)
         if re.search(exclude_group_regex, full_group):
+            log.debug("job group '%s' matches 'exclude_group_regex', skipping" % full_group)
             return
+
+    exclude_name_regex = os.environ.get("exclude_name_regex", "")
+    if len(exclude_name_regex) > 0 and re.search(exclude_name_regex, job["test"]):
+        log.debug("job name '%s' matches 'exclude_name_regex', skipping" % job["test"])
+        return
 
     log.debug("Received job data: %s" % test_data)
     test = job["settings"]["TEST"]
