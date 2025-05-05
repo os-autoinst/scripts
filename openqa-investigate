@@ -11,7 +11,7 @@ set -euo pipefail
 
 host="${host:-"openqa.opensuse.org"}"
 scheme="${scheme:-"https"}"
-host_url="$scheme://$host"
+host_url=${host_url:-"$scheme://$host"}
 investigation_gid=${investigation_gid:-0}
 dry_run="${dry_run:-"0"}"
 verbose="${verbose:-"false"}"
