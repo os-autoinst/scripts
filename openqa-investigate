@@ -374,7 +374,15 @@ investigate() {
     comment_id=$(sync_via_investigation_comment "$id" "$first_cluster_job_id") || rc=$?
     [[ $rc != 255 ]] && return $rc
 
-    out=$(trigger_jobs "$id" "${@:2}") || return $?
+    out=""
+    if ! out=$(trigger_jobs "$id" "${@:2}" 2>&1); then
+        local comment="Triggering investigation jobs failed: $out"
+        echoerr "Unexpected error encountered when trigger job $id: '$out'"
+        client-put-job-comment "$first_cluster_job_id" "$comment_id" "$comment"
+        return 1
+    fi
+
+    echo "$out"
     $verbose && echo "$0, id: '$id', out: '$out'"
     finalize_investigation_comment "$id" "$first_cluster_job_id" "$comment_id" "$out"
 }
