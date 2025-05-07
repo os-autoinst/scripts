@@ -13,7 +13,7 @@ osc_poll_interval="${osc_poll_interval:-2}"
 osc_build_start_poll_tries="${osc_build_start_poll_tries:-30}"
 throttle_days=${throttle_days:-2}
 XMLSTARLET=$(command -v xmlstarlet || true)
-[[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" && exit 1)
+[[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" >&2 && exit 1)
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
