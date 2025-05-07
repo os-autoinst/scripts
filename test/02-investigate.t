@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 90
+plan tests 93
 
 host=localhost
 url=https://localhost
@@ -283,6 +283,16 @@ clone_call=echo
 try investigate 10027
 is "$rc" 0 'success regardless of actually triggered jobs'
 is "$got" "Job 10027 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
+
+trigger_jobs() {
+    echo "simulated failure from trigger_jobs" >&2
+    return 1
+}
+
+try force=true investigate 10035
+is "$rc" 1 'investigate fails when trigger_jobs fails'
+has "$got" "Unexpected error encountered when trigger job 10035" "error message contains job id"
+has "$got" "simulated failure from trigger_jobs" "original error message from trigger_jobs included"
 
 try force=true investigate 10028
 is "$rc" 0 'still success when job is skipped (because of exclude_no_group)'
