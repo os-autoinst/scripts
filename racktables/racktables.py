@@ -14,20 +14,21 @@ class Racktables:
         self.url = url
 
     def search(self, search_payload={}):
-        params="&".join("%s=%s" % (k, v) for k, v in search_payload.items())
-        req = self.s.get(
-            join(self.url, "index.php"),
-            params=params
-        )
+        params = "&".join("%s=%s" % (k, v) for k, v in search_payload.items())
+        req = self.s.get(join(self.url, "index.php"), params=params)
         status = req.status_code
         if status == 401:
-          raise Exception("Racktables returned 401 Unauthorized. Are your credentials correct?")
+            raise Exception(
+                "Racktables returned 401 Unauthorized. Are your credentials correct?"
+            )
         elif status >= 300:
-          raise Exception(f"Racktables returned statuscode {status} while trying to access {req.request.url}. Manual investigation needed.")
+            raise Exception(
+                f"Racktables returned statuscode {status} while trying to access {req.request.url}. Manual investigation needed."
+            )
         soup = BeautifulSoup(req.text, "html.parser")
         result_table = soup.find("table", {"class": "cooltable"})
         result_objs = result_table.find_all(
-            "tr", lambda tag: tag != None
+            "tr", lambda tag: tag is not None
         )  # Racktables does not use table-heads so we have to filter the header out (it has absolutely no attributes)
         return result_objs
 
@@ -49,5 +50,5 @@ class RacktablesObject:
                 value = row.find("td").text
                 sane_name = re.sub(r"[^a-z_]+", "", name.lower().replace(" ", "_"))
                 setattr(self, sane_name, value)
-            except Exception as e:
+            except Exception:
                 pass

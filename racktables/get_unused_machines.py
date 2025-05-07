@@ -32,5 +32,5 @@ for result_obj in results:
     obj.from_path(url_path)
     try:
         print(obj.fqdn, flush=True)
-    except:
+    except Exception:
         print(obj.common_name, flush=True)
