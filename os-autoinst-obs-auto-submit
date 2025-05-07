@@ -7,7 +7,7 @@ src_project=${src_project:-devel:openQA}
 dst_project=${dst_project:-${src_project}:tested}
 staging_project=${staging_project:-${src_project}:testing}
 submit_target="${submit_target:-"openSUSE:Factory"}"
-submit_target_extra="${submit_target_extra:-"openSUSE:Backports:SLE-15-SP6:Update"}"
+submit_target_extra_project="${submit_target_extra_project:-"openSUSE:Backports"}"
 dry_run="${dry_run:-"0"}"
 osc_poll_interval="${osc_poll_interval:-2}"
 osc_build_start_poll_tries="${osc_build_start_poll_tries:-30}"
@@ -16,8 +16,20 @@ XMLSTARLET=$(command -v xmlstarlet || true)
 [[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" >&2 && exit 1)
 
 # shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
+. "$(dirname "${BASH_SOURCE[0]}")"/_common
 
+get_submit_target_extra_latest_version() {
+    # awk iterates through all the fields in the match to avoid fixed position
+    # and it should match with the part which starts with `submit_target_extra_project`+`:`
+    latest_submit_target_extra_version=$(osc dists | grep "$submit_target_extra_project" | awk -v prj="$submit_target_extra_project" '{for (i=1; i<=NF; i++) if ($i ~ "^" prj ":") print $i}' | sort --version-sort | tail -n 1)
+    if [[ -z $latest_submit_target_extra_version ]]; then
+        echo "Project not found." && return 1
+    fi
+    # Notice that the :Update doesn't come from osc output
+    echo "$latest_submit_target_extra_version:Update"
+}
+
+submit_target_extra="{submit_target_extra:-get_submit_target_extra_latest_version}"
 IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
 failed_packages=()
 
@@ -96,6 +108,7 @@ update_package() {
     wait_for_package_build "$submit_target"
     for target in "${targets[@]}"; do
         cmd="$osc sr"
+        echo "## Ready to submit $package to $target ##"
         req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
         # TODO: check if it's a different revision than HEAD
         if test -n "$req"; then
