@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 90
+plan tests 92
 
 host=localhost
 url=https://localhost
@@ -90,6 +90,9 @@ client-get-job() {
         10035)
             echo '{"job": { "test": "vim", "result": "failed", "parent_group": "foo", "group": "bar", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "10035"} } }'
             ;;
+        10036)
+            echo '{"job": { "test": "vim", "result": "failed", "parent_group": "foo", "group": "nobar" } }'
+            ;;
         404)
             echo '404 Not Found'
             ;;
@@ -138,6 +141,9 @@ client-get-job-comments() {
         10035)
             echo '[{"id": 1236, "text":"Starting investigation for job 10035"}]'
             ;;
+        10036)
+            echo '[{"id": 1236, "text":"Triggering investigation jobs failed"}]'
+            ;;
         3000)
             echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30001\n*a:investigate:last_good_tests:coffee*: t#30002\n*a:investigate:last_good_build:2001*: t#30003\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30004"}]'
             ;;
@@ -166,6 +172,9 @@ client-post-job-comment() {
             echo '{"id": 1237}'
             ;;
         10035)
+            echo '{"id": 1236}'
+            ;;
+        10036)
             echo '{"id": 1236}'
             ;;
         3000)
@@ -220,6 +229,9 @@ get-dependencies-ajax() {
             echo '{"cluster":{"cluster_foo":[10028,10031],"cluster_bar":[29]}, "edges":[], "nodes":[{"id":10028,"state":"cancelled","result":"none"},{"id":10031,"state":"done","result":"failed"}]}'
             ;;
         10035)
+            echo '{"cluster":{},"edges":[], "nodes":[{"id":10035,"state":"cancelled","result":"none"}]}'
+            ;;
+        10036)
             echo '{"cluster":{},"edges":[], "nodes":[{"id":10035,"state":"cancelled","result":"none"}]}'
             ;;
         *)
@@ -283,6 +295,10 @@ clone_call=echo
 try investigate 10027
 is "$rc" 0 'success regardless of actually triggered jobs'
 is "$got" "Job 10027 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
+
+try investigation_gid=888 investigate 10036
+is "$rc" 1 'When Triggering investigation jobs failed to run'
+has "$got" "Unexpected error encountered when trigger job"
 
 try force=true investigate 10028
 is "$rc" 0 'still success when job is skipped (because of exclude_no_group)'
