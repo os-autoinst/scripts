@@ -78,7 +78,7 @@ exp_retry() {
         return 1
     fi
     wait_sec=$((2 ** exponent))
-    warn "Waiting ${wait_sec}s until retry #${stop_exponent}"
+    warn "Waiting ${wait_sec}s until retry #${exponent}"
     sleep "$wait_sec"
 }
 
