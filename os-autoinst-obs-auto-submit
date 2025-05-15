@@ -221,17 +221,12 @@ has_pending_submission() {
     return 0
 }
 
-is_staging_specified() {
-    if [[ -n $staging_project && $staging_project != none && $staging_project != "$src_project" ]]; then
-        src_project="$staging_project"
-        return 0
-    else
-        return 1
-    fi
-}
-
 submit() {
     # submit from staging project if specified
+    if [[ -n $staging_project && $staging_project != none && $staging_project != "$src_project" ]]; then
+        src_project=$staging_project
+        must_cleanup_staging=1
+    fi
     if [[ -e job_post_skip_submission ]]; then
         echo "Skipping submission, reason: "
         cat job_post_skip_submission
@@ -246,7 +241,7 @@ submit() {
             handle_auto_submit "$package" || rc=$?
         done
         # delete package from staging project
-        is_staging_specified && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
+        [[ $must_cleanup_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
         if [[ ${#failed_packages[@]} -gt 0 ]]; then
             echo "Failed packages:"
             for item in "${failed_packages[@]}"; do
