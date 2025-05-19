@@ -18,6 +18,9 @@ obs_component="${obs_component:-"package"}"
 obs_package_name="${1:-""}"
 staging_project=${staging_project:-devel:openQA:testing}
 comment_on_obs=${comment_on_obs:-}
+OPENQA_CLI_RETRIES="${openqa_cli_retries:-7}"
+
+export OPENQA_CLI_RETRIES
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
