@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 93
+plan tests 96
 
 host=localhost
 url=https://localhost
@@ -284,16 +284,6 @@ try investigate 10027
 is "$rc" 0 'success regardless of actually triggered jobs'
 is "$got" "Job 10027 already has a clone, skipping investigation. Use the env variable 'force=true' to trigger investigation jobs"
 
-trigger_jobs() {
-    echo "simulated failure from trigger_jobs" >&2
-    return 1
-}
-
-try force=true investigate 10035
-is "$rc" 1 'investigate fails when trigger_jobs fails'
-has "$got" "Unexpected error encountered when trigger job 10035" "error message contains job id"
-has "$got" "simulated failure from trigger_jobs" "original error message from trigger_jobs included"
-
 try force=true investigate 10028
 is "$rc" 0 'still success when job is skipped (because of exclude_no_group)'
 has "$got" "exclude_no_group is set, skipping investigation"
@@ -492,3 +482,23 @@ ok "$([[ -s $comment_1234_updated ]])" \
     'comment on job 10030 updated'
 ok "$([[ -s $comment_for_job_31_created ]])" \
     'comment on job 10031 created as well'
+
+trigger_jobs() {
+    echo "simulated failure from trigger_jobs" >&2
+    return 1
+}
+
+try investigate 10035
+is "$rc" 1 'investigate fails when trigger_jobs fails'
+has "$got" "Unexpected error encountered when triggering job 10035" "error message contains job id"
+has "$got" "simulated failure from trigger_jobs" "original error message from trigger_jobs included"
+
+trigger_jobs() {
+    echo "Current job 10035 will fail, because the repositories for the below updates are unavailable" >&2
+    return 1
+}
+
+try investigate 10035
+is "$rc" 0 'investigate passes when trigger_jobs fails with known error'
+has "$got" "Ignoring known error when triggering job 10035" "error message contains job id"
+like "$got" "Current job 10035 will fail.*repositories.*available" "Got message about unavailable repositories"
