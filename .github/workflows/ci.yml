@@ -5,7 +5,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - run: |
           pip install --upgrade pip
           pip install pytest mocker pytest-mock
@@ -20,9 +20,11 @@ jobs:
 
   style:
     runs-on: ubuntu-latest
+    container:
+      image: registry.opensuse.org/home/okurz/container/containers/os-autoinst-scripts-devel
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Static checks
         run: |
-         sudo apt-get install yamllint shellcheck shfmt
-         make checkstyle
+          git config --global --add safe.directory .
+          make checkstyle

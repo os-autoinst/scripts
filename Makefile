@@ -1,4 +1,6 @@
+ifndef CI
 include .setup.mk
+endif
 
 ifndef test
 test := test/
@@ -31,7 +33,7 @@ test-online:
 	# Invalid JSON causes the job to abort with an error
 	-tw_openqa_host=example.com dry_run=1 ./trigger-openqa_in_openqa
 
-checkstyle: test-shellcheck test-yaml
+checkstyle: test-shellcheck test-yaml checkstyle-python
 
 shfmt:
 	shfmt -w . $$(file --mime-type test/*.t | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p')
@@ -45,6 +47,10 @@ test-shellcheck:
 test-yaml:
 	@which yamllint >/dev/null 2>&1 || echo "Command 'yamllint' not found, can not execute YAML syntax checks"
 	yamllint --strict $$(git ls-files "*.yml" "*.yaml" ":!external/")
+
+checkstyle-python:
+	@which ruff >/dev/null 2>&1 || echo "Command 'ruff' not found, can not execute python style checks"
+	ruff check
 
 update-deps:
 	tools/update-deps --cpanfile cpanfile --specfile dist/rpm/os-autoinst-scripts-deps.spec
