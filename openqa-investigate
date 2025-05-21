@@ -376,10 +376,16 @@ investigate() {
 
     out=""
     if ! out=$(trigger_jobs "$id" "${@:2}" 2>&1); then
+        rc=1
         local comment="Triggering investigation jobs failed: $out"
-        echoerr "Unexpected error encountered when trigger job $id: '$out'"
+        if [[ $out =~ will\ fail.*repositories.*unavailable ]]; then
+            rc=0
+            echoerr "Ignoring known error when triggering job $id: '$out'"
+        else
+            echoerr "Unexpected error encountered when triggering job $id: '$out'"
+        fi
         client-put-job-comment "$first_cluster_job_id" "$comment_id" "$comment"
-        return 1
+        return $rc
     fi
 
     echo "$out"
