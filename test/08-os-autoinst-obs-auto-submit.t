@@ -4,7 +4,6 @@ source test/init
 bpan:source bashplus +err +fs +sym
 
 plan tests 6
-source os-autoinst-obs-auto-submit
 
 submit_target_extra_project="openSUSE:Backports"
 osc_dists_output='
@@ -22,6 +21,7 @@ osc() {
         return 1
     fi
 }
+source os-autoinst-obs-auto-submit
 
 try get_submit_target_extra_latest_version
 is "$rc" 0 "rc should be 0"
