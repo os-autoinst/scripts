@@ -29,7 +29,7 @@ get_submit_target_extra_latest_version() {
     echo "$latest_submit_target_extra_version:Update"
 }
 
-submit_target_extra="{submit_target_extra:-get_submit_target_extra_latest_version}"
+submit_target_extra=${submit_target_extra:-$(get_submit_target_extra_latest_version)}
 IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
 failed_packages=()
 
