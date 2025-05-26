@@ -16,6 +16,19 @@ osc() {
     if [[ "$1" == "dists" ]]; then
         echo "$osc_dists_output"
         return 0
+    elif [[ "$1" == "meta" ]]; then
+        val="$3"
+        case "${val}" in
+            "openSUSE:Backports:SLE-15-SP6:Update")
+                return 0
+                ;;
+            "openSUSE:Backports:SLE-17-SP5:Update")
+                return 0
+                ;;
+            *)
+                return 1
+                ;;
+        esac
     else
         echo "Not mocked 'osc' call:" "$@" >&2
         return 1
