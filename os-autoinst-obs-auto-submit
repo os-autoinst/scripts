@@ -38,7 +38,8 @@ get_submit_target_extra_latest_version() {
     echo "$latest_submit_target_extra_version:Update"
 }
 
-submit_target_extra=${submit_target_extra:-$(get_submit_target_extra_latest_version)}
+# Use fixed Backport version for now
+submit_target_extra=${submit_target_extra:-"openSUSE:Backports:SLE-15-SP6:Update,Leap:16.0"}
 IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
 failed_packages=()
 
