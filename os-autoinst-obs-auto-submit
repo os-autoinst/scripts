@@ -123,11 +123,6 @@ update_package() {
         if test -n "$req"; then
             cmd="$cmd -s $req"
         fi
-        # Cleanup submissions after acceptance for next call on :tested
-        # projects, e.g. devel:openQA:tested
-        if osc info | grep -q "Project name:.*:tested"; then
-            cmd="$cmd --cleanup"
-        fi
         if ! $cmd -m "Update to ${version}" "$target"; then
             rc=$?
             failed_packages+=("$package:$rc")
