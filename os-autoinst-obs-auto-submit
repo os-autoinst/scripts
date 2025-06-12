@@ -18,27 +18,8 @@ XMLSTARLET=$(command -v xmlstarlet || true)
 # shellcheck source=/dev/null
 . "$(dirname "${BASH_SOURCE[0]}")"/_common
 
-get_submit_target_extra_latest_version() {
-    # awk iterates through all the fields in the match to avoid fixed position
-    # and it should match with the part which starts with `submit_target_extra_project`+`:`
-    version_sorted=$(osc dists | grep "$submit_target_extra_project" | awk -v prj="$submit_target_extra_project" '{for (i=1; i<=NF; i++) if ($i ~ "^" prj ":") print $i}' | sort --version-sort | tac)
-    latest_submit_target_extra_version=''
-    for version in $version_sorted; do
-        # dont need the XML output for checking existence.
-        # if $prj does not exist return 404
-        if osc meta prj "${version}:Update" > /dev/null 2>&1; then
-            latest_submit_target_extra_version=$version && break
-        fi
-    done
-
-    if [[ -z $latest_submit_target_extra_version ]]; then
-        echo "Project not found." && return 1
-    fi
-    # Notice that the :Update doesn't come from osc output
-    echo "$latest_submit_target_extra_version:Update"
-}
-
-submit_target_extra=${submit_target_extra:-$(get_submit_target_extra_latest_version)}
+# Use fixed Backport version for now
+submit_target_extra=${submit_target_extra:-"openSUSE:Backports:SLE-15-SP6:Update,Leap:16.0"}
 IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
 failed_packages=()
 
