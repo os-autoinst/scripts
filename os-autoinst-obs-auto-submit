@@ -19,7 +19,7 @@ XMLSTARLET=$(command -v xmlstarlet || true)
 . "$(dirname "${BASH_SOURCE[0]}")"/_common
 
 # Use fixed Backport version for now
-submit_target_extra=${submit_target_extra:-"openSUSE:Backports:SLE-15-SP6:Update,Leap:16.0"}
+submit_target_extra=${submit_target_extra:-"openSUSE:Backports:SLE-15-SP6:Update,openSUSE:Leap:16.0"}
 IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
 failed_packages=()
 
