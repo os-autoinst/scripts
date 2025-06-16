@@ -31,13 +31,11 @@ encode_variable() {
 get_obs_sr_id() {
     local target=$1
     local dst_project=$2
-    target=$(encode_variable "$target")
-    dst_project=$(encode_variable "$dst_project")
     local package=$3
-    # writing xpath in url encoding is not for beginners, so don't stare at it too long :)
-    local states='(state%2F%40name%3D%27declined%27%20or%20state%2F%40name%3D%27new%27%20or%20state%2F%40name%3D%27review%27)'
-    local actions="(action%2Ftarget%2F%40project%3D%27${target}%27%20and%20action%2Fsource%2F%40project%3D%27${dst_project}%27%20and%20action%2Ftarget%2F%40package%3D%27$package%27)"
-    $osc api "/search/request/id?match=$states%20and%20$actions" | grep 'request id' | sed -e 's,.*id=.\([0-9]*\)[^[0-9]*$,\1,' | head -n 1
+    local states actions
+    states=$(encode_variable "state/@name='declined' or state/@name='new' or state/@name='review'")
+    actions=$(encode_variable "action/target/@project='$target' and action/source/@project='$dst_project' and action/target/@package='$package'")
+    $osc api "/search/request/id?match=($states)%20and%20($actions)" | xmlstarlet sel -t -v "/collection/request/@id"
 }
 
 reenable_buildtime_services() {
