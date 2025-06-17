@@ -35,7 +35,14 @@ main() {
     local qcow build
     download_scenario
     download_latest_published_tumbleweed_image
-    create_devel_openqa_snapshot
+
+    #  Only use devel:openQA:testing for the hourly runs which we monitor
+    # and use for submit requests
+    if [[ $full_run ]]; then
+        staging_project=$src_project
+    else
+        create_devel_openqa_snapshot
+    fi
     trigger
 }
 
