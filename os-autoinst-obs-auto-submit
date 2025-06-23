@@ -230,9 +230,9 @@ submit() {
         auto_submit_packages=$(get_project_packages)
         for package in $auto_submit_packages; do
             handle_auto_submit "$package" || rc=$?
+            # delete package from staging project
+            [[ $must_cleanup_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
         done
-        # delete package from staging project
-        [[ $must_cleanup_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
         if [[ ${#failed_packages[@]} -gt 0 ]]; then
             echo "Failed packages:"
             for item in "${failed_packages[@]}"; do
