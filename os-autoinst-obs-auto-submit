@@ -221,9 +221,9 @@ submit() {
     if [[ -e job_post_skip_submission ]]; then
         echo "Skipping submission, reason: "
         cat job_post_skip_submission
-        exit 0
+        return 0
     fi
-    has_pending_submission || exit 0
+    has_pending_submission || return 0
     (
         cd "$TMPDIR"
         rc=0
@@ -241,8 +241,15 @@ submit() {
                 echo "- $package (exit status: $exit_status)"
             done
         fi
-        exit "$rc"
+        return "$rc"
     )
+}
+
+main() {
+    local rc=0
+    submit "$@" || rc=$?
+    [[ -e job_post_skip_submission ]] || echo cleanup-obs-project devel:openQA:testing 'I am sure'
+    exit "$rc"
 }
 
 TMPDIR=${TMPDIR:-$(mktemp -d -t os-autoinst-obs-auto-submit-XXXX)}
@@ -252,4 +259,4 @@ prefix="${prefix:-""}"
 [ "$dry_run" = "1" ] && prefix="echo"
 osc="${osc:-"$prefix retry -e -- osc"}"
 
-caller 0 > /dev/null || submit "$@"
+caller 0 > /dev/null || main "$@"
