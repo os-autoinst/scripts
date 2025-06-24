@@ -44,7 +44,12 @@ for job_id in $(job_ids job_post_response); do
     fi
 done
 
-[[ ${failed_jobs[*]} ]] || exit 0
+((${#failed_jobs[@]} > 0)) || exit 0
+
+echo "${#failed_jobs[@]} jobs did not pass:"
+for id in "${failed_jobs[@]}"; do
+    echo "$host/t$id"
+done
 
 # delete packages from staging project in error case as we will not continue submitting those packages
 delete_packages_from_obs_project "$staging_project"
@@ -52,6 +57,7 @@ delete_packages_from_obs_project "$staging_project"
 # comment on failed jobs
 [[ $comment_on_obs ]] || exit 1
 
+echo "Posting comment with failed jobs to OBS"
 osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">.*test.* failed.*/\1/p' | while read -r id; do
     osc api -X DELETE /comment/"$id"
 done

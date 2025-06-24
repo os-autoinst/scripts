@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 
 source test/init
-
 plan tests 5
-
-source _common
 
 mock_osc() {
     local cmd=$1
@@ -19,7 +16,6 @@ _request_list() {
 }
 
 osc=mock_osc
-
 source os-autoinst-obs-auto-submit
 
 diag "########### has_pending_submission"
