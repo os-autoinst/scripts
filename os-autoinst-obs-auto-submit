@@ -248,7 +248,7 @@ submit() {
 main() {
     local rc=0
     submit "$@" || rc=$?
-    [[ -e job_post_skip_submission ]] || echo cleanup-obs-project devel:openQA:testing 'I am sure'
+    [[ -e job_post_skip_submission ]] || cleanup-obs-project devel:openQA:testing 'I am sure'
     exit "$rc"
 }
 
