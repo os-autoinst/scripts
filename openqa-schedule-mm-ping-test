@@ -54,7 +54,8 @@ job_templates:
       PARALLEL_WITH: ping_server
 EOF
 
-hdd=$(runcli openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" flavor="$flavor" test="$test_name" latest=1 | runjq -r '.jobs | map(select(.result == "passed")) | map(select(.settings.BUILD | test("^[0-9]+$"))) | max_by(.settings.BUILD) .settings.HDD_1')
+# we expect build numbers in the ISO 8601 format so we're looking for build strings starting with eight latin numerals
+hdd=$(runcli openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" flavor="$flavor" test="$test_name" latest=1 | runjq -r '.jobs | map(select(.result == "passed")) | map(select(.settings.BUILD | test("^[0-9]{8}"))) | max_by(.settings.BUILD) .settings.HDD_1')
 time openqa-cli schedule \
     --monitor \
     --host "$openqa_url" \
