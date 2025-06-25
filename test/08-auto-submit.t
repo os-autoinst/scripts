@@ -18,7 +18,7 @@ _request_list() {
 osc=mock_osc
 source os-autoinst-obs-auto-submit
 
-diag "########### has_pending_submission"
+note "########### has_pending_submission"
 
 throttle_days=0
 try has_pending_submission
@@ -34,4 +34,4 @@ _request_list() {
 }
 try has_pending_submission
 is "$rc" 0 "returns 0 without existing SRs"
-is "$got" "" "no output"
+like "$got" "info.*has_pending_submission" "no output"

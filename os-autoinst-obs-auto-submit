@@ -3,6 +3,7 @@
 set -euo pipefail
 
 export LC_ALL=C
+color=${color:-auto}
 src_project=${src_project:-devel:openQA}
 dst_project=${dst_project:-${src_project}:tested}
 staging_project=${staging_project:-${src_project}:testing}
@@ -47,6 +48,7 @@ reenable_buildtime_services() {
 
 wait_for_package_build() {
     local target=$1
+    log-info "wait_for_package_build $target"
     target_escaped=$(echo -n "$target" | sed -e 's|\:|_|g') # avoid, e.g. "repoid 'openSUSE:Factory' is illegal"
     local osc_query="https://api.opensuse.org/public/build/$dst_project/_result?repository=$target_escaped&package=$package"
     local wip_states='\(unknown\|blocked\|scheduled\|dispatching\|building\|signing\|finished\)'
@@ -54,25 +56,26 @@ wait_for_package_build() {
     local attempts="$osc_build_start_poll_tries"
     while ! curl -sS "$osc_query" | grep -e "$wip_states"; do
         if [[ $attempts -le 0 ]]; then
-            echo "warning: Re-build of $package has not been considered in time (or package has been re-built so fast that we've missed it)"
+            log-warn "Re-build of $package has not been considered in time (or package has been re-built so fast that we've missed it)"
             break
         fi
-        echo "Waiting for re-build of $package to be considered (attempts left: $attempts)"
+        log-info "Waiting for re-build of $package to be considered (attempts left: $attempts)"
         sleep "$osc_poll_interval"
         attempts=$((attempts - 1))
     done
     while curl -sS "$osc_query" | grep -e "$wip_states"; do
-        echo "Waiting while $package is in progress"
+        log-info "Waiting while $package is in progress"
         sleep "$osc_poll_interval"
     done
     if curl -sS "$osc_query" | grep -e "$bad_states"; then
-        echo "Building $package has failed, skipping submission"
+        log-info "Building $package has failed, skipping submission"
         return 1
     fi
 }
 
 update_package() {
-    package=$1
+    log-info "update_package $*"
+    local package=$1
     xmlstarlet ed -L -i "/services/service" --type attr -n mode --value 'disabled' _service
     sed -i -e 's,mode="disabled" mode="disabled",mode="disabled",' _service
     reenable_buildtime_services
@@ -94,12 +97,13 @@ update_package() {
     # We would get an empty changelog when there are no changes to files contained
     # in this package/container. So add some text.
     sed -i -e 's/^  \* $/  * Update to latest openQA version/' ./*.changes
+    $osc status
     $osc ci -m "Offline generation of ${version}" $ci_args
     rc=0
     wait_for_package_build "$submit_target"
     for target in "${targets[@]}"; do
         cmd="$osc sr"
-        echo "## Ready to submit $package to $target ##"
+        log-info "## Ready to submit $package to $target ##"
         req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
         # TODO: check if it's a different revision than HEAD
         if test -n "$req"; then
@@ -114,10 +118,11 @@ update_package() {
 }
 
 last_revision() {
-    project=$1
-    package=$2
-    file=$package.changes
-    service=obs_scm
+    log-info "last_revision $*"
+    local project=$1
+    local package=$2
+    local file=$package.changes
+    local service=obs_scm
     if [[ $project != "$submit_target" ]]; then
         file=_service:$service:$file
     fi
@@ -133,9 +138,10 @@ last_revision() {
 }
 
 sync_changesrevision() {
-    dir=$1
-    package=$2
-    target_rev=$3
+    log-info "sync_changesrevision $*"
+    local dir=$1
+    local package=$2
+    local target_rev=$3
     path="$dir/$package"
     $prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$target_rev" "$path"/_servicedata
     if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
@@ -147,14 +153,15 @@ sync_changesrevision() {
 }
 
 get_spec_changes_in_requirements() {
+    log-info "get_spec_changes_in_requirements $*"
     local package=$1
     local project=$2
     { diff -u "$package-factory.spec" "$project/$package/_service:obs_scm:$package.spec" || :; } | grep '^[+-]Requires'
 }
 
 generate_os-autoinst-distri-opensuse-deps_changelog() {
-    dir=$1
-    package=$2
+    local dir=$1
+    local package=$2
     $osc cat "$submit_target" "$package" "$package".changes > "$package"-factory.changes
     {
         echo "-------------------------------------------------------------------"
@@ -168,7 +175,8 @@ generate_os-autoinst-distri-opensuse-deps_changelog() {
 }
 
 handle_auto_submit() {
-    package=$1
+    log-info "handle_auto_submit $*"
+    local package=$1
     $osc service wait "$src_project" "$package"
     $osc co --server-side-source-service-files "$src_project"/"$package"
     if [[ "$package" == "os-autoinst-distri-opensuse-deps" ]]; then
@@ -177,14 +185,14 @@ handle_auto_submit() {
             # dependency added or removed
             generate_os-autoinst-distri-opensuse-deps_changelog "$src_project" "$package"
         else
-            echo "No dependency changes for $package"
+            log-info "No dependency changes for $package"
             return
         fi
     else
         target_rev=$(last_revision "$submit_target" "$package")
         sync_changesrevision "$src_project" "$package" "$target_rev"
         if [[ "$target_rev" == "$(last_revision "$src_project" "$package")" ]]; then
-            echo "Latest revision already in $submit_target"
+            log-info "Latest revision already in $submit_target"
             return
         fi
     fi
@@ -203,27 +211,29 @@ get_project_packages() {
 }
 
 has_pending_submission() {
-    local out
+    log-info "has_pending_submission()"
+    local requestlist
     # throttle number of submissions to allow only one SR within a certain number of days
     # note: Avoid using `grep --quiet` here to keep consuming input so osc does not run into "BrokenPipeError: [Errno 32] Broken pipe".
     [[ $throttle_days == 0 ]] && return 0
-    out=$($osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days")
-    if echo "$out" | grep 'Created by' > /dev/null; then
-        echo "Skipping submission, there is still a pending SR younger than $throttle_days days."
-        echo "$out"
+    requestlist=$($osc request list --project "$dst_project" --type submit --state new,review --mine --days "$throttle_days")
+    if echo "$requestlist" | grep 'Created by' > /dev/null; then
+        log-info "Skipping submission, there is still a pending SR younger than $throttle_days days."
+        echo "$requestlist"
         return 1
     fi
     return 0
 }
 
 submit() {
+    log-info "submit()"
     # submit from staging project if specified
     if [[ -n $staging_project && $staging_project != none && $staging_project != "$src_project" ]]; then
         src_project=$staging_project
         must_cleanup_staging=1
     fi
     if [[ -e job_post_skip_submission ]]; then
-        echo "Skipping submission, reason: "
+        log-info "Skipping submission, reason: "
         cat job_post_skip_submission
         return 0
     fi
@@ -238,11 +248,11 @@ submit() {
             [[ $must_cleanup_staging ]] && $osc rdelete -m "Cleaning up $package from $staging_project for next submission" "$staging_project" "$package"
         done
         if [[ ${#failed_packages[@]} -gt 0 ]]; then
-            echo "Failed packages:"
+            log-warn "Failed packages:"
             for item in "${failed_packages[@]}"; do
                 package=${item%:*}
                 exit_status=${item#*:}
-                echo "- $package (exit status: $exit_status)"
+                log-warn "- $package (exit status: $exit_status)"
             done
         fi
         return "$rc"

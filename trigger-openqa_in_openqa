@@ -10,6 +10,7 @@ set -euo pipefail
 . "$(dirname "$0")"/_common
 
 # configuration variables with defaults.
+color=${color:-auto}
 target_host="${target_host:-"openqa.opensuse.org"}"
 target_host_proto="${target_host_proto:-"https"}"
 dry_run="${dry_run:-"0"}"
@@ -66,7 +67,7 @@ download_scenario() {
 
 create_snapshots() {
     local package=$1
-    echo "Creating snapshots of $package"
+    log-info "Creating snapshots of $package"
     $osc release --no-delay --target-project "$staging_project" --target-repository=openSUSE_Tumbleweed -r openSUSE_Tumbleweed -a x86_64 "$src_project" "$package"
 }
 
@@ -75,7 +76,7 @@ create_devel_openqa_snapshot() {
     auto_submit_packages=$(list_packages "$dst_project")
     staged_packages=$(list_packages "$staging_project") || true # osc ls returns non-zero return code for empty projects
     if [[ $staged_packages ]]; then
-        echo "Only triggering tests from $src_project (not overriding $staging_project and doing a submission) because openQA-in-openQA tests or a submission is still pending (as $staging_project still contains packages: $staged_packages)" \
+        echo "Only triggering tests from $src_project (not overriding $staging_project and doing a submission) because $staging_project still contains packages: $staged_packages" \
             | tee job_post_skip_submission
         staging_project=$src_project
         staging_group_id=$group_id
@@ -83,7 +84,7 @@ create_devel_openqa_snapshot() {
     elif [[ -e job_post_skip_submission ]]; then
         rm job_post_skip_submission
     fi
-    echo "Checking if all relevant packages are built and published before creating snapshot under $staging_project"
+    log-info "Checking if all relevant packages are built and published before creating snapshot under $staging_project"
     for package in $auto_submit_packages; do
         local state
         state=$($osc results -r openSUSE_Tumbleweed -a x86_64 --no-multibuild "$src_project" "$package")
@@ -94,7 +95,7 @@ create_devel_openqa_snapshot() {
         fi
         create_snapshots "$package"
     done
-    echo "Wait until all packages are published under $staging_project"
+    log-info "Wait until all packages are published under $staging_project"
     $osc prjresults --watch --xml -r openSUSE_Tumbleweed -a x86_64 "$staging_project"
 }
 
