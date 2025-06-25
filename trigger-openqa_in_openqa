@@ -118,7 +118,9 @@ trigger() {
         HDD_1="$qcow" BUILD="${build}" _GROUP="${staging_group_id}" \
         OPENQA_OBS_PROJECT="$staging_project" \
         "${ARGS[@]}" \
-        | tee job_post_response
+        | tee full_job_post_response
+    head -1 full_job_post_response > job_post_response
+    rm full_job_post_response
 }
 
 main
