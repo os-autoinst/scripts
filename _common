@@ -4,6 +4,7 @@
 # instances, for example over openqa-cli.
 
 errorlog=""
+osc=${osc:-osc}
 
 warn() { printf '%s\n' "$@" >&2; }
 
@@ -348,14 +349,62 @@ get-dependencies-ajax() {
 
 list_packages() {
     local obs_project=$1
-    osc ls "$obs_project" | grep -v '\-test$'
+    $osc ls "$obs_project" | grep -v '\-test$'
 }
 
 delete_packages_from_obs_project() {
+    log-info "delete_packages_from_obs_project()"
     local obs_project=$1
     local packages
     packages=$(list_packages "$obs_project") || true # osc ls returns non-zero return code for empty projects
     for package in $packages; do
-        osc rdelete -m "Cleaning up $package to allow triggering new jobs" "$obs_project" "$package"
+        log-info "Deleting $package from $obs_project"
+        $osc rdelete -m "Cleaning up $package to allow triggering new jobs" "$obs_project" "$package"
     done
+}
+
+declare _COLOR_BOLD='\x1b[1m'
+declare _COLOR_RED='\x1b[31m'
+declare _COLOR_GREEN='\x1b[32m'
+declare _COLOR_CYAN='\x1b[36m'
+declare _COLOR_PURPLE='\x1b[35m'
+declare _COLOR_YELLOW='\x1b[33m'
+declare _COLOR_DARKGRAY='\x1b[90m'
+declare _COLOR_INFO="$_COLOR_CYAN$_COLOR_BOLD"
+declare _COLOR_WARNING="$_COLOR_YELLOW$_COLOR_BOLD"
+declare _COLOR_ERROR="$_COLOR_RED$_COLOR_BOLD"
+declare _NO_COLOR='\x1b[0m'
+
+color=${color:-auto}
+colorize() {
+    local fh=$1
+    local msgcolor="_COLOR_$2"
+    local msg=$3
+    local fn=1
+    [[ $fh == 'err' ]] && fn=2
+    if [[ -t "$fn" && $color == "auto" || $color == "always" ]]; then
+        msg="${!msgcolor}$msg${_NO_COLOR}"
+    fi
+    if [[ $fh == 'err' ]]; then
+        echo -e "$msg" >&2
+    else
+        echo -e "$msg"
+    fi
+}
+
+log-info() {
+    colorize "out" "INFO" "[info] $*"
+}
+
+log-debug() {
+    colorize "err" "DARKGRAY" "[debug] $*"
+}
+
+log-warn() {
+    colorize "err" "WARNING" "[warn] $*"
+}
+
+debug_osc() {
+    log-debug "### osc $*"
+    osc "$@"
 }

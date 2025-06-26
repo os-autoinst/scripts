@@ -10,6 +10,7 @@
 set -euo pipefail
 
 # configuration variables with defaults.
+color=${color:-auto}
 sleep_time="${sleep_time:-"10"}"
 openqa_cli="${openqa_cli:-"openqa-cli"}"
 host="${host:-"https://openqa.opensuse.org"}"
@@ -29,14 +30,14 @@ export OPENQA_CLI_RETRIES
 declare -A failed_versions
 failed_jobs=()
 for job_id in $(job_ids job_post_response); do
-    echo "Waiting for job $job_id to finish"
+    log-info "Waiting for job $job_id to finish"
     while sleep "${sleep_time}"; do
         job_state=$($openqa_cli api --host "$host" jobs/"$job_id" | jq -r '.job.state')
         [[ $job_state = 'done' ]] && break
     done
     response=$($openqa_cli api --host "$host" jobs/"$job_id")
     result=$(echo "$response" | jq -r '.job.result')
-    echo "Result of job $job_id: $result"
+    log-info "Result of job $job_id: $result"
     if [[ $result != 'passed' ]] && [[ -n $obs_package_name ]]; then
         version=$(echo "$response" | jq -r '.job.settings.VERSION')
         failed_versions[$version]=1
@@ -45,10 +46,9 @@ for job_id in $(job_ids job_post_response); do
 done
 
 ((${#failed_jobs[@]} > 0)) || exit 0
-
-echo "${#failed_jobs[@]} jobs did not pass:"
+log-warn "${#failed_jobs[@]} jobs did not pass:"
 for id in "${failed_jobs[@]}"; do
-    echo "$host/t$id"
+    log-warn "$host/t$id"
 done
 
 # delete packages from staging project in error case as we will not continue submitting those packages
@@ -57,7 +57,7 @@ delete_packages_from_obs_project "$staging_project"
 # comment on failed jobs
 [[ $comment_on_obs ]] || exit 1
 
-echo "Posting comment with failed jobs to OBS"
+log-info "Posting comment with failed jobs to OBS"
 osc api "/comments/$obs_component/$obs_package_name" | grep id= | sed -n 's/.*id="\([^"]*\)">.*test.* failed.*/\1/p' | while read -r id; do
     osc api -X DELETE /comment/"$id"
 done
