@@ -6,9 +6,6 @@
 
 set -euo pipefail
 
-# shellcheck source=/dev/null
-. "$(dirname "$0")"/_common
-
 # configuration variables with defaults.
 color=${color:-auto}
 target_host="${target_host:-"openqa.opensuse.org"}"

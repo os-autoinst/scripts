@@ -392,19 +392,23 @@ colorize() {
     fi
 }
 
-log-info() {
+log-info() (
+    set +x
     colorize "out" "INFO" "[info] $*"
-}
+)
 
-log-debug() {
+log-debug() (
+    set +x
     colorize "err" "DARKGRAY" "[debug] $*"
-}
+)
 
-log-warn() {
+log-warn() (
+    set +x
     colorize "err" "WARNING" "[warn] $*"
-}
+)
 
-debug_osc() {
+debug_osc() (
+    set +x
     log-debug "### osc $*"
     osc "$@"
-}
+)
