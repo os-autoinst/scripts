@@ -118,7 +118,7 @@ update_package() {
 }
 
 last_revision() {
-    log-info "last_revision $*"
+    log-debug "last_revision $*"
     local project=$1
     local package=$2
     local file=$package.changes
