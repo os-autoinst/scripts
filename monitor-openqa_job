@@ -32,7 +32,7 @@ failed_jobs=()
 for job_id in $(job_ids job_post_response); do
     log-info "Waiting for job $job_id to finish"
     $openqa_cli monitor --host "$host" --follow --poll-interval "$sleep_time" "$job_id"
-    response=$($openqa_cli api --host "$host" jobs/"$job_id")
+    response=$($openqa_cli api --host "$host" jobs/"$job_id" follow=1)
     result=$(echo "$response" | jq -r '.job.result')
     log-info "Result of job $job_id: $result"
     if [[ $result != 'passed' ]] && [[ -n $obs_package_name ]]; then
