@@ -39,6 +39,7 @@ main() {
     # and use for submit requests
     if [[ $full_run ]]; then
         staging_project=$src_project
+        staging_group_id=$group_id
     else
         create_devel_openqa_snapshot
     fi
