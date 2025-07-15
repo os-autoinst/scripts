@@ -19,8 +19,7 @@ machine="${machine:-"64bit"}"
 build_tag=${BUILD_TAG:-}
 client_prefix=${client_prefix:-}
 full_run=${FULL:-}
-group_id=${group_id:-"openQA"}
-staging_group_id=${staging_group_id:-"Factory Submissions"}
+group_id="${group_id:-"openQA"}"
 osc=${osc:-osc}
 src_project=${src_project:-devel:openQA}
 staging_project=${staging_project:-${src_project}:testing}
@@ -39,7 +38,6 @@ main() {
     # and use for submit requests
     if [[ $full_run ]]; then
         staging_project=$src_project
-        staging_group_id=$group_id
     else
         create_devel_openqa_snapshot
     fi
@@ -77,7 +75,6 @@ create_devel_openqa_snapshot() {
         echo "Only triggering tests from $src_project (not overriding $staging_project and doing a submission) because $staging_project still contains packages: $staged_packages" \
             | tee job_post_skip_submission
         staging_project=$src_project
-        staging_group_id=$group_id
         return
     elif [[ -e job_post_skip_submission ]]; then
         rm job_post_skip_submission
@@ -114,7 +111,7 @@ trigger() {
         --param-file SCENARIO_DEFINITIONS_YAML=/var/tmp/sd.yaml \
         VERSION=Tumbleweed \
         DISTRI=openqa FLAVOR=dev ARCH="${arch}" \
-        HDD_1="$qcow" BUILD="${build}" _GROUP="${staging_group_id}" \
+        HDD_1="$qcow" BUILD="${build}" _GROUP="${group_id}" \
         OPENQA_OBS_PROJECT="$staging_project" \
         "${ARGS[@]}" \
         | tee full_job_post_response
