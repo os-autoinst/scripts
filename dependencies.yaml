@@ -45,4 +45,5 @@ test_requires:
   perl(Test::Most):
 devel_requires:
   python3-yamllint:
+  python3-pytest:
   shfmt:

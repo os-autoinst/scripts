@@ -29,7 +29,7 @@ Url:            https://github.com/os-autoinst/scripts
 # The following line is generated from dependencies.yaml
 %define test_requires perl(Test::MockModule) perl(Test::Most) perl(Test::Output) perl(Test::Warnings)
 # The following line is generated from dependencies.yaml
-%define devel_requires python3-yamllint shfmt
+%define devel_requires python3-pytest python3-yamllint shfmt
 Requires:       %main_requires
 Suggests:       salt
 Suggests:       postgresql
