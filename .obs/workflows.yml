@@ -3,7 +3,7 @@ pr:
   steps:
     - branch_package:
         source_project: devel:openQA
-        source_package: os-autoinst--scripts
+        source_package: os-autoinst-scripts
         target_project: devel:openQA:GitHub
         add_repositories: disabled
     - configure_repositories:
