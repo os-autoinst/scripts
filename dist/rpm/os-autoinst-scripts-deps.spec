@@ -24,13 +24,15 @@ License:        MIT
 Group:          Development/Tools/Other
 BuildArch:      noarch
 Url:            https://github.com/os-autoinst/scripts
+Source0:        scripts-%{version}.tar.xz
 # The following line is generated from dependencies.yaml
 %define main_requires bash coreutils curl grep html-xml-utils jq openQA-client openssh-clients osc perl >= 5.010 perl(Data::Dumper) perl(FindBin) perl(Getopt::Long) perl(Mojo::File) perl(Text::Markdown) perl(YAML::PP) python3-beautifulsoup4 python3-requests retry sed sudo xmlstarlet yq
 # The following line is generated from dependencies.yaml
-%define test_requires perl(Test::MockModule) perl(Test::Most) perl(Test::Output) perl(Test::Warnings)
+%define test_requires perl(Test::MockModule) perl(Test::Most) perl(Test::Output) perl(Test::Warnings) python3-pytest
 # The following line is generated from dependencies.yaml
-%define devel_requires python3-pytest python3-yamllint shfmt
+%define devel_requires python3-yamllint shfmt
 Requires:       %main_requires
+BuildRequires:  make %main_requires %test_requires
 Suggests:       salt
 Suggests:       postgresql
 
@@ -41,6 +43,7 @@ Suggests:       postgresql
 %package devel
 Summary:        Development package for os-autoinst-scripts-deps
 Group:          Development/Tools/Other
+BuildRequires:  %devel_requires
 Requires:       %devel_requires
 
 %description devel
@@ -48,12 +51,15 @@ Development package pulling in all dependencies needed for developing
 in os-autoinst-scripts-deps
 
 %prep
+%setup -n scripts-%{version}
 
 %build
 
 %install
 
 %check
+# Can't run bash tests because it needs to clone bpan via git
+make test-python
 
 %files
 
