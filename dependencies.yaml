@@ -43,7 +43,7 @@ test_requires:
   perl(Test::Warnings):
   perl(Test::MockModule):
   perl(Test::Most):
+  python3-pytest:
 devel_requires:
   python3-yamllint:
-  python3-pytest:
   shfmt:
