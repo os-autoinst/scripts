@@ -24,7 +24,7 @@ products:
     version: $version
 
 machines:
-  64bit:
+  uefi:
     backend: qemu
     settings:
       WORKER_CLASS: qemu_x86_64,tap
@@ -41,13 +41,13 @@ machines:
 job_templates:
   ping_server:
     product: mm-ping-test
-    machine: 64bit
+    machine: uefi
     settings:
       <<: *common
       HOSTNAME: server
   ping_client:
     product: mm-ping-test
-    machine: 64bit
+    machine: uefi
     settings:
       <<: *common
       HOSTNAME: client
