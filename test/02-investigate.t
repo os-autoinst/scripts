@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 96
+plan tests 98
 
 host=localhost
 url=https://localhost
@@ -48,7 +48,7 @@ client-get-job() {
         10024)
             echo '{"job": { "test": "vim", "priority": 50, "settings" : {} } }'
             ;;
-        10030)
+        10030 | 10032)
             echo '{"job": { "test": "vim", "priority": "50", "settings":{"CASEDIR": "https://github.com/os-autoinst/os-autoinst-testrepo.git"} } }'
             ;;
         10027)
@@ -102,6 +102,9 @@ client-get-job-state() {
     local tid=$1
     # GET experimental/jobs/id/status
     case "$tid" in
+        10032)
+            echo '{ "state": "cancelled", "test": "vim:investigate:retry", "result": "none" }'
+            ;;
         30001 | 30002)
             echo '{ "state": "done", "test": "vim:investigate:retry", "result": "failed" }'
             ;;
@@ -133,7 +136,7 @@ client-get-job-comments() {
             echo '[{"id": 1234, "text":"Starting investigation for 10031"},{"id": 1235, "text":"unrelated comment"}]'
             ;;
         10032)
-            echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Starting investigation for job 10032"}]'
+            echo '[{"id": 1236, "text":"Starting investigation for job 10032"},{"id": 1237, "text":"Automatic investigation jobs for job :investigate:retry*:t#10032"}]'
             ;;
         10035)
             echo '[{"id": 1236, "text":"Starting investigation for job 10035"}]'
@@ -350,6 +353,11 @@ test-post-investigate() {
     local job_data='{"job": { "result": "failed", "settings": { "OPENQA_INVESTIGATE_ORIGIN": "https://localhost/t404" } } }'
     try post-investigate 2040 "vim:investigate:retry"
     is "$rc" 0 'post-investigate returned 0 if the original job does not exist anymore'
+
+    local job_data='{"job": { "result": "failed", "settings": { "OPENQA_INVESTIGATE_ORIGIN": "https://localhost/t10032" } } }'
+    post-investigate 10032 'vim:investigate:retry'
+    is "$rc" 0 'cancelled job handled without error'
+    has "$comment" "t#10032 cancelled" "comment mentions that job was cancelled"
 
     # various combinations of investigation results
     t1="fail"

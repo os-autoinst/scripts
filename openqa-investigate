@@ -93,6 +93,7 @@ clone() {
     echo "* *$name*: t#$clone_id"
 
     # set priority of cloned jobs
+    [[ $base_prio == null ]] && return 0
     # shellcheck disable=SC2207
     clone_ids=($(echo "$out" | runjq -r 'values[]'))
     for id in "${clone_ids[@]}"; do
@@ -232,7 +233,7 @@ fetch-investigation-results() {
             job=$(client-get-job-state "$other_id")
             state=$(echo "$job" | runjq -r '.state') || return $?
             # at least one job is not finished, come back later
-            [[ $state != 'done' ]] && return 142
+            is-finished "$state" || return 142
 
             result=$(echo "$job" | runjq -r '.result') || return $?
             echo "$investigate_type|$other_id|$result"
@@ -240,8 +241,16 @@ fetch-investigation-results() {
     done
 }
 
+is-finished() {
+    [[ $1 == 'done' || $1 == cancelled ]]
+}
+
 is-ok() {
     [[ $1 == passed || $1 == softfailed ]]
+}
+
+is-cancelled() {
+    [[ $1 == none || $1 == skipped || $1 == user_cancelled || $1 == user_restarted || $1 == parallel_restarted ]]
 }
 
 identify-issue-type() {
@@ -250,7 +259,7 @@ identify-issue-type() {
     local origin_job_id=$1
     local state result investigate_type passed output result_lines
     local pass_lgt='' pass_lgb='' pass_lgtb=''
-    product_issue=false test_issue=false infra_issue=false
+    product_issue=false test_issue=false infra_issue=false cancelled=false
 
     output=$(fetch-investigation-results "$origin_job_id") || return $?
     mapfile -t result_lines <<< "$output"
@@ -258,6 +267,7 @@ identify-issue-type() {
     for line in "${result_lines[@]}"; do
         if [[ $line =~ ^([^|]+)\|([^|]+)\|([^|]+) ]]; then
             investigate_type=${BASH_REMATCH[1]} result=${BASH_REMATCH[3]}
+            is-cancelled "$result" && cancelled=true && return 0
             is-ok "$result" && passed=true || passed=false
             if [[ $investigate_type == last_good_tests_and_build ]]; then
                 pass_lgtb=$passed
@@ -299,20 +309,25 @@ post-investigate() {
         comment+=" $retry_result."$'\n\n'
         comment+="📋 **Likely a sporadic failure**."
     else
-        comment+=" failed."$'\n\n'
         local product_issue=false
         local test_issue=false
         local infra_issue=false
+        local cancelled=false
         identify-issue-type "$origin_job_id" || return $?
 
-        if "$product_issue"; then
-            comment+="📋 **Jobs including the last good build are ok, likely a product issue**."
-        elif "$test_issue"; then
-            comment+="📋 **Jobs including the last good test are ok, likely a test issue**."
-        elif "$infra_issue"; then
-            comment+="📋 **All investigation jobs failed, likely an issue with the test environment (settings, external resources, infrastructure)**."
+        if "$cancelled"; then
+            comment+=" cancelled."$'\n\n'
         else
-            comment+="📋 **Likely not a sporadic failure**."
+            comment+=" failed."$'\n\n'
+            if "$product_issue"; then
+                comment+="📋 **Jobs including the last good build are ok, likely a product issue**."
+            elif "$test_issue"; then
+                comment+="📋 **Jobs including the last good test are ok, likely a test issue**."
+            elif "$infra_issue"; then
+                comment+="📋 **All investigation jobs failed, likely an issue with the test environment (settings, external resources, infrastructure)**."
+            else
+                comment+="📋 **Likely not a sporadic failure**."
+            fi
         fi
     fi
 
