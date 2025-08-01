@@ -8,9 +8,6 @@ set -o pipefail -o errtrace
 # shellcheck source=/dev/null
 . "$(dirname "${BASH_SOURCE[0]}")"/_common
 
-host="${host:-"openqa.opensuse.org"}"
-scheme="${scheme:-"https"}"
-host_url="$scheme://$host"
 dry_run="${dry_run:-"0"}"
 min_search_term="${min_search_term:-"16"}"
 issue_marker="${issue_marker:-"auto_review%3A"}"
@@ -25,7 +22,6 @@ curl_args=(-L --user-agent "openqa-label-known-issues")
 retries="${retries:-"3"}"
 OPENQA_CLI_RETRY_SLEEP_TIME_S=${OPENQA_CLI_RETRY_SLEEP_TIME_S:-120}
 MOJO_CONNECT_TIMEOUT=${MOJO_CONNECT_TIMEOUT:-30}
-client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
 
 out="${REPORT_FILE:-$(mktemp -t openqa-label-known-issues--output-XXXX)}"
 trap 'error-handler "$LINENO"' ERR
@@ -175,8 +171,34 @@ investigate_issue() {
 }
 
 label_issue() {
-    local testurl="${1:?"Need 'testurl'"}"
-    [[ "$dry_run" = "1" ]] && client_prefix="echo"
+    local arg="${1:?"Usage: $0 <job_id> or https://<host>/tests/<job_id>"}"
+
+    scheme=${scheme:-https}
+    local job_id=""
+    local testurl=""
+
+    if [[ $arg =~ ^(https|http)?://([^/]+)/tests/([0-9]+)$ ]]; then
+        scheme=${scheme:-${BASH_REMATCH[1]}}
+        host=${host:-${BASH_REMATCH[2]}}
+        job_id=${BASH_REMATCH[3]}
+        testurl=$arg
+    elif [[ $arg =~ ^[0-9]+$ ]]; then
+        if [[ -z "${host:-}" ]]; then
+            echo "ERROR: host must be specified when passing only a job ID." >&2
+            echo "Example: host=openqa.opensuse.org $0 42" >&2
+            exit 1
+        fi
+        job_id=$arg
+        testurl=$scheme://$host/tests/$job_id
+    else
+        echo "ERROR: Unrecognized argument: $arg" >&2
+        exit 1
+    fi
+
+    host_url=$scheme://$host
+    client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
+
+    [[ $dry_run = "1" ]] && client_prefix="echo"
     if [[ -z "$client_call" ]]; then
         client_call=(openqa-cli "${client_args[@]}")
         if [[ -n "$client_prefix" ]]; then
