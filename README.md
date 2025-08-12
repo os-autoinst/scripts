@@ -8,14 +8,13 @@ If you have questions, visit us on IRC in [#opensuse-factory](irc://chat.freenod
 
 ## How to use
 
-Checkout the individual scripts and either call them manually or automatically, e.g. in CI jobs
-Find all the dependencies which are required in
-[dependencies.yaml](https://github.com/os-autoinst/scripts/blob/master/dependencies.yaml].
-You get all of them installed with one package.
-
-```bash
-sudo zypper in os-autoinst-scripts-deps
-```
+Checkout the individual scripts and either call them manually or automatically,
+e.g. in CI jobs find all the dependencies which are required in
+[dependencies.yaml](https://github.com/os-autoinst/scripts/blob/master/dependencies.yaml).
+You can install all dependencies by installing the `os-autoinst-scripts-deps`
+package under openSUSE. You need to add the
+[openQA development repository](https://open.qa/docs/#_development_version_repository)
+for this.
 
 ### auto-review - Automatically detect known issues in openQA jobs, label openQA jobs with ticket references and optionally retrigger
 
