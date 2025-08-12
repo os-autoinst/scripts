@@ -3,25 +3,24 @@
 
 ## Communication
 
-If you have questions, visit us on IRC in [#opensuse-factory](irc://chat.freenode.net/opensuse-factory)
-
+If you have questions, visit us on IRC in
+[#opensuse-factory](irc://chat.freenode.net/opensuse-factory)
 
 ## How to use
 
-Checkout the individual scripts and either call them manually or automatically, e.g. in CI jobs
-Find all the dependencies which are required in
-[dependencies.yaml](https://github.com/os-autoinst/scripts/blob/master/dependencies.yaml].
-You get all of them installed with one package.
-
-```bash
-sudo zypper in os-autoinst-scripts-deps
-```
+Checkout the individual scripts and either call them manually or automatically,
+e.g. in CI jobs find all the dependencies which are required in
+[dependencies.yaml](https://github.com/os-autoinst/scripts/blob/master/dependencies.yaml).
+You can install all dependencies by installing the `os-autoinst-scripts-deps`
+package under openSUSE. You need to add the
+[openQA development repository](https://open.qa/docs/#_development_version_repository)
+for this.
 
 ### auto-review - Automatically detect known issues in openQA jobs, label openQA jobs with ticket references and optionally retrigger
 
 Based on simple regular expressions in the subject line of tickets on
-progress.opensuse.org within https://progress.opensuse.org/projects/openqav3
-or any subproject of it, commonly
+progress.opensuse.org within https://progress.opensuse.org/projects/openqav3 or
+any subproject of it, commonly
 https://progress.opensuse.org/projects/openqatests/ , openQA jobs can be
 automatically labeled with the corresponding ticket and optionally retriggered
 where it makes sense.
@@ -33,9 +32,9 @@ Note that the `force_result` feature is disabled by default.
 
 * `<search_term>`: the perl extended regex to search for
 * `:retry`: (optional) boolean switch after the quoted search term to instruct
-   for retriggering the according openQA job.
-* `:force_result:<result>`: (optional) give the job a special label which forces the result
-   to be the given string
+  for retriggering the according openQA job.
+* `:force_result:<result>`: (optional) give the job a special label which
+  forces the result to be the given string
 
 Examples:
 * `auto_review:"error 42 found"`.
@@ -43,15 +42,15 @@ Examples:
 * `auto_review:"error 42 found":force_result:softfailed`.
 * `auto_review:"error 42 found":retry:force_result:softfailed`.
 
-The search terms are crosschecked against the logfiles and
-"reason" field of the openQA jobs. A multi-line search is possible, for
-example using the `<search_term>`
+The search terms are crosschecked against the logfiles and "reason" field of
+the openQA jobs. A multi-line search is possible, for example using the
+`<search_term>`
 
   `something to.*match earlier[\S\s]*something to match some lines further down`
 
 Other double quotes in the subject line than around the search term should be
-avoided. Also **avoid generic search terms** to prevent
-false matches of job failures unrelated to the specified ticket.
+avoided. Also **avoid generic search terms** to prevent false matches of job
+failures unrelated to the specified ticket.
 
 * [openqa-monitor-incompletes](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-incompletes)
   queries the database of an openQA instance (ssh access is necessary) and
@@ -64,7 +63,8 @@ false matches of job failures unrelated to the specified ticket.
   example from progress.opensuse.org, label the job and retrigger if specified
   in the issue (see the source code for details how to mark tickets)
 
-For tickets referencing "auto_review" it is suggested to add a text section based on the following template:
+For tickets referencing "auto_review" it is suggested to add a text section
+based on the following template:
 
 ```
 ## Steps to reproduce
