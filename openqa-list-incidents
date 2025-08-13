@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+"""
+This script allows you to list incidents for the openQA job.
+For each incident it shows the relevant packages and tickets
+for bugzilla.suse.com and jira.suse.com
+
+To fetch the titles of the tickets you can use the -v option
+which needs the private tokens for Bugzilla & Jira.
+You can either modify this script or export then as environment
+variables: BUGZILLA_TOKEN and JIRA_TOKEN
+"""
+
+import argparse
+import os
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import cache
+from itertools import chain, zip_longest
+from urllib.parse import parse_qs, urlparse
+
+import requests
+from requests.exceptions import RequestException
+
+
+BUGZILLA_TOKEN = os.getenv("BUGZILLA_TOKEN")
+JIRA_TOKEN = os.getenv("JIRA_TOKEN")
+
+MAX_ISSUES = 200
+PACKAGE_WIDTH = 8
+TIMEOUT = 100
+
+ANSI_RESET = "\033[0m"
+ANSI_RED = "\033[31m"
+ANSI_GREEN = "\033[32m"
+
+is_tty = sys.stdout.isatty()
+session = requests.Session()
+
+
+def get_bugzilla_issues(issues: list[str]) -> list[dict]:
+    """
+    Get Bugzilla issues
+    """
+    if not BUGZILLA_TOKEN:
+        return []
+    issues = [i.split("=")[-1] for i in issues]
+    url = "https://bugzilla.suse.com/rest/bug"
+    bugs = []
+    for i in range(0, len(issues), MAX_ISSUES):
+        params = {
+            "Bugzilla_api_key": BUGZILLA_TOKEN,
+            "include_fields": "id,summary",
+            "id": issues[i : i + MAX_ISSUES],
+        }
+        try:
+            got = session.get(url, params=params, timeout=TIMEOUT)
+            got.raise_for_status()
+        except RequestException as error:
+            print(f"ERROR: {url}: {error}", file=sys.stderr)
+            return []
+        bugs.extend(got.json()["bugs"])
+    return bugs
+
+
+def get_jira_issues(issues: list[str]) -> list[dict]:
+    """
+    Get Jira issues
+    """
+    if not JIRA_TOKEN:
+        return []
+    issues = [os.path.basename(i) for i in issues]
+    url = "https://jira.suse.com/rest/api/2/search"
+    headers = {"Authorization": f"Bearer {JIRA_TOKEN}"}
+    bugs = []
+    for i in range(0, len(issues), MAX_ISSUES):
+        params = {
+            "fields": "summary",
+            "jql": f"key in ({','.join(issues[i : i + MAX_ISSUES])})",
+        }
+        try:
+            got = session.get(url, headers=headers, params=params, timeout=TIMEOUT)
+            got.raise_for_status()
+        except RequestException as exc:
+            print(f"ERROR: {url}: {exc}", file=sys.stderr)
+            return []
+        bugs.extend(
+            [
+                {"id": issue["key"], "summary": issue["fields"]["summary"]}
+                for issue in got.json()["issues"]
+            ]
+        )
+    return bugs
+
+
+@cache
+def get_all_issues() -> list[dict]:
+    """
+    Get all issues from Bugzilla and Jira for all incidents
+    """
+    incidents = get_all_incidents()
+
+    bugzillas = [
+        u["url"]
+        for i in incidents
+        for u in i["incident"]["references"]
+        if "bugzilla.suse.com" in u["url"]
+    ]
+    jiras = [
+        u["url"]
+        for i in incidents
+        for u in i["incident"]["references"]
+        if "jira.suse.com" in u["url"]
+    ]
+
+    issues = []
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = []
+        if bugzillas:
+            futures.append(executor.submit(get_bugzilla_issues, bugzillas))
+        if jiras:
+            futures.append(executor.submit(get_jira_issues, jiras))
+        for future in as_completed(futures):
+            issues.extend(future.result())
+
+    return issues
+
+
+def get_title(url: str) -> str:
+    """
+    Get title for Bugzilla or Jira issue
+    """
+    if not url:
+        return ""
+    issue_id: int | str | None = None
+    issues = get_all_issues()
+    if "bugzilla.suse.com" in url:
+        issue_id = int(url.split("=")[-1])
+    elif "jira.suse.com" in url:
+        issue_id = os.path.basename(url)
+    else:
+        return ""
+    for issue in issues:
+        if issue["id"] == issue_id:
+            return issue["summary"]
+    return ""
+
+
+def get_incidents(route: str) -> list[dict]:
+    """
+    Fetch data from SMELT
+    """
+    url = f"https://smelt.suse.de/api/v1/overview/{route}/"
+    results = []
+    while url:
+        got = session.get(url, timeout=TIMEOUT)
+        got.raise_for_status()
+        data = got.json()
+        results.extend(data["results"])
+        url = data["next"]
+    return results
+
+
+@cache
+def get_all_incidents() -> list[dict]:
+    """
+    Get all incidents from SMELT
+    """
+    routes = ["tested_declined", "tested_ready", "testing"]
+    with ThreadPoolExecutor(max_workers=len(routes)) as executor:
+        results = executor.map(get_incidents, routes)
+    incidents = list(chain.from_iterable(results))
+    return incidents
+
+
+def get_api_url(job: str) -> str:
+    """
+    Get openQA API URL from job string
+    """
+    # Add scheme if missing so we can use urlparse()
+    if job.startswith("http://"):
+        job = job.removeprefix("http://")
+    if not job.startswith("https://"):
+        job = f"https://{job}"
+
+    url = urlparse(job)
+    if url.query:
+        base_url = f"{url.scheme}://{url.netloc}/api/v1/jobs/overview"
+        params: dict[str, list[str]] = parse_qs(url.query)
+        try:
+            got = session.get(base_url, params=params, timeout=TIMEOUT)
+            got.raise_for_status()
+            data = got.json()
+        except RequestException as error:
+            sys.exit(f"ERROR: {job}: {error}")
+        assert len(data) == 1
+        job = str(data[0]["id"])
+    else:
+        # Support both "/t1234" & "/tests/1234"
+        job = os.path.basename(url.path).removeprefix("t")
+
+    assert job.isdigit()
+    return f"https://{url.netloc}/api/v1/jobs/{job}"
+
+
+def fetch_incident(incident_id: int) -> dict | None:
+    """
+    Return incident information
+    """
+    for incident in get_all_incidents():
+        if incident["incident"]["incident_id"] == incident_id:
+            return incident
+    return None
+
+
+def print_incident(incident_id: int | dict, verbose: bool = False) -> None:
+    """
+    Print information for incident
+    """
+    if isinstance(incident_id, int):
+        incident = fetch_incident(incident_id)
+        if incident is None:
+            print(f"ERROR: {incident_id}: NOT FOUND", file=sys.stderr)
+            return
+    else:
+        incident = incident_id
+    packages = sorted(incident["packages"], key=str.casefold)
+    if verbose:
+        refs = [
+            _["url"]
+            for _ in incident["incident"]["references"]
+            if not _["name"].startswith("CVE-")
+        ]
+    else:
+        refs = [
+            _["name"]
+            for _ in incident["incident"]["references"]
+            if not _["name"].startswith("CVE-")
+        ]
+    refs = sorted(refs) or [""]
+    sm_id = incident["incident"]["project"].replace("SUSE:Maintenance", "S:M")
+    sm_id += f":{incident['request_id']}"
+    status = incident["status"]["name"]
+    if is_tty:
+        if status == "ready":
+            sm_id = f"{ANSI_GREEN}{sm_id}{ANSI_RESET}"
+        elif status == "declined":
+            sm_id = f"{ANSI_RED}{sm_id}{ANSI_RESET}"
+    fmt = f"{{:<16}}  {{:{PACKAGE_WIDTH}}}  {{:50}}"
+    if verbose:
+        fmt += "  {}"
+        print(fmt.format(sm_id, packages[0], refs[0], get_title(refs[0])))
+        for package, url in zip_longest(packages[1:], refs[1:], fillvalue=""):
+            print(fmt.format("", package, url, get_title(url)))
+    else:
+        print(fmt.format(sm_id, ",".join(packages), ",".join(refs)))
+
+
+def print_incidents(url: str, verbose: bool = False) -> None:
+    """
+    Print incidents
+    """
+    url = get_api_url(url)
+    try:
+        got = session.get(url)
+        got.raise_for_status()
+        job = got.json()["job"]
+    except RequestException as error:
+        sys.exit(f"ERROR: {url}: {error}")
+    settings = job["settings"]
+    ids = set()
+    for issue in [x for x in settings if "_TEST_ISSUES" in x]:
+        ids |= set(int(x.strip()) for x in settings[issue].split(","))
+    incidents = [i for i in get_all_incidents() if i["incident"]["incident_id"] in ids]
+    incidents.sort(key=lambda i: str.casefold(i["packages"][0]))
+    for incident in incidents:
+        print_incident(incident, verbose=verbose)
+    # Uncomment if you want to print incidents that are no longer in the database
+    # not_found = ids - {i["incident"]["incident_id"] for i in incidents}
+    # for id_ in list(sorted(not_found)):
+    #     print(f"NOT FOUND: {id_}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("url", help="openQA jobs")
+    args = parser.parse_args()
+
+    try:
+        # Calculate maximum package string length
+        PACKAGE_WIDTH = max(
+            len(package) for inc in get_all_incidents() for package in inc["packages"]
+        )
+        print_incidents(args.url, verbose=args.verbose)
+    except KeyboardInterrupt:
+        sys.exit("Cancelled")
+    finally:
+        session.close()
