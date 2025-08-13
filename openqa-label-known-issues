@@ -8,8 +8,17 @@ set -o pipefail -o errtrace
 # shellcheck source=/dev/null
 . "$(dirname "${BASH_SOURCE[0]}")"/_common
 
-host="${host:-"openqa.opensuse.org"}"
+id=""
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    id="${1:?"Usage: $0 <id> or https://<host>/tests/<id>"}"
+fi
+if [[ "$id" =~ ^(https|http)?://([^/]+)/tests/([0-9]+)$ ]]; then
+    scheme="${scheme:-${BASH_REMATCH[1]}}"
+    host="${host:-${BASH_REMATCH[2]}}"
+    id=${BASH_REMATCH[3]}
+fi
 scheme="${scheme:-"https"}"
+host="${host:-"openqa.opensuse.org"}"
 host_url="$scheme://$host"
 dry_run="${dry_run:-"0"}"
 min_search_term="${min_search_term:-"16"}"
@@ -130,10 +139,8 @@ label_on_issues_without_tickets() {
 }
 
 investigate_issue() {
-    local testurl=$1
-    local id="${testurl##*/}"
-    local reason
-    local curl_output
+    local testurl="$1"
+    local reason group_id curl_output
     echo "Requesting jobs/${id} via openqa-cli"
     job_data=$(openqa-cli "${client_args[@]}" jobs/"$id")
     state="$(echo "$job_data" | runjq -r '.job.state')"
@@ -188,4 +195,4 @@ label_issue() {
     investigate_issue "$testurl"
 }
 
-caller 0 > /dev/null || label_issue "$@"
+caller 0 > /dev/null || label_issue "$scheme://$host/$id"
