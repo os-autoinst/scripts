@@ -50,7 +50,7 @@ test-yaml:
 
 checkstyle-python:
 	@which ruff >/dev/null 2>&1 || echo "Command 'ruff' not found, can not execute python style checks"
-	ruff check
+	ruff format --check && ruff check
 
 update-deps:
 	tools/update-deps --cpanfile cpanfile --specfile dist/rpm/os-autoinst-scripts-deps.spec
