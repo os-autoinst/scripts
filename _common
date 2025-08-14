@@ -363,6 +363,20 @@ delete_packages_from_obs_project() {
     done
 }
 
+host-and-id-from-test-url() {
+    local url=$1
+    local host=${host:-"openqa.opensuse.org"}
+    local scheme=${scheme:-"https"}
+    if [[ $url =~ ^(https?)://([^/]+)/tests/([0-9]+)$ ]]; then
+        scheme=${BASH_REMATCH[1]}
+        host=${BASH_REMATCH[2]}
+        id=${BASH_REMATCH[3]}
+    else
+        id=${url##*/}
+    fi
+    host_url=$scheme://$host
+}
+
 declare _COLOR_BOLD='\x1b[1m'
 declare _COLOR_RED='\x1b[31m'
 declare _COLOR_GREEN='\x1b[32m'

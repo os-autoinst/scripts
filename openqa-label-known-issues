@@ -8,9 +8,7 @@ set -o pipefail -o errtrace
 # shellcheck source=/dev/null
 . "$(dirname "${BASH_SOURCE[0]}")"/_common
 
-host="${host:-"openqa.opensuse.org"}"
-scheme="${scheme:-"https"}"
-host_url="$scheme://$host"
+declare host_url="" client_args=""
 dry_run="${dry_run:-"0"}"
 min_search_term="${min_search_term:-"16"}"
 issue_marker="${issue_marker:-"auto_review%3A"}"
@@ -25,7 +23,6 @@ curl_args=(-L --user-agent "openqa-label-known-issues")
 retries="${retries:-"3"}"
 OPENQA_CLI_RETRY_SLEEP_TIME_S=${OPENQA_CLI_RETRY_SLEEP_TIME_S:-120}
 MOJO_CONNECT_TIMEOUT=${MOJO_CONNECT_TIMEOUT:-30}
-client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
 
 out="${REPORT_FILE:-$(mktemp -t openqa-label-known-issues--output-XXXX)}"
 trap 'error-handler "$LINENO"' ERR
@@ -131,7 +128,7 @@ label_on_issues_without_tickets() {
 
 investigate_issue() {
     local testurl=$1
-    local id="${testurl##*/}"
+    local id=$2
     local reason
     local curl_output
     echo "Requesting jobs/${id} via openqa-cli"
@@ -185,7 +182,9 @@ label_issue() {
     fi
     # search for issues with a subject search term
     issues=${issues:-$(exp_retries=12 runcurl "${curl_args[@]}" -sS "$issue_query" | runjq -r '.issues | .[] | (.id,.subject,.tracker.name)')}
-    investigate_issue "$testurl"
+    host-and-id-from-test-url "$testurl"
+    client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
+    investigate_issue "$testurl" "$id"
 }
 
 caller 0 > /dev/null || label_issue "$@"
