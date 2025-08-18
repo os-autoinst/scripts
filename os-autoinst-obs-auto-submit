@@ -102,6 +102,7 @@ update_package() {
     rc=0
     wait_for_package_build "$submit_target"
     for target in "${targets[@]}"; do
+        [[ $target == none ]] && continue # allow specifying submit_target_extra=none for easier testing
         cmd="$osc sr"
         log-info "## Ready to submit $package to $target ##"
         req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
