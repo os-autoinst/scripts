@@ -73,9 +73,21 @@ wait_for_package_build() {
     fi
 }
 
+make_obs_submit_request() {
+    local package=$1 target=$2 version=$3 cmd=($osc sr) req='' rc=''
+    log-info "## Ready to submit $package to $target ##"
+    req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
+    # TODO: check if it's a different revision than HEAD
+    [[ -n $req ]] && cmd+=(-s "$req")
+    if ! "${cmd[@]}" -m "Update to ${version}" "$target"; then
+        rc=$?
+        failed_packages+=("$package:$rc")
+    fi
+}
+
 update_package() {
     log-info "update_package $*"
-    local package=$1
+    local package=$1 version=
     xmlstarlet ed -L -i "/services/service" --type attr -n mode --value 'disabled' _service
     sed -i -e 's,mode="disabled" mode="disabled",mode="disabled",' _service
     reenable_buildtime_services
@@ -103,17 +115,7 @@ update_package() {
     wait_for_package_build "$submit_target"
     for target in "${targets[@]}"; do
         [[ $target == none ]] && continue # allow specifying submit_target_extra=none for easier testing
-        cmd="$osc sr"
-        log-info "## Ready to submit $package to $target ##"
-        req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
-        # TODO: check if it's a different revision than HEAD
-        if test -n "$req"; then
-            cmd="$cmd -s $req"
-        fi
-        if ! $cmd -m "Update to ${version}" "$target"; then
-            rc=$?
-            failed_packages+=("$package:$rc")
-        fi
+        make_obs_submit_request "$package" "$target" "$version"
     done
     return $rc
 }
