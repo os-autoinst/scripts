@@ -79,7 +79,8 @@ wait_for_package_build() {
 }
 
 make_obs_submit_request() {
-    local package=$1 target=$2 version=$3 cmd=($osc sr) req='' rc=''
+    # shellcheck disable=SC2206
+    local package=$1 target=$2 version=$3 cmd=($osc sr) req='' rc='' # $osc is supposed to be split, hence disabling SC2206
     req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
     # TODO: check if it's a different revision than HEAD
     [[ -n $req ]] && cmd+=(-s "$req")
