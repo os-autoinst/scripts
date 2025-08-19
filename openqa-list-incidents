@@ -62,13 +62,37 @@ def get_bugzilla_issues(issues: list[str]) -> list[dict]:
     return bugs
 
 
-def get_jira_issues(issues: list[str]) -> list[dict]:
+def get_jira_issue(url: str) -> dict | None:
+    """
+    Get Jira issue
+    """
+    if not JIRA_TOKEN:
+        return None
+    issue = os.path.basename(url)
+    api_url = f"https://jira.suse.com/rest/api/2/issue/{issue}"
+    headers = {"Authorization": f"Bearer {JIRA_TOKEN}"}
+    params = {"fields": "summary"}
+    try:
+        got = session.get(api_url, headers=headers, params=params, timeout=TIMEOUT)
+        got.raise_for_status()
+        data = got.json()
+    except RequestException as exc:
+        print(f"ERROR: {api_url}: {exc}", file=sys.stderr)
+        return None
+    return {
+        "id": issue,
+        "title": data["fields"]["summary"],
+        "url": f"https://jira.suse.com/browse/{issue}",
+    }
+
+
+def get_jira_issues(urls: list[str]) -> list[dict]:
     """
     Get Jira issues
     """
     if not JIRA_TOKEN:
         return []
-    issues = [os.path.basename(i) for i in issues]
+    issues = [os.path.basename(i) for i in urls]
     url = "https://jira.suse.com/rest/api/2/search"
     headers = {"Authorization": f"Bearer {JIRA_TOKEN}"}
     bugs = []
@@ -85,10 +109,21 @@ def get_jira_issues(issues: list[str]) -> list[dict]:
             return []
         bugs.extend(
             [
-                {"id": issue["key"], "summary": issue["fields"]["summary"]}
+                {
+                    "id": issue["key"],
+                    "summary": issue["fields"]["summary"],
+                    "url": f"https://jira.suse.com/browse/{issue['key']}",
+                }
                 for issue in got.json()["issues"]
             ]
         )
+    # Some Jira issues may be missing because they were renamed, etc
+    missing = [u for u in urls if u not in set(b["url"] for b in bugs)]
+    if missing:
+        with ThreadPoolExecutor() as executor:
+            for bug in executor.map(get_jira_issue, missing):
+                if bug is not None:
+                    bugs.append(bug)
     return bugs
 
 
