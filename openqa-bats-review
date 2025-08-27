@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+"""
+This script fetches previous cloned BATS jobs to check whether we can
+tag a job as passed by doing a set intersection of all failed jobs.
+"""
+
+import argparse
+import itertools
+import logging
+import os
+import re
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from functools import cache
+from urllib.parse import urlparse
+
+import requests
+from requests.exceptions import RequestException
+
+
+TIMEOUT = 30
+USER_AGENT = "openqa-bats-review (https://github.com/os-autoinst/scripts)"
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+log = logging.getLogger(sys.argv[0] if __name__ == "__main__" else __name__)
+session = requests.Session()
+
+
+# We want to extract the test name stripping the numbers and the optional timing information
+# not ok 166 bud-git-context in 118ms
+# not ok 655 [520] podman checkpoint --export, with volumes in 1558ms
+# not ok 7 runc exec (cgroup v2, ro cgroupfs, new cgroupns) does not chown cgroup # in 418 ms
+NOT_OK = re.compile(r"^not ok \d+ (?:\[\d+\] )?(.*?)(?: #? in \d+ ?ms)?$")
+
+
+def get_file(url: str) -> str:
+    """
+    Get a text file from URL
+    """
+    headers = {
+        "User-Agent": USER_AGENT,
+    }
+    try:
+        got = session.get(url, headers=headers, timeout=TIMEOUT)
+        got.raise_for_status()
+    except RequestException as error:
+        log.error("%s: %s", url, error)
+        sys.exit(1)
+    return got.text
+
+
+@cache
+def get_job(url: str) -> dict:
+    """
+    Get a job from openQA
+    """
+    headers = {
+        "User-Agent": USER_AGENT,
+    }
+    try:
+        got = session.get(url, headers=headers, timeout=TIMEOUT)
+        got.raise_for_status()
+        data = got.json()
+    except RequestException as error:
+        log.error("%s: %s", url, error)
+        sys.exit(1)
+    return data["job"]
+
+
+def grep_notok(url: str) -> set[str]:
+    """
+    Grep for "not ok" lines and return a set with the failing tests
+    prefixed by the filename
+    """
+    notok = set()
+    # Note: We use a prefix because some tests have more than 1 TAP file
+    prefix = os.path.basename(url)
+    data = get_file(url)
+    lines = data.splitlines()
+    # Fetch the plan to check that we don't have a truncated TAP file
+    last = 0
+    for line in lines:
+        if line.startswith("1.."):
+            last = int(line.split("..", 1)[1])
+            break
+    if not last:
+        log.error("Malformed TAP file: %s", url)
+        sys.exit(1)
+    # Trust the plan
+    tests = 0
+    for line in lines:
+        if not line.startswith(("ok", "not ok", "#not ok")):
+            continue
+        tests += 1
+        try:
+            test = NOT_OK.findall(line)[0]
+            notok.add(f"{prefix}:{test}")
+        except IndexError:
+            continue
+    if tests != last:
+        log.error("Truncated TAP file: %s", url)
+        sys.exit(1)
+    return notok
+
+
+def process_files(files: list[str]) -> set[str]:
+    """
+    Process TAP files
+    """
+    # The test for these packages have only one TAP file: aardvark-dns & netavark
+    if len(files) == 1:
+        return grep_notok(files[0])
+    # Use multithreading for tests like buildah, runc & skopeo (2 files) & podman (4 files)
+    with ThreadPoolExecutor(max_workers=len(files)) as executor:
+        return set(itertools.chain.from_iterable(executor.map(grep_notok, files)))
+
+
+def get_clone_chain(openqa_host: str, job_id: int) -> list[int]:
+    """
+    Follow clones recursively and return the full chain:
+    [job_id, origin_id, origin_id_of_origin, ...]
+    """
+    chain = []
+    current: int | None = job_id
+    while current:
+        # We use "/details" because we'll need this information again and get_job() is cached
+        job = get_job(f"{openqa_host}/api/v1/jobs/{current}/details")
+        if "BATS_PACKAGE" not in job["settings"]:
+            log.error("Not a BATS test: %d", job_id)
+            sys.exit(1)
+        chain.append(current)
+        current = job.get("origin_id")
+    return chain
+
+
+def main(url: str) -> None:
+    """
+    Main function
+    """
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+    urlx = urlparse(url)
+    openqa_host = f"{urlx.scheme}://{urlx.netloc}"
+    job_id = int(os.path.basename(urlx.path))
+
+    chain = get_clone_chain(openqa_host, job_id)
+    if len(chain) <= 1:
+        log.info("No clones. Exiting")
+        sys.exit(0)
+    log.info("Processing clone chain: %s", " -> ".join(map(str, chain)))
+
+    # Expected number of TAP logs per package
+    expected = {
+        "aardvark-dns": 1,
+        "buildah": 2,
+        "conmon": 2,
+        "netavark": 1,
+        "podman": 4,
+        "runc": 2,
+        "skopeo": 2,
+    }
+
+    all_failures = []
+
+    for job_id in chain:
+        job = get_job(f"{openqa_host}/api/v1/jobs/{job_id}/details")
+        url = f"{openqa_host}/tests/{job_id}"
+        logs = [
+            f"{openqa_host}/tests/{job_id}/file/{log}"
+            for log in job["ulogs"]
+            if log.endswith(".tap.txt")
+        ]
+        if not logs:
+            log.info("Job %s has no TAP logs, skipping", job_id)
+            continue
+
+        package = job["settings"]["BATS_PACKAGE"]
+
+        # conmon may also test crun in addition to runc on openSUSE where it's available
+        if job["settings"]["DISTRI"] == "opensuse" and "OCI_RUNTIME" not in job["settings"]:
+            expected["conmon"] = 4
+
+        if len(logs) != expected[package]:
+            log.info("Job %s has only %d TAP logs, skipping", job_id, len(logs))
+            continue
+
+        failed = process_files(logs)
+        all_failures.append(failed)
+
+    if not all_failures:
+        log.info("No logs found in chain. Exiting")
+        sys.exit(0)
+
+    common_failures: set[str] = set.intersection(*all_failures)
+
+    if not common_failures:
+        log.info("No common failures across clone chain. Tagging as PASSED.")
+        # TODO: Tag job as passed
+    else:
+        log.info("Common failures found across clone chain: %s", " ".join(common_failures))
+        sys.exit(0)
+
+
+def parse_args() -> argparse.Namespace:
+    """
+    Parse args
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("url", help="URL to openQA jobs")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    main(parse_args().url)
