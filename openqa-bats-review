@@ -2,6 +2,9 @@
 """
 This script fetches previous cloned BATS jobs to check whether we can
 tag a job as passed by doing a set intersection of all failed jobs.
+
+Overview of BATS tests:
+https://github.com/os-autoinst/os-autoinst-distri-opensuse/blob/master/tests/containers/bats
 """
 
 import argparse
@@ -103,7 +106,7 @@ def grep_notok(url: str) -> set[str]:
     return notok
 
 
-def process_files(files: list[str]) -> set[str]:
+def process_tap_files(files: list[str]) -> set[str]:
     """
     Process TAP files
     """
@@ -115,7 +118,7 @@ def process_files(files: list[str]) -> set[str]:
         return set(itertools.chain.from_iterable(executor.map(grep_notok, files)))
 
 
-def get_clone_chain(openqa_host: str, job_id: int) -> list[int]:
+def resolve_clone_chain(openqa_host: str, job_id: int) -> list[int]:
     """
     Follow clones recursively and return the full chain:
     [job_id, origin_id, origin_id_of_origin, ...]
@@ -143,7 +146,7 @@ def main(url: str) -> None:
     openqa_host = f"{urlx.scheme}://{urlx.netloc}"
     job_id = int(os.path.basename(urlx.path))
 
-    chain = get_clone_chain(openqa_host, job_id)
+    chain = resolve_clone_chain(openqa_host, job_id)
     if len(chain) <= 1:
         log.info("No clones. Exiting")
         sys.exit(0)
@@ -184,7 +187,7 @@ def main(url: str) -> None:
             log.info("Job %s has only %d TAP logs, skipping", job_id, len(logs))
             continue
 
-        failed = process_files(logs)
+        failed = process_tap_files(logs)
         all_failures.append(failed)
 
     if not all_failures:
@@ -198,7 +201,7 @@ def main(url: str) -> None:
         # TODO: Tag job as passed
     else:
         log.info("Common failures found across clone chain: %s", " ".join(common_failures))
-        sys.exit(0)
+        sys.exit(1)
 
 
 def parse_args() -> argparse.Namespace:
