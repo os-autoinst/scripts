@@ -24,6 +24,11 @@ submit_target_extra=${submit_target_extra:-"openSUSE:Backports:SLE-15-SP6:Update
 IFS=',' read -ra targets <<< "$submit_target,$submit_target_extra"
 failed_packages=()
 
+# declare Git branches of submit targets which have already been migrated to Git
+declare -A git_branches=(
+    ['openSUSE:Leap:16.0']=leap-16.0
+)
+
 encode_variable() {
     #  https://stackoverflow.com/a/298258
     perl -MURI::Escape -e 'print uri_escape($ARGV[0])' "$1"
@@ -73,9 +78,49 @@ wait_for_package_build() {
     fi
 }
 
+make_obs_submit_request() {
+    # shellcheck disable=SC2206
+    local package=$1 target=$2 version=$3 cmd=($osc sr) req='' # $osc is supposed to be split, hence disabling SC2206
+    req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
+    # TODO: check if it's a different revision than HEAD
+    [[ -n $req ]] && cmd+=(-s "$req")
+    "${cmd[@]}" -m "Update to ${version}" "$target" || return $?
+}
+
+make_git_submit_request() {
+    local package=$1 target=$2 version=$3 branch=$4 forked_repo=''
+    title="Update to $version"
+    description="Automatic submission via https://github.com/os-autoinst/scripts/blob/master/os-autoinst-obs-auto-submit"
+
+    # ensure a directory to store Git repositories under has been created
+    git_dir=../git-repos
+    mkdir -p "$git_dir"
+
+    # ensure the user we are authenticating with has a fork of the package we want to submit
+    # note: For `gib-obs` commands to work one needs to create a config file, e.g. via:
+    #       `git-obs login add --url=https://src.opensuse.org obs --set-as-default --user=… --token=…`
+    #       For `git push` to work (done below) you need to deploy an SSH key on the Gitea instance.
+    #       Checkout https://opensuse-commander.readthedocs.io/en/latest/git-obs-quickstart.html for details.
+    forked_repo=$($git_obs repo fork "pool/$package" 2>&1 > /dev/null | perl -ne 'print for /Fork .*: (.*)/g')
+
+    # enter a working copy of the fork and switch to the branch the submission should be based on
+    $git_obs repo clone --no-ssh-strict-host-key-checking "$forked_repo" || return $?
+    cd "$package"
+    $git switch "$branch"
+
+    # remove everything and replace it with the updated files we have just created (in the calling function)
+    rm -v ./*
+    cp -v ../../"$package"/* ./
+
+    # commit, push and create PR
+    $git commit --all --message "$title"
+    $git push -f || return $?
+    $git_obs pr create --title "$title" --description "$description" --target-branch="$branch" || return $?
+}
+
 update_package() {
     log-info "update_package $*"
-    local package=$1
+    local package=$1 version=
     xmlstarlet ed -L -i "/services/service" --type attr -n mode --value 'disabled' _service
     sed -i -e 's,mode="disabled" mode="disabled",mode="disabled",' _service
     reenable_buildtime_services
@@ -102,17 +147,13 @@ update_package() {
     rc=0
     wait_for_package_build "$submit_target"
     for target in "${targets[@]}"; do
-        cmd="$osc sr"
+        [[ $target == none ]] && continue # allow specifying submit_target_extra=none for easier testing
         log-info "## Ready to submit $package to $target ##"
-        req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
-        # TODO: check if it's a different revision than HEAD
-        if test -n "$req"; then
-            cmd="$cmd -s $req"
-        fi
-        if ! $cmd -m "Update to ${version}" "$target"; then
-            rc=$?
-            failed_packages+=("$package:$rc")
-        fi
+        local submit_cmd=make_obs_submit_request
+        local args=("$package" "$target" "$version")
+        local git_branch=${git_branches[$target]}
+        [[ $git_branch ]] && submit_cmd=make_git_submit_request args+=("$git_branch")
+        "$submit_cmd" "${args[@]}" || rc=$? failed_packages+=("$package:$?")
     done
     return $rc
 }
@@ -228,6 +269,7 @@ has_pending_submission() {
 submit() {
     log-info "submit()"
     # submit from staging project if specified
+    local must_cleanup_staging=
     if [[ -n $staging_project && $staging_project != none && $staging_project != "$src_project" ]]; then
         src_project=$staging_project
         must_cleanup_staging=1
@@ -272,5 +314,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 prefix="${prefix:-""}"
 [ "$dry_run" = "1" ] && prefix="echo"
 osc="${osc:-"$prefix retry -e -- osc"}"
+git=${git:-"$prefix retry -e -- git"}
+git_obs=${git_obs:-"$prefix retry -e -- git-obs"}
 
 caller 0 > /dev/null || main "$@"
