@@ -273,6 +273,7 @@ has_pending_submission() {
 submit() {
     log-info "submit()"
     # submit from staging project if specified
+    local must_cleanup_staging=
     if [[ -n $staging_project && $staging_project != none && $staging_project != "$src_project" ]]; then
         src_project=$staging_project
         must_cleanup_staging=1
