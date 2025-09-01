@@ -80,14 +80,11 @@ wait_for_package_build() {
 
 make_obs_submit_request() {
     # shellcheck disable=SC2206
-    local package=$1 target=$2 version=$3 cmd=($osc sr) req='' rc='' # $osc is supposed to be split, hence disabling SC2206
+    local package=$1 target=$2 version=$3 cmd=($osc sr) req='' # $osc is supposed to be split, hence disabling SC2206
     req=$(get_obs_sr_id "$target" "$dst_project" "$package" || :)
     # TODO: check if it's a different revision than HEAD
     [[ -n $req ]] && cmd+=(-s "$req")
-    if ! "${cmd[@]}" -m "Update to ${version}" "$target"; then
-        rc=$?
-        failed_packages+=("$package:$rc")
-    fi
+    "${cmd[@]}" -m "Update to ${version}" "$target" || return $?
 }
 
 make_git_submit_request() {
@@ -152,12 +149,11 @@ update_package() {
     for target in "${targets[@]}"; do
         [[ $target == none ]] && continue # allow specifying submit_target_extra=none for easier testing
         log-info "## Ready to submit $package to $target ##"
+        local submit_cmd=make_obs_submit_request
+        local args=("$package" "$target" "$version")
         local git_branch=${git_branches[$target]}
-        if [[ $git_branch ]]; then
-            make_git_submit_request "$package" "$target" "$version" "$git_branch" || failed_packages+=("$package:$?")
-        else
-            make_obs_submit_request "$package" "$target" "$version"
-        fi
+        [[ $git_branch ]] && submit_cmd=make_git_submit_request args+=("$git_branch")
+        "$submit_cmd" "${args[@]}" || rc=$? failed_packages+=("$package:$?")
     done
     return $rc
 }
