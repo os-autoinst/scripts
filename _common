@@ -300,7 +300,7 @@ find_latest_published_tumbleweed_image() {
         # This published build has an image available
         [[ "$image" != null ]] && break
         # Published but no image available, we'll try and continue
-        echo "Unable to determine $type image for Tumbleweed build '$build' (for architecture '$arch' and machine '$machine')."
+        warn "Unable to determine $type image for Tumbleweed build '$build' (for architecture '$arch' and machine '$machine')."
     done
     # No published image available
     if [[ "$image" = null ]]; then
