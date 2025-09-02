@@ -12,6 +12,7 @@ version=${version:-Tumbleweed}
 test_name=${test_name:-ping_client}
 # we expect build numbers in the ISO 8601 format so we're looking for build strings starting with eight latin numerals
 build_regex=${build_regex:-^[0-9]+$}
+machine=${machine:-64bit}
 
 tmpfile=$(mktemp)
 trap 'rm -f "$tmpfile"' EXIT
@@ -26,7 +27,7 @@ products:
     version: $version
 
 machines:
-  64bit:
+  ${machine}:
     backend: qemu
     settings:
       WORKER_CLASS: qemu_x86_64,tap
@@ -43,13 +44,13 @@ machines:
 job_templates:
   ping_server:
     product: mm-ping-test
-    machine: 64bit
+    machine: $machine
     settings:
       <<: *common
       HOSTNAME: server
   ping_client:
     product: mm-ping-test
-    machine: 64bit
+    machine: $machine
     settings:
       <<: *common
       HOSTNAME: client
@@ -57,7 +58,7 @@ job_templates:
 EOF
 
 # shellcheck disable=SC2016
-hdd=$(runcli openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" flavor="$flavor" test="$test_name" latest=1 | runjq -r --arg regex "$build_regex" '.jobs | map(select(.result == "passed")) | map(select (.settings.BUILD | match($regex))) | max_by(.settings.BUILD) .settings.HDD_1')
+hdd=$(runcli openqa-cli api --host "$openqa_url" jobs version="$version" scope=relevant arch="$arch" machine="$machine" flavor="$flavor" test="$test_name" latest=1 | runjq -r --arg regex "$build_regex" '.jobs | map(select(.result == "passed")) | map(select (.settings.BUILD | match($regex))) | max_by(.settings.BUILD) .settings.HDD_1')
 time openqa-cli schedule \
     --monitor --follow \
     --host "$openqa_url" \
