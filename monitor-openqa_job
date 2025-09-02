@@ -31,7 +31,12 @@ declare -A failed_versions
 failed_jobs=()
 for job_id in $(job_ids job_post_response); do
     log-info "Waiting for job $job_id to finish"
-    $openqa_cli monitor --host "$host" --follow --poll-interval "$sleep_time" "$job_id"
+    rc=0
+    $openqa_cli monitor --host "$host" --follow --poll-interval "$sleep_time" "$job_id" || rc=$?
+    if [[ $rc != 0 && $rc != 2 ]]; then
+        log-warn "openqa-cli monitor failed with an unexpected error ($rc)"
+        exit "$rc"
+    fi
     response=$($openqa_cli api --host "$host" jobs/"$job_id" follow=1)
     result=$(echo "$response" | jq -r '.job.result')
     # job_id might have changed if it was restarted
