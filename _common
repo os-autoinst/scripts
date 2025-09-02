@@ -284,7 +284,7 @@ get_image() {
 find_latest_published_tumbleweed_image() {
     local latest_builds build image=null assetname
     local tw_group_id=$1 arch=$2 machine=$3 type=$4
-    read -r -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
+    read -r -d '' -a latest_builds <<< "$(latest_published_tw_builds "$tw_group_id")"
     if [[ "${#latest_builds[@]}" -eq 0 ]]; then
         warn "Unable to find latest published Tumbleweed builds."
         exit 1
