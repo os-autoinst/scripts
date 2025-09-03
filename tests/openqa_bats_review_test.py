@@ -61,7 +61,7 @@ class TestPackageExpectations:
         mock_get_job.side_effect = mock_job_response
 
         with pytest.raises(KeyError):
-            main("http://openqa.example.com/tests/123")
+            main("http://openqa.example.com/tests/123", dry_run=True)
 
 
 class TestRegexPattern:
@@ -381,7 +381,7 @@ class TestMain:
         mock_resolve_clone_chain.return_value = [123]
 
         with pytest.raises(SystemExit) as exc_info:
-            main("http://openqa.example.com/tests/123")
+            main("http://openqa.example.com/tests/123", dry_run=True)
 
         assert exc_info.value.code == 0
         mock_log.info.assert_called_with("No clones. Exiting")
@@ -412,7 +412,7 @@ class TestMain:
             {"file1:test3", "file1:test4"},  # Job 122 failures (different)
         ]
 
-        main("http://openqa.example.com/tests/123")
+        main("http://openqa.example.com/tests/123", dry_run=True)
 
         mock_log.info.assert_any_call("Processing clone chain: %s", "123 -> 122")
         mock_log.info.assert_any_call(
@@ -436,7 +436,7 @@ class TestMain:
         mock_get_job.side_effect = mock_job_response
 
         with pytest.raises(SystemExit) as exc_info:
-            main("http://openqa.example.com/tests/123")
+            main("http://openqa.example.com/tests/123", dry_run=True)
 
         assert exc_info.value.code == 0
         mock_log.info.assert_any_call("Job %s has no TAP logs, skipping", 123)
@@ -465,7 +465,7 @@ class TestMain:
         mock_get_job.side_effect = mock_job_response
 
         with pytest.raises(SystemExit) as exc_info:
-            main("http://openqa.example.com/tests/123")
+            main("http://openqa.example.com/tests/123", dry_run=True)
 
         assert exc_info.value.code == 0
         mock_log.info.assert_any_call("Job %s has only %d TAP logs, skipping", 123, 2)
@@ -512,7 +512,7 @@ class TestMain:
                 {"file1:test2"},  # Job 122 failures (different)
             ]
 
-            main("http://openqa.example.com/tests/123")
+            main("http://openqa.example.com/tests/123", dry_run=True)
 
             mock_log.info.assert_any_call(
                 "No common failures across clone chain. Tagging as PASSED."
@@ -535,7 +535,7 @@ class TestMain:
         mock_get_job.side_effect = mock_job_response
 
         with pytest.raises(SystemExit) as exc_info:
-            main("http://openqa.example.com/tests/123")
+            main("http://openqa.example.com/tests/123", dry_run=True)
 
         assert exc_info.value.code == 0
         mock_log.info.assert_any_call("No logs found in chain. Exiting")
@@ -564,7 +564,7 @@ class TestMain:
             {"file1:test2"},  # Job 122 failures (different)
         ]
 
-        main("http://openqa.example.com/tests/123")
+        main("http://openqa.example.com/tests/123", dry_run=True)
 
         mock_log.info.assert_any_call(
             "No common failures across clone chain. Tagging as PASSED."
@@ -576,7 +576,7 @@ class TestMain:
             mock_resolve_clone_chain.return_value = [123]
 
             with pytest.raises(SystemExit):
-                main("openqa.example.com/tests/123")  # No scheme
+                main("openqa.example.com/tests/123", dry_run=True)  # No scheme
 
             # Verify that the URL was normalized to include https://
             mock_resolve_clone_chain.assert_called_with(
@@ -649,7 +649,7 @@ not ok 2 failing test B"""
         mock_session.get.side_effect = mock_get
 
         with patch("bats_review.log") as mock_log:
-            main("http://openqa.example.com/tests/123")
+            main("http://openqa.example.com/tests/123", dry_run=True)
             mock_log.info.assert_any_call(
                 "No common failures across clone chain. Tagging as PASSED."
             )
