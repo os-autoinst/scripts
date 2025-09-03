@@ -12,6 +12,7 @@ import itertools
 import logging
 import os
 import re
+import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from functools import cache
@@ -21,6 +22,7 @@ import requests
 from requests.exceptions import RequestException
 
 
+PASSED = "label:force_result:passed:" + os.path.basename(__file__)
 TIMEOUT = 30
 USER_AGENT = "openqa-bats-review (https://github.com/os-autoinst/scripts)"
 
@@ -34,6 +36,46 @@ session = requests.Session()
 # not ok 655 [520] podman checkpoint --export, with volumes in 1558ms
 # not ok 7 runc exec (cgroup v2, ro cgroupfs, new cgroupns) does not chown cgroup # in 418 ms
 NOT_OK = re.compile(r"^not ok \d+ (?:\[\d+\] )?(.*?)(?: #? in \d+ ?ms)?$")
+
+
+client_args = [
+    "openqa-cli",
+    "api",
+    "--header",
+    f"User-Agent: {USER_AGENT}",
+]
+
+
+def call(cmds: list[str], dry_run: bool = False) -> str:
+    """
+    Call openqa-cli
+    """
+    log.debug("call: %s", " ".join(cmds))
+    res = subprocess.run(
+        (["echo", "Simulating: "] if dry_run else []) + cmds,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if len(res.stderr):
+        log.warning("call() %s stderr: %s", cmds[0], res.stderr)
+    res.check_returncode()
+    return res.stdout.decode("utf-8")
+
+
+def openqa_comment(job: int, host: str, comment: str, dry_run: bool = False) -> str:
+    """
+    Comment a job
+    """
+    args = client_args + [
+        "--host",
+        host,
+        "-X",
+        "POST",
+        "jobs/" + str(job) + "/comments",
+        "text=" + comment,
+    ]
+    return call(args, dry_run)
 
 
 def get_file(url: str) -> str:
@@ -144,9 +186,9 @@ def main(url: str, dry_run: bool = False) -> None:
         url = f"https://{url}"
     urlx = urlparse(url)
     openqa_host = f"{urlx.scheme}://{urlx.netloc}"
-    job_id = int(os.path.basename(urlx.path))
+    my_job_id = int(os.path.basename(urlx.path))
 
-    chain = resolve_clone_chain(openqa_host, job_id)
+    chain = resolve_clone_chain(openqa_host, my_job_id)
     if len(chain) <= 1:
         log.info("No clones. Exiting")
         sys.exit(0)
@@ -180,7 +222,10 @@ def main(url: str, dry_run: bool = False) -> None:
         package = job["settings"]["BATS_PACKAGE"]
 
         # conmon may also test crun in addition to runc on openSUSE where it's available
-        if job["settings"]["DISTRI"] == "opensuse" and "OCI_RUNTIME" not in job["settings"]:
+        if (
+            job["settings"]["DISTRI"] == "opensuse"
+            and "OCI_RUNTIME" not in job["settings"]
+        ):
             expected["conmon"] = 4
 
         if len(logs) != expected[package]:
@@ -199,11 +244,14 @@ def main(url: str, dry_run: bool = False) -> None:
     if not common_failures:
         if not dry_run:
             log.info("No common failures across clone chain. Would tag as PASSED.")
-            # TODO: Tag job as passed
         else:
             log.info("No common failures across clone chain. Tagging as PASSED.")
+        print(openqa_comment(my_job_id, openqa_host, PASSED, dry_run))
     else:
-        log.info("Common failures found across clone chain: %s", " ".join(common_failures))
+        log.error(
+            "Common failures found across clone chain: %s",
+            "\n".join(sorted(list(common_failures))),
+        )
         sys.exit(1)
 
 
@@ -215,5 +263,5 @@ def parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args.url, dry_run=args.dry_run)
+    opts = parse_args()
+    main(opts.url, dry_run=opts.dry_run)
