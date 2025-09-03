@@ -136,7 +136,7 @@ def resolve_clone_chain(openqa_host: str, job_id: int) -> list[int]:
     return chain
 
 
-def main(url: str) -> None:
+def main(url: str, dry_run: bool = False) -> None:
     """
     Main function
     """
@@ -197,21 +197,23 @@ def main(url: str) -> None:
     common_failures: set[str] = set.intersection(*all_failures)
 
     if not common_failures:
-        log.info("No common failures across clone chain. Tagging as PASSED.")
-        # TODO: Tag job as passed
+        if not dry_run:
+            log.info("No common failures across clone chain. Would tag as PASSED.")
+            # TODO: Tag job as passed
+        else:
+            log.info("No common failures across clone chain. Tagging as PASSED.")
     else:
         log.info("Common failures found across clone chain: %s", " ".join(common_failures))
         sys.exit(1)
 
 
 def parse_args() -> argparse.Namespace:
-    """
-    Parse args
-    """
     parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--dry-run", action="store_true", help="dry run")
     parser.add_argument("url", help="URL to openQA jobs")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-    main(parse_args().url)
+    args = parse_args()
+    main(args.url, dry_run=args.dry_run)
