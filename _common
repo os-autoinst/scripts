@@ -407,6 +407,11 @@ log-warn() (
     colorize "err" "WARNING" "[warn] $*"
 )
 
+log-error() (
+    set +x
+    colorize "err" "ERROR" "[error] $*"
+)
+
 debug_osc() (
     set +x
     log-debug "### osc $*"

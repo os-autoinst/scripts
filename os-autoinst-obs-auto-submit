@@ -88,7 +88,7 @@ make_obs_submit_request() {
 }
 
 make_git_submit_request() {
-    local package=$1 target=$2 version=$3 branch=$4 forked_repo=''
+    local package=$1 target=$2 version=$3 branch=$4 forked_repo='' fork_rc=0
     title="Update to $version"
     description="Automatic submission via https://github.com/os-autoinst/scripts/blob/master/os-autoinst-obs-auto-submit"
 
@@ -101,7 +101,14 @@ make_git_submit_request() {
     #       `git-obs login add --url=https://src.opensuse.org obs --set-as-default --user=… --token=…`
     #       For `git push` to work (done below) you need to deploy an SSH key on the Gitea instance.
     #       Checkout https://opensuse-commander.readthedocs.io/en/latest/git-obs-quickstart.html for details.
-    forked_repo=$($git_obs repo fork "pool/$package" 2>&1 > /dev/null | perl -ne 'print for /Fork .*: (.*)/g')
+    fork_output=$($git_obs repo fork "pool/$package" 2>&1 > /dev/null) || fork_rc=$?
+    forked_repo=$(echo "$fork_output" | perl -ne 'print for /Fork .*: (.*)/g')
+    if [[ $fork_rc != 0 ]] || [[ -z $forked_repo ]]; then
+        log-error "Unable to create fork, $git_obs exited with return code $fork_rc and output:\n$fork_output"
+        [[ -e $HOME/.config/tea/config.yml ]] \
+            || log-info "Be sure you have followed https://opensuse-commander.readthedocs.io/en/latest/git-obs-quickstart.html"
+        return 1
+    fi
 
     # enter a working copy of the fork and switch to the branch the submission should be based on
     $git_obs repo clone --no-ssh-strict-host-key-checking "$forked_repo" || return $?
