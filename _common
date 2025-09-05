@@ -293,7 +293,7 @@ find_latest_published_tumbleweed_image() {
         if [[ "$type" = iso ]]; then
             assetname="Tumbleweed-NET-$arch-Snapshot$build-Media.iso$"
         else
-            assetname="Tumbleweed-$arch-$build-minimalx\\\\@$machine.*.qcow"
+            assetname="Tumbleweed-$arch-$build-minimalx\\\\@$machine.qcow"
         fi
         image=$(get_image "$assetname")
 
