@@ -88,7 +88,7 @@ make_obs_submit_request() {
 }
 
 make_git_submit_request() {
-    local package=$1 target=$2 version=$3 branch=$4 forked_repo='' fork_rc=0
+    local package=$1 target=$2 version=$3 branch=$4 forked_repo='' fork_rc=0 pr_out='' pr_rc=''
     title="Update to $version"
     description="Automatic submission via https://github.com/os-autoinst/scripts/blob/master/os-autoinst-obs-auto-submit"
 
@@ -119,10 +119,25 @@ make_git_submit_request() {
     rm -v ./*
     cp -v ../../"$package"/* ./
 
-    # commit, push and create PR
+    # commit and force push
     $git commit --all --message "$title"
     $git push -f || return $?
-    $git_obs pr create --title "$title" --description "$description" --target-branch="$branch" || return $?
+
+    # create PR
+    local sleep_time=3 remaining_attempts=4
+    while [[ $pr_rc != 0 ]]; do
+        pr_out=$($git_obs_no_retry pr create --title "$title" --description "$description" --target-branch="$branch" 2>&1) && return 0 || pr_rc=$?
+        echo "$pr_out"
+        # do just the force push if the PR already exists
+        [[ $pr_out =~ pull\ request\ already\ exists ]] && return 0
+        # otherwise try again with exponential backoff (can't use retry here as we need to filter out the non-error case when the PR already exists)
+        remaining_attempts=$((remaining_attempts - 1))
+        [[ $remaining_attempts -lt 1 ]] && break
+        echo "Retrying up to $remaining_attempts more times after sleeping $sleep_time s …"
+        sleep "$sleep_time"
+        sleep_time=$((sleep_time * 2))
+    done
+    return "$pr_rc"
 }
 
 update_package() {
@@ -323,5 +338,6 @@ prefix="${prefix:-""}"
 osc="${osc:-"$prefix retry -e -- osc"}"
 git=${git:-"$prefix retry -e -- git"}
 git_obs=${git_obs:-"$prefix retry -e -- git-obs"}
+git_obs_no_retry=${git_obs_no_retry:-"$prefix git-obs"}
 
 caller 0 > /dev/null || main "$@"
