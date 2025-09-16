@@ -184,7 +184,7 @@ label_issue() {
         fi
     fi
     # search for issues with a subject search term
-    issues=${issues:-$(exp_retries=12 runcurl "${curl_args[@]}" -sS "$issue_query" | runjq -r '.issues | .[] | (.id,.subject,.tracker.name)')}
+    issues=${issues:-$(runcurl "${curl_args[@]}" -sS "$issue_query" | runjq -r '.issues | .[] | (.id,.subject,.tracker.name)')}
     investigate_issue "$testurl"
 }
 
