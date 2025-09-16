@@ -96,11 +96,11 @@ shorten_string() {
 
 # Wrapper around curl that reports the HTTP status if it is not 200, and the
 # calling command and line
-# exp_retries: number of total tries - 0/unset for no retries. Sleep before each retry will double.
+# exp_retries: number of total tries - 0 for no retries. Sleep before each retry will double.
 runcurl() {
     local rc status_code body response
     local verbose="${verbose:-"false"}"
-    local exp_retries="${exp_retries:-"0"}"
+    local exp_retries="${exp_retries:-12}"
     for retry_exponent in $(seq 0 "$exp_retries"); do
         $verbose && warn "[debug] curl: Fetching ($*)"
         set +e
