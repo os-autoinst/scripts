@@ -44,10 +44,6 @@ hook() {
     result="$(echo "$job_data" | runjq -r '.job.result')" || return $?
     [[ "$state" != "done" ]] && return
     if [[ "$result" != passed ]]; then
-        bats_package="$(echo "$job_data" | runjq -r '.job.settings.BATS_PACKAGE')"
-        if [[ $bats_package != "null" ]]; then
-            openqa-bats-review "$url" && return
-        fi
         label "$url" | investigate-and-bisect
     else
         echo "$url" | investigate-and-bisect
