@@ -20,7 +20,7 @@ build_tag=${BUILD_TAG:-}
 client_prefix=${client_prefix:-}
 full_run=${FULL:-}
 group_id="${group_id:-"openQA"}"
-osc=${osc:-osc}
+osc=${osc:-retry -e -- osc}
 src_project=${src_project:-devel:openQA}
 staging_project=${staging_project:-${src_project}:testing}
 dst_project=${dst_project:-${src_project}:tested}
@@ -30,7 +30,7 @@ dst_project=${dst_project:-${src_project}:tested}
 
 main() {
     [[ $dry_run == 1 ]] && client_prefix="echo" osc="echo $osc"
-    local qcow build
+    local qcow build rc=0
     download_scenario
     download_latest_published_tumbleweed_image
 
@@ -39,7 +39,13 @@ main() {
     if [[ $full_run ]]; then
         staging_project=$src_project
     else
-        create_devel_openqa_snapshot
+        create_devel_openqa_snapshot || rc=$?
+        if [[ $rc != 0 ]]; then
+            # clean staging project in case the snapshot creation failed so we don't leave the staging project in an intermediate state
+            # note: This is best-effort as it might fail as well if the problem is OBS being down (for long enough so retries didn't help).
+            cleanup-obs-project "$staging_project" 'I am sure'
+            return "$rc"
+        fi
     fi
     trigger
 }
