@@ -120,7 +120,8 @@ make_git_submit_request() {
     cp -v ../../"$package"/* ./
 
     # commit and force push
-    $git commit --all --message "$title"
+    $git add --all
+    $git commit --message "$title"
     $git push -f || return $?
 
     # create PR
