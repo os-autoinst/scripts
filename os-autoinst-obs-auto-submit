@@ -115,6 +115,10 @@ make_git_submit_request() {
     cd "$package"
     $git switch "$branch"
 
+    # base our changes on the latest state of the target repository (which is added as remote "parent" by git-obs)
+    $git fetch parent || return $?
+    $git reset --hard "parent/$branch"
+
     # remove everything and replace it with the updated files we have just created (in the calling function)
     rm -v ./*
     cp -v ../../"$package"/* ./
