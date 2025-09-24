@@ -216,8 +216,11 @@ def main(url: str, dry_run: bool = False) -> None:
         failed = process_logs(logs)
         all_failures.append(failed)
 
-    if not all_failures:
-        log.info("No logs found in chain. Exiting")
+    if len(all_failures) < 2:
+        if not all_failures:
+            log.info("No logs found in chain. Exiting")
+        else:
+            log.info("Only one job with logs in chain. Exiting")
         sys.exit(0)
 
     common_failures: Set[str] = set.intersection(*all_failures)
