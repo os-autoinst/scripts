@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument("--prefix", help="Event prefix to collect", default="opensuse.src.")
     parser.add_argument("--event-type", help="Event type to collect", default="pull_request_review_request.review_requested")
     parser.add_argument("--myself", help="Username of bot", default="qam-openqa")
+    parser.add_argument("--openqa-host", help="OpenQA instance url", default="http://localhost:9526")
     parser.add_argument("--verbose", help="Verbosity", default="1", type=int, choices=[0, 1, 2, 3])
     parser.add_argument("--simulate-review-requested-event", help="Behave as if a pull_request_review_request.review_requested was received")
     args = parser.parse_args()
@@ -89,7 +90,7 @@ def handle_review_request(data, args):
         'repo_html_url': data['repository']['html_url'],
     }
     params = create_openqa_job_params(job_params)
-    job_url = openqa_schedule(params)
+    job_url = openqa_schedule(args, params)
     print(job_url)
     gitea_post_status(job_params, job_url)
 
@@ -147,9 +148,8 @@ def create_openqa_job_params(job_params):
     return params
 
 
-def openqa_cli(subcommand, cmds, dry_run=False):
+def openqa_cli(host, subcommand, cmds, dry_run=False):
     print("============== openqa_cli")
-    host = 'https://openqa.opensuse.org'
     client_args = [
         "openqa-cli",
         subcommand,
@@ -167,14 +167,14 @@ def openqa_cli(subcommand, cmds, dry_run=False):
     return res.stdout.decode("utf-8");
 
 
-def openqa_schedule(params):
+def openqa_schedule(args, params):
     print("============== openqa_schedule")
     scenario_url = 'https://raw.githubusercontent.com/os-autoinst/os-autoinst-distri-openQA/refs/heads/master/scenario-definitions.yaml'
     scenario_yaml = fetch_url(scenario_url, request_type="text")
     yaml_file = "/tmp/distri-openqa-scenario.yaml"
     with open(yaml_file, 'w') as f:
         f.write(scenario_yaml.decode("utf-8"))
-    args = [
+    cmd_args = [
         "--param-file",
         "SCENARIO_DEFINITIONS_YAML=" + yaml_file,
         "VERSION=Tumbleweed",
@@ -184,8 +184,8 @@ def openqa_schedule(params):
         "HDD_1=opensuse-Tumbleweed-x86_64-20250920-minimalx@uefi.qcow2",
     ]
     for key in params:
-        args.append(key + '=' + params[key])
-    output = openqa_cli('schedule', args, dry_run)
+        cmd_args.append(key + '=' + params[key])
+    output = openqa_cli(args.openqa_host, 'schedule', cmd_args, dry_run)
     pattern = re.compile(r".*?(?P<url>https?://\S+)", re.DOTALL)
     search = pattern.match(output)
     if search:

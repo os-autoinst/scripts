@@ -16,6 +16,7 @@ def args_factory():
     args = Namespace()
     args.myself = 'qam-openqa'
     args.verbose = 1
+    args.openqa_host = 'https://openqa.example'
     return args
 
 
@@ -23,11 +24,11 @@ def mocked_create_openqa_job(job_params):
     return { 'foo': 'bar' }
 
 
-def mocked_openqa_schedule(params):
+def mocked_openqa_schedule(args, params):
     return 'https://openqa.opensuse.org/tests/123456'
 
 
-def mocked_openqa_cli(subcommand, cmds, dry_run=False):
+def mocked_openqa_cli(host, subcommand, cmds, dry_run=False):
     output = """
     {"count":6,"failed":[],"ids":[5335402,5335403,5335404,5335405,5335406,5335407],"scheduled_product_id":515537}
     6 jobs have been created:
@@ -97,10 +98,11 @@ class TestAMQP:
 
 
     def test_schedule_job(mock_amqp):
+        args = args_factory()
         openqa.openqa_cli = MagicMock(side_effect=mocked_openqa_cli)
         openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-        job_url = openqa.openqa_schedule({'foo': 'bar'})
-        args = [
+        job_url = openqa.openqa_schedule(args, {'foo': 'bar'})
+        cmd_args = [
             '--param-file',
             'SCENARIO_DEFINITIONS_YAML=/tmp/distri-openqa-scenario.yaml',
             'VERSION=Tumbleweed',
@@ -110,7 +112,7 @@ class TestAMQP:
             'HDD_1=opensuse-Tumbleweed-x86_64-20250920-minimalx@uefi.qcow2',
             'foo=bar',
         ]
-        openqa.openqa_cli.assert_called_once_with('schedule', args, False)
+        openqa.openqa_cli.assert_called_once_with(args.openqa_host, 'schedule', cmd_args, False)
         print(job_url)
         assert(job_url == 'https://openqa.opensuse.org/tests/5335402')
 
@@ -139,7 +141,7 @@ class TestAMQP:
         openqa.openqa_schedule = MagicMock(side_effect=mocked_openqa_schedule)
         openqa.gitea_post_status = MagicMock(side_effect=mocked_gitea_post_status)
         openqa.handle_review_request(data, args)
-        openqa.openqa_schedule.assert_called_once_with({
+        openqa.openqa_schedule.assert_called_once_with(args, {
             'BUILD': 'reponame#c0ffee',
             'CASEDIR': 'https://src.opensuse.org/owner/reponame.git#c0ffee',
             '_GROUP_ID': '0',
