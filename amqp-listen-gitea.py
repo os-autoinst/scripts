@@ -144,6 +144,7 @@ def create_openqa_job_params(job_params):
         'GITEA_SHA': job_params['sha'],
         'GITEA_STATUSES_URL': statuses_url,
         'GITEA_PR_URL': job_params['repo_html_url'],
+        'webhook_id': 'gitea-soo:pr:' + job_params['id'],
     }
     return params
 

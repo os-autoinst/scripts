@@ -56,7 +56,7 @@ def mocked_request_post(url, headers, payload):
 data = {
     'requested_reviewer': { 'username': 'qam-openqa' },
     'pull_request': {
-        'id': 23,
+        'id': '23',
         'head': {
             'sha': 'c0ffee',
             'ref': 'branch',
@@ -74,7 +74,7 @@ data = {
 }
 
 job_params = {
-    'id': 23,
+    'id': '23',
     'sha': 'c0ffee',
     'label': 'pr_user:branch',
     'clone_url': 'https://src.opensuse.org/owner/reponame.git',
@@ -101,7 +101,7 @@ class TestAMQP:
         args = args_factory()
         openqa.openqa_cli = MagicMock(side_effect=mocked_openqa_cli)
         openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-        job_url = openqa.openqa_schedule(args, {'foo': 'bar'})
+        job_url = openqa.openqa_schedule(args, {'webhook_id': 'gitea-soo:pr:42', 'foo': 'bar'})
         cmd_args = [
             '--param-file',
             'SCENARIO_DEFINITIONS_YAML=/tmp/distri-openqa-scenario.yaml',
@@ -110,6 +110,7 @@ class TestAMQP:
             'FLAVOR=dev',
             'ARCH=x86_64',
             'HDD_1=opensuse-Tumbleweed-x86_64-20250920-minimalx@uefi.qcow2',
+            'webhook_id=gitea-soo:pr:42',
             'foo=bar',
         ]
         openqa.openqa_cli.assert_called_once_with(args.openqa_host, 'schedule', cmd_args, False)
@@ -153,6 +154,7 @@ class TestAMQP:
             'GITEA_SHA': 'c0ffee',
             'GITEA_STATUSES_URL': 'https://src.opensuse.org/api/v1/repos/owner/reponame/statuses/c0ffee',
             'GITEA_PR_URL': 'https://src.opensuse.org/owner/reponame',
+            'webhook_id': 'gitea-soo:pr:23',
         })
         openqa.gitea_post_status.assert_called_once_with(job_params, 'https://openqa.opensuse.org/tests/123456')
 
