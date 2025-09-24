@@ -151,9 +151,6 @@ def resolve_clone_chain(openqa_host: str, job_id: int) -> List[int]:
     while current:
         # We use "/details" because we'll need this information again and get_job() is cached
         job = get_job(f"{openqa_host}/api/v1/jobs/{current}/details")
-        if "BATS_PACKAGE" not in job["settings"]:
-            log.error("Not a BATS test: %d", job_id)
-            sys.exit(1)
         chain.append(current)
         current = job.get("origin_id")
     return chain
@@ -175,15 +172,17 @@ def main(url: str, dry_run: bool = False) -> None:
         sys.exit(0)
     log.info("Processing clone chain: %s", " -> ".join(map(str, chain)))
 
-    # Expected number of logs per package
+    # Expected number of logs per testsuite
     expected = {
-        "aardvark-dns": 1,
-        "buildah": 2,
-        "conmon": 2,
-        "netavark": 1,
-        "podman": 4,
-        "runc": 2,
-        "skopeo": 2,
+        "aardvark_testsuite": 1,
+        "buildah_testsuite": 2,
+        "conmon_testsuite": 2,
+        "docker_testsuite": 4,
+        "netavark_testsuite": 1,
+        "podman_e2e": 1,
+        "podman_testsuite": 4,
+        "runc_testsuite": 2,
+        "skopeo_testsuite": 2,
     }
 
     all_failures = []
@@ -200,16 +199,25 @@ def main(url: str, dry_run: bool = False) -> None:
             log.info("Job %s has no logs, skipping", job_id)
             continue
 
-        package = job["settings"]["BATS_PACKAGE"]
+        testsuite = job["settings"]["TEST"].removeprefix("container_host_")
+        # We can't use str.removesuffix (added to Python 3.8) so we must index at the end
+        if testsuite.endswith("_crun"):
+            testsuite = testsuite[: -len("_crun")]
 
-        # conmon may also test crun in addition to runc on openSUSE where it's available
-        if (
-            job["settings"]["DISTRI"] == "opensuse"
-            and "OCI_RUNTIME" not in job["settings"]
-        ):
-            expected["conmon"] = 4
+        # We have more tests on Tumbleweed
+        if job["settings"]["DISTRI"] == "opensuse":
+            # For buildah we also run conformance tests
+            expected["buildah_testsuite"] += 1
+            # For conmon we also test crun as root & rootless
+            expected["conmon_testsuite"] += 2
+            # For docker we also test ssh with python3-docker
+            expected["docker_testsuite"] += 1
+            # For podman we also test python3-podman & remoteintegration
+            expected["podman_e2e"] += 3
+            # For skopeo we also run Golang integration tests
+            expected["skopeo_testsuite"] += 1
 
-        if len(logs) != expected[package]:
+        if len(logs) != expected[testsuite]:
             log.info("Job %s has only %d logs, skipping", job_id, len(logs))
             continue
 
