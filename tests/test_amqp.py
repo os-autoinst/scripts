@@ -57,6 +57,7 @@ data = {
     'requested_reviewer': { 'username': 'qam-openqa' },
     'pull_request': {
         'id': '23',
+        'html_url': 'https://src.opensuse.org/owner/reponame/pulls/1234',
         'head': {
             'sha': 'c0ffee',
             'ref': 'branch',
@@ -79,6 +80,7 @@ job_params = {
     'label': 'pr_user:branch',
     'clone_url': 'https://src.opensuse.org/owner/reponame.git',
     'branch': 'branch',
+    'pr_html_url': 'https://src.opensuse.org/owner/reponame/pulls/1234',
     'repo_name': 'reponame',
     'repo_api_url': 'https://src.opensuse.org/api/v1/repos/owner/reponame',
     'repo_html_url': 'https://src.opensuse.org/owner/reponame'
@@ -153,7 +155,7 @@ class TestAMQP:
             'GITEA_REPO': 'reponame',
             'GITEA_SHA': 'c0ffee',
             'GITEA_STATUSES_URL': 'https://src.opensuse.org/api/v1/repos/owner/reponame/statuses/c0ffee',
-            'GITEA_PR_URL': 'https://src.opensuse.org/owner/reponame',
+            'GITEA_PR_URL': 'https://src.opensuse.org/owner/reponame/pulls/1234',
             'webhook_id': 'gitea-soo:pr:23',
         })
         openqa.gitea_post_status.assert_called_once_with(job_params, 'https://openqa.opensuse.org/tests/123456')

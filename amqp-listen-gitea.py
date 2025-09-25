@@ -84,6 +84,7 @@ def handle_review_request(data, args):
         'label': pull_request['head']['label'],
         'branch': pull_request['head']['ref'],
         'sha': pull_request['head']['sha'],
+        'pr_html_url': pull_request['html_url'],
         'clone_url': pull_request['head']['repo']['clone_url'],
         'repo_name': pull_request['head']['repo']['name'],
         'repo_api_url': data['repository']['url'],
@@ -143,7 +144,7 @@ def create_openqa_job_params(job_params):
         'GITEA_REPO': job_params['repo_name'],
         'GITEA_SHA': job_params['sha'],
         'GITEA_STATUSES_URL': statuses_url,
-        'GITEA_PR_URL': job_params['repo_html_url'],
+        'GITEA_PR_URL': job_params['pr_html_url'],
         'webhook_id': 'gitea-soo:pr:' + job_params['id'],
     }
     return params
