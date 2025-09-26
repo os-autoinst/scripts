@@ -90,7 +90,7 @@ def handle_review_request(data, args):
         'repo_api_url': data['repository']['url'],
         'repo_html_url': data['repository']['html_url'],
     }
-    params = create_openqa_job_params(job_params)
+    params = create_openqa_job_params(args, job_params)
     job_url = openqa_schedule(args, params)
     print(job_url)
     gitea_post_status(job_params, job_url)
@@ -122,10 +122,9 @@ def request_post(url, headers, payload):
         raise (e)
 
 
-def create_openqa_job_params(job_params):
+def create_openqa_job_params(args, job_params):
     print("============== create_openqa_job_params")
     raw_url = job_params['repo_html_url'] + '/raw/branch/' + job_params['sha'];
-    base_url = 'https://openqa.opensuse.org'
     statuses_url = job_params['repo_api_url'] + '/statuses/' + job_params['sha'];
     params = {
         'BUILD': job_params['repo_name'] + '#' + job_params['sha'],
@@ -138,7 +137,7 @@ def create_openqa_job_params(job_params):
         'SCENARIO_DEFINITIONS_YAML_FILE': raw_url + '/' + 'scenario-definitions.yaml',
 
         # add "target URL" for the "Details" button of the CI status
-        'CI_TARGET_URL': base_url,
+        'CI_TARGET_URL': args.openqa_host,
 
         # set Gitea parameters so the Minion job will be able to report the status back to Gitea
         'GITEA_REPO': job_params['repo_name'],

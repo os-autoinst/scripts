@@ -20,7 +20,7 @@ def args_factory():
     return args
 
 
-def mocked_create_openqa_job(job_params):
+def mocked_create_openqa_job(args, job_params):
     return { 'foo': 'bar' }
 
 
@@ -103,7 +103,7 @@ class TestAMQP:
         args = args_factory()
         openqa.openqa_cli = MagicMock(side_effect=mocked_openqa_cli)
         openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-        job_url = openqa.openqa_schedule(args, {'webhook_id': 'gitea-soo:pr:42', 'foo': 'bar'})
+        job_url = openqa.openqa_schedule(args, {'webhook_id': 'gitea:pr:42', 'foo': 'bar'})
         cmd_args = [
             '--param-file',
             'SCENARIO_DEFINITIONS_YAML=/tmp/distri-openqa-scenario.yaml',
@@ -112,7 +112,7 @@ class TestAMQP:
             'FLAVOR=dev',
             'ARCH=x86_64',
             'HDD_1=opensuse-Tumbleweed-x86_64-20250920-minimalx@uefi.qcow2',
-            'webhook_id=gitea-soo:pr:42',
+            'webhook_id=gitea:pr:42',
             'foo=bar',
         ]
         openqa.openqa_cli.assert_called_once_with(args.openqa_host, 'schedule', cmd_args, False)
@@ -151,12 +151,12 @@ class TestAMQP:
             'PRIO': '100',
             'NEEDLES_DIR': '%%CASEDIR%%/needles',
             'SCENARIO_DEFINITIONS_YAML_FILE': 'https://src.opensuse.org/owner/reponame/raw/branch/c0ffee/scenario-definitions.yaml',
-            'CI_TARGET_URL': 'https://src.opensuse.org/owner/reponame/raw/branch/c0ffee',
+            'CI_TARGET_URL': 'https://openqa.example',
             'GITEA_REPO': 'reponame',
             'GITEA_SHA': 'c0ffee',
             'GITEA_STATUSES_URL': 'https://src.opensuse.org/api/v1/repos/owner/reponame/statuses/c0ffee',
             'GITEA_PR_URL': 'https://src.opensuse.org/owner/reponame/pulls/1234',
-            'webhook_id': 'gitea-soo:pr:23',
+            'webhook_id': 'gitea:pr:23',
         })
         openqa.gitea_post_status.assert_called_once_with(job_params, 'https://openqa.opensuse.org/tests/123456')
 
@@ -165,6 +165,6 @@ class TestAMQP:
         args = args_factory()
         openqa.create_openqa_job_params = MagicMock(side_effect=mocked_create_openqa_job)
         openqa.handle_review_request(data, args)
-        openqa.create_openqa_job_params.assert_called_once_with(job_params)
+        openqa.create_openqa_job_params.assert_called_once_with(args, job_params)
 
 
