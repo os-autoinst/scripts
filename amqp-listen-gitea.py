@@ -138,14 +138,14 @@ def create_openqa_job_params(job_params):
         'SCENARIO_DEFINITIONS_YAML_FILE': raw_url + '/' + 'scenario-definitions.yaml',
 
         # add "target URL" for the "Details" button of the CI status
-        'CI_TARGET_URL': raw_url,
+        'CI_TARGET_URL': base_url,
 
         # set Gitea parameters so the Minion job will be able to report the status back to Gitea
         'GITEA_REPO': job_params['repo_name'],
         'GITEA_SHA': job_params['sha'],
         'GITEA_STATUSES_URL': statuses_url,
         'GITEA_PR_URL': job_params['pr_html_url'],
-        'webhook_id': 'gitea-soo:pr:' + job_params['id'],
+        'webhook_id': 'gitea:pr:' + str(job_params['id']),
     }
     return params
 
