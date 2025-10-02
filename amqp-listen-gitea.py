@@ -9,6 +9,7 @@ import requests
 import re
 import logging
 import datetime
+from urllib.parse import urlencode, urlunparse, urlparse
 
 USER_AGENT = 'amqp-listen-gitea.py (https://github.com/os-autoinst/scripts)'
 dry_run=False
@@ -203,13 +204,17 @@ def openqa_schedule(args, params):
         cmd_args.append(key + '=' + params[key])
     output = openqa_cli(args.openqa_host, 'schedule', cmd_args, dry_run)
     pattern = re.compile(r".*?(?P<url>https?://\S+)", re.DOTALL)
-    search = pattern.match(output)
-    if search:
-        url = search.group("url")
-    else:
-        raise Exception('openqa-cli failed', 'Output did not contain a url. ' + output)
-    return url
 
+    query_parameters = {
+        "build": params["BUILD"],
+        "distri":"openqa",
+        "version":"Tumbleweed"
+        }
+
+    base_url = urlparse(args.openqa_host+"/tests/overview")
+    query_string = urlencode(query_parameters)
+    test_overview_url = urlunparse(base_url._replace(query=query_string))
+    return test_overview_url
 
 def fetch_url(url, request_type="text"):
     print("============== fetch_url")
