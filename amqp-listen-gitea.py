@@ -8,6 +8,7 @@ import subprocess
 import requests
 import re
 import logging
+import datetime
 
 USER_AGENT = 'amqp-listen-gitea.py (https://github.com/os-autoinst/scripts)'
 dry_run=False
@@ -24,6 +25,7 @@ def parse_args():
     parser.add_argument("--openqa-host", help="OpenQA instance url", default="http://localhost:9526")
     parser.add_argument("--verbose", help="Verbosity", default="1", type=int, choices=[0, 1, 2, 3])
     parser.add_argument("--simulate-review-requested-event", help="Behave as if a pull_request_review_request.review_requested was received")
+    parser.add_argument("--store-amqp", help="Should the amqp event be stored", action='store_true', default=False)
     args = parser.parse_args()
     return args
 
@@ -57,6 +59,19 @@ def callback(ch, method, properties, body, args):
     if args.verbose >= 2:
         print("      [x] %r" % (method.routing_key))
     data = json.loads(body)
+
+    if args.store_amqp:
+        if data['requested_reviewer']['username'] == args.myself:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            filename = f"tests/data/gitea-amqp/amqp-{args.myself}-review-requested-{timestamp}.json"
+            try:
+                with open(filename, 'w') as file_object:
+                    json.dump(data, file_object,indent=4)
+                    log.info(f"Storing review-requested file to {filename}")
+
+            except IOError as e:
+                log.error(f"Error saving file: {e}")
+
     handle_review_request(data, args)
 
 
