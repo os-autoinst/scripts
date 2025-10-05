@@ -26,77 +26,11 @@ loader.exec_module(bats_review)
 
 get_file = bats_review.get_file
 get_job = bats_review.get_job
-grep_notok = bats_review.grep_notok
-process_tap_files = bats_review.process_tap_files
+grep_failures = bats_review.grep_failures
+process_logs = bats_review.process_logs
 resolve_clone_chain = bats_review.resolve_clone_chain
 main = bats_review.main
 parse_args = bats_review.parse_args
-NOT_OK = bats_review.NOT_OK
-
-
-# Additional test for testing all expected package configurations
-class TestPackageExpectations:
-    """Test the expected package configurations"""
-
-    def setup_method(self):
-        """Clear cache before each test"""
-        get_job.cache_clear()
-
-    @patch("bats_review.resolve_clone_chain")
-    @patch("bats_review.get_job")
-    @patch("bats_review.log")
-    def test_unknown_package_keyerror(
-        self, mock_log, mock_get_job, mock_resolve_clone_chain
-    ):
-        """Test main function with unknown package should raise KeyError"""
-        mock_resolve_clone_chain.return_value = [123, 122]
-
-        def mock_job_response(url):
-            return {
-                "id": int(url.split("/")[-2]),
-                "settings": {"BATS_PACKAGE": "unknown-package"},  # Not in expected dict
-                "ulogs": ["test.tap.txt"],
-            }
-
-        mock_get_job.side_effect = mock_job_response
-
-        with pytest.raises(KeyError):
-            main("http://openqa.example.com/tests/123", dry_run=True)
-
-
-class TestRegexPattern:
-    """Test the NOT_OK regex pattern"""
-
-    def test_basic_not_ok_pattern(self):
-        """Test basic 'not ok' pattern matching"""
-        line = "not ok 166 bud-git-context in 118ms"
-        match = NOT_OK.findall(line)
-        # The regex captures everything including timing, so we need to adjust expectation
-        assert match == ["bud-git-context in 118ms"]
-
-    def test_not_ok_with_brackets(self):
-        """Test 'not ok' pattern with brackets"""
-        line = "not ok 655 [520] podman checkpoint --export, with volumes in 1558ms"
-        match = NOT_OK.findall(line)
-        # The regex captures everything including timing
-        assert match == ["podman checkpoint --export, with volumes in 1558ms"]
-
-    def test_not_ok_without_timing(self):
-        """Test 'not ok' pattern without timing info"""
-        line = "not ok 123 some test name"
-        match = NOT_OK.findall(line)
-        assert match == ["some test name"]
-
-    def test_not_ok_no_match(self):
-        """Test lines that shouldn't match"""
-        lines = [
-            "ok 123 passing test",
-            "# not ok this is a comment",
-            "some random line",
-        ]
-        for line in lines:
-            match = NOT_OK.findall(line)
-            assert match == []
 
 
 class TestGetFile:
@@ -186,12 +120,12 @@ class TestGetJob:
         mock_log.error.assert_called_once()
 
 
-class TestGrepNotok:
-    """Test the grep_notok function"""
+class TestGrepFailures:
+    """Test the grep_failures function"""
 
     @patch("bats_review.get_file")
     @patch("bats_review.log")
-    def test_grep_notok_success(self, mock_log, mock_get_file):
+    def test_grep_failures_success(self, mock_log, mock_get_file):
         """Test successful parsing of TAP file"""
         tap_content = """1..3
 ok 1 test one
@@ -200,13 +134,13 @@ ok 3 test three"""
 
         mock_get_file.return_value = tap_content
 
-        result = grep_notok("http://example.com/test.tap.txt")
+        result = grep_failures("http://example.com/test.tap.txt")
 
         assert result == {"test.tap.txt:failing test in 100ms"}
 
     @patch("bats_review.get_file")
     @patch("bats_review.log")
-    def test_grep_notok_with_brackets(self, mock_log, mock_get_file):
+    def test_grep_failures_with_brackets(self, mock_log, mock_get_file):
         """Test parsing TAP file with bracketed test numbers"""
         tap_content = """1..2
 ok 1 [100] passing test
@@ -214,13 +148,13 @@ not ok 2 [200] failing test with brackets in 200ms"""
 
         mock_get_file.return_value = tap_content
 
-        result = grep_notok("http://example.com/test.tap.txt")
+        result = grep_failures("http://example.com/test.tap.txt")
 
         assert result == {"test.tap.txt:failing test with brackets in 200ms"}
 
     @patch("bats_review.get_file")
     @patch("bats_review.log")
-    def test_grep_notok_no_plan(self, mock_log, mock_get_file):
+    def test_grep_failures_no_plan(self, mock_log, mock_get_file):
         """Test handling of TAP file without plan"""
         tap_content = """ok 1 test one
 not ok 2 failing test"""
@@ -228,7 +162,7 @@ not ok 2 failing test"""
         mock_get_file.return_value = tap_content
 
         with pytest.raises(SystemExit) as exc_info:
-            grep_notok("http://example.com/test.tap.txt")
+            grep_failures("http://example.com/test.tap.txt")
 
         assert exc_info.value.code == 1
         mock_log.error.assert_called_with(
@@ -237,7 +171,7 @@ not ok 2 failing test"""
 
     @patch("bats_review.get_file")
     @patch("bats_review.log")
-    def test_grep_notok_truncated(self, mock_log, mock_get_file):
+    def test_grep_failures_truncated(self, mock_log, mock_get_file):
         """Test handling of truncated TAP file"""
         tap_content = """1..3
 ok 1 test one
@@ -247,7 +181,7 @@ not ok 2 failing test"""
         mock_get_file.return_value = tap_content
 
         with pytest.raises(SystemExit) as exc_info:
-            grep_notok("http://example.com/test.tap.txt")
+            grep_failures("http://example.com/test.tap.txt")
 
         assert exc_info.value.code == 1
         mock_log.error.assert_called_with(
@@ -255,7 +189,7 @@ not ok 2 failing test"""
         )
 
     @patch("bats_review.get_file")
-    def test_grep_notok_comments_ignored(self, mock_get_file):
+    def test_grep_failures_comments_ignored(self, mock_get_file):
         """Test that commented 'not ok' lines are ignored"""
         tap_content = """1..2
 ok 1 test one
@@ -265,27 +199,27 @@ not ok 2 real failure"""
         mock_get_file.return_value = tap_content
 
         with pytest.raises(SystemExit):
-            result = grep_notok("http://example.com/test.tap.txt")
+            result = grep_failures("http://example.com/test.tap.txt")
             assert result == {"test.tap.txt:real failure"}
 
 
 class TestProcessFiles:
-    """Test the process_tap_files function"""
+    """Test the process_logs function"""
 
-    @patch("bats_review.grep_notok")
-    def test_process_tap_files_single_file(self, mock_grep_notok):
+    @patch("bats_review.grep_failures")
+    def test_process_logs_single_file(self, mock_grep_failures):
         """Test processing single TAP file"""
-        mock_grep_notok.return_value = {"file1:test1", "file1:test2"}
+        mock_grep_failures.return_value = {"file1:test1", "file1:test2"}
 
-        result = process_tap_files(["http://example.com/file1.tap.txt"])
+        result = process_logs(["http://example.com/file1.tap.txt"])
 
         assert result == {"file1:test1", "file1:test2"}
-        mock_grep_notok.assert_called_once_with("http://example.com/file1.tap.txt")
+        mock_grep_failures.assert_called_once_with("http://example.com/file1.tap.txt")
 
-    @patch("bats_review.grep_notok")
+    @patch("bats_review.grep_failures")
     @patch("bats_review.ThreadPoolExecutor")
-    def test_process_tap_files_multiple_files(
-        self, mock_executor_class, mock_grep_notok
+    def test_process_logs_multiple_files(
+        self, mock_executor_class, mock_grep_failures
     ):
         """Test processing multiple TAP files with ThreadPoolExecutor"""
         # Mock the ThreadPoolExecutor
@@ -297,11 +231,11 @@ class TestProcessFiles:
         ]
 
         files = ["http://example.com/file1.tap.txt", "http://example.com/file2.tap.txt"]
-        result = process_tap_files(files)
+        result = process_logs(files)
 
         assert result == {"file1:test1", "file1:test2", "file2:test3"}
         mock_executor_class.assert_called_once_with(max_workers=2)
-        mock_executor.map.assert_called_once_with(mock_grep_notok, files)
+        mock_executor.map.assert_called_once_with(mock_grep_failures, files)
 
 
 class TestGetCloneChain:
@@ -388,10 +322,10 @@ class TestMain:
 
     @patch("bats_review.resolve_clone_chain")
     @patch("bats_review.get_job")
-    @patch("bats_review.process_tap_files")
+    @patch("bats_review.process_logs")
     @patch("bats_review.log")
     def test_main_no_common_failures(
-        self, mock_log, mock_process_tap_files, mock_get_job, mock_resolve_clone_chain
+        self, mock_log, mock_process_logs, mock_get_job, mock_resolve_clone_chain
     ):
         """Test main function when no common failures exist"""
         mock_resolve_clone_chain.return_value = [123, 122]
@@ -407,7 +341,7 @@ class TestMain:
             }
 
         mock_get_job.side_effect = mock_job_response
-        mock_process_tap_files.side_effect = [
+        mock_process_logs.side_effect = [
             {"file1:test1", "file1:test2"},  # Job 123 failures
             {"file1:test3", "file1:test4"},  # Job 122 failures (different)
         ]
@@ -423,7 +357,7 @@ class TestMain:
     @patch("bats_review.get_job")
     @patch("bats_review.log")
     def test_main_no_tap_logs(self, mock_log, mock_get_job, mock_resolve_clone_chain):
-        """Test main function when no TAP logs are found"""
+        """Test main function when no logs are found"""
         mock_resolve_clone_chain.return_value = [123, 122]
 
         def mock_job_response(url):
@@ -439,8 +373,8 @@ class TestMain:
             main("http://openqa.example.com/tests/123", dry_run=True)
 
         assert exc_info.value.code == 0
-        mock_log.info.assert_any_call("Job %s has no TAP logs, skipping", 123)
-        mock_log.info.assert_any_call("Job %s has no TAP logs, skipping", 122)
+        mock_log.info.assert_any_call("Job %s has no logs, skipping", 123)
+        mock_log.info.assert_any_call("Job %s has no logs, skipping", 122)
         mock_log.info.assert_any_call("No logs found in chain. Exiting")
 
     @patch("bats_review.resolve_clone_chain")
@@ -449,7 +383,7 @@ class TestMain:
     def test_main_insufficient_logs(
         self, mock_log, mock_get_job, mock_resolve_clone_chain
     ):
-        """Test main function when job has insufficient TAP logs"""
+        """Test main function when job has insufficient logs"""
         mock_resolve_clone_chain.return_value = [123, 122]
 
         def mock_job_response(url):
@@ -468,16 +402,16 @@ class TestMain:
             main("http://openqa.example.com/tests/123", dry_run=True)
 
         assert exc_info.value.code == 0
-        mock_log.info.assert_any_call("Job %s has only %d TAP logs, skipping", 123, 2)
-        mock_log.info.assert_any_call("Job %s has only %d TAP logs, skipping", 122, 2)
+        mock_log.info.assert_any_call("Job %s has only %d logs, skipping", 123, 2)
+        mock_log.info.assert_any_call("Job %s has only %d logs, skipping", 122, 2)
         mock_log.info.assert_any_call("No logs found in chain. Exiting")
 
     @patch("bats_review.resolve_clone_chain")
     @patch("bats_review.get_job")
-    @patch("bats_review.process_tap_files")
+    @patch("bats_review.process_logs")
     @patch("bats_review.log")
     def test_main_package_validation_all_packages(
-        self, mock_log, mock_process_tap_files, mock_get_job, mock_resolve_clone_chain
+        self, mock_log, mock_process_logs, mock_get_job, mock_resolve_clone_chain
     ):
         """Test main function with all supported package types"""
         test_cases = [
@@ -492,7 +426,7 @@ class TestMain:
         for package, expected_count in test_cases:
             # Reset mocks for each test case
             mock_log.reset_mock()
-            mock_process_tap_files.reset_mock()
+            mock_process_logs.reset_mock()
             mock_get_job.reset_mock()
             mock_resolve_clone_chain.reset_mock()
             get_job.cache_clear()
@@ -507,7 +441,7 @@ class TestMain:
                 }
 
             mock_get_job.side_effect = mock_job_response
-            mock_process_tap_files.side_effect = [
+            mock_process_logs.side_effect = [
                 {"file1:test1"},  # Job 123 failures
                 {"file1:test2"},  # Job 122 failures (different)
             ]
@@ -522,7 +456,7 @@ class TestMain:
     @patch("bats_review.get_job")
     @patch("bats_review.log")
     def test_main_no_logs(self, mock_log, mock_get_job, mock_resolve_clone_chain):
-        """Test main function when no TAP logs are found"""
+        """Test main function when no logs are found"""
         mock_resolve_clone_chain.return_value = [123, 122]
 
         def mock_job_response(url):
@@ -542,10 +476,10 @@ class TestMain:
 
     @patch("bats_review.resolve_clone_chain")
     @patch("bats_review.get_job")
-    @patch("bats_review.process_tap_files")
+    @patch("bats_review.process_logs")
     @patch("bats_review.log")
     def test_main_package_validation(
-        self, mock_log, mock_process_tap_files, mock_get_job, mock_resolve_clone_chain
+        self, mock_log, mock_process_logs, mock_get_job, mock_resolve_clone_chain
     ):
         """Test main function with different package types and expected log counts"""
         mock_resolve_clone_chain.return_value = [123, 122]
@@ -559,7 +493,7 @@ class TestMain:
             }
 
         mock_get_job.side_effect = mock_job_response
-        mock_process_tap_files.side_effect = [
+        mock_process_logs.side_effect = [
             {"file1:test1"},  # Job 123 failures
             {"file1:test2"},  # Job 122 failures (different)
         ]
