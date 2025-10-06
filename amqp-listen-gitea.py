@@ -26,6 +26,8 @@ def parse_args():
     parser.add_argument("--openqa-host", help="OpenQA instance url", default="http://localhost:9526")
     parser.add_argument("--verbose", help="Verbosity", default="1", type=int, choices=[0, 1, 2, 3])
     parser.add_argument("--simulate-review-requested-event", help="Behave as if a pull_request_review_request.review_requested was received")
+    parser.add_argument("--simulate-build-finished-event", help="Behave as if build is marked as finished")
+    parser.add_argument("--build-bot", help="Username of bot that approves when build is finished")
     parser.add_argument("--store-amqp", help="Should the amqp event be stored", action='store_true', default=False)
     args = parser.parse_args()
     return args
@@ -83,6 +85,16 @@ def simulate(args):
     with open(json_file, 'r') as f:
         content = f.read()
     data = json.loads(content)
+
+    if args.simulate_build_finished_event and args.build_bot:
+        print("build_finished_event properly initialized")
+
+        json_file = args.simulate_build_finished_event
+        with open(json_file, 'r') as f:
+            content = f.read()
+        build_data = json.loads(content)
+        return handle_build_finished(build_data, args)
+
     handle_review_request(data, args)
 
 
@@ -111,6 +123,40 @@ def handle_review_request(data, args):
     print(job_url)
     gitea_post_status(job_params, job_url)
 
+def handle_build_finished(data, args):
+    print("============== handle_build_finished")
+    build_bot = args.build_bot
+    myself = args.myself
+    if build_bot == data["sender"]["username"]:
+        print(f"Build marked as finished by ({build_bot})")
+    else:
+        if args.verbose >= 1:
+            print(f"Aborting: PR approval is by {data["sender"]["username"]}, not by our bot {build_bot}")
+        return
+
+    pull_request = data['pull_request']
+    job_params = {
+        'id': pull_request['id'],
+        'label': pull_request['head']['label'],
+        'branch': pull_request['head']['ref'],
+        'sha': pull_request['head']['sha'],
+        'pr_html_url': pull_request['html_url'],
+        'clone_url': pull_request['head']['repo']['clone_url'],
+        'repo_name': pull_request['head']['repo']['name'], # this should be full_name but openQA cli complains
+        'repo_api_url': data['repository']['url'],
+        'repo_html_url': data['repository']['html_url'],
+    }
+    packages_in_testing = get_packages_from_obs_project(job_params)
+    job_params["packages"] = packages_in_testing
+    params = create_openqa_job_params(args, job_params)
+    job_url = openqa_schedule(args, params)
+    print(job_url)
+    gitea_post_status(job_params, job_url)
+
+def get_packages_from_obs_project(job_params):
+    # This should be able to query the OBS project to get the list of packages
+    # per Pull request
+    pass
 
 def gitea_post_status(job_params, job_url):
     print("============== gitea_post_status")
