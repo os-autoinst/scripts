@@ -64,16 +64,17 @@ def callback(ch, method, properties, body, args):
     data = json.loads(body)
 
     if args.store_amqp:
-        if data['requested_reviewer']['username'] == args.myself:
-            timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            filename = f"tests/data/gitea-amqp/amqp-{args.myself}-review-requested-{timestamp}.json"
-            try:
-                with open(filename, 'w') as file_object:
-                    json.dump(data, file_object,indent=4)
-                    log.info(f"Storing review-requested file to {filename}")
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"tests/data/gitea-amqp/amqp-{args.myself}-{args.event_type}-{timestamp}.json"
+        try:
+            with open(filename, 'w') as file_object:
+                json.dump(data, file_object,indent=4)
+                log.info(f"Storing review-requested file to {filename}")
+                print(f"{args.event_type} captured, saved to {filename}. Exiting")
+                exit()
 
-            except IOError as e:
-                log.error(f"Error saving file: {e}")
+        except IOError as e:
+            log.error(f"Error saving file: {e}")
 
     handle_review_request(data, args)
 
