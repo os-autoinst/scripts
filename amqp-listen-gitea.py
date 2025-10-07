@@ -28,6 +28,8 @@ def parse_args():
     parser.add_argument("--simulate-review-requested-event", help="Behave as if a pull_request_review_request.review_requested was received")
     parser.add_argument("--simulate-build-finished-event", help="Behave as if build is marked as finished")
     parser.add_argument("--build-bot", help="Username of bot that approves when build is finished")
+    parser.add_argument("--branch", help="Target branch, eg. leap 16.0")
+    parser.add_argument("--project", help="Target project")
     parser.add_argument("--store-amqp", help="Should the amqp event be stored", action='store_true', default=False)
     args = parser.parse_args()
     return args
@@ -135,24 +137,31 @@ def handle_build_finished(data, args):
             print(f"Aborting: PR approval is by {data["sender"]["username"]}, not by our bot {build_bot}")
         return
 
-    pull_request = data['pull_request']
-    job_params = {
-        'id': pull_request['id'],
-        'label': pull_request['head']['label'],
-        'branch': pull_request['head']['ref'],
-        'sha': pull_request['head']['sha'],
-        'pr_html_url': pull_request['html_url'],
-        'clone_url': pull_request['head']['repo']['clone_url'],
-        'repo_name': pull_request['head']['repo']['name'], # this should be full_name but openQA cli complains
-        'repo_api_url': data['repository']['url'],
-        'repo_html_url': data['repository']['html_url'],
-    }
-    packages_in_testing = get_packages_from_obs_project(job_params)
-    job_params["packages"] = packages_in_testing
-    params = create_openqa_job_params(args, job_params)
-    job_url = openqa_schedule(args, params)
-    print(job_url)
-    gitea_post_status(job_params, job_url)
+    if (data["pull_request"]["base"]["label"] == args.branch and data["pull_request"]["base"]["repo"]["full_name"] == args.project):
+
+        pull_request = data['pull_request']
+        job_params = {
+            'id': pull_request['id'],
+            'label': pull_request['head']['label'],
+            'branch': pull_request['head']['ref'],
+            'sha': pull_request['head']['sha'],
+            'pr_html_url': pull_request['html_url'],
+            'clone_url': pull_request['head']['repo']['clone_url'],
+            'repo_name': pull_request['head']['repo']['name'], # this should be full_name but openQA cli complains
+            'repo_api_url': data['repository']['url'],
+            'repo_html_url': data['repository']['html_url'],
+        }
+        packages_in_testing = get_packages_from_obs_project(job_params)
+        job_params["packages"] = packages_in_testing
+        params = create_openqa_job_params(args, job_params)
+        job_url = openqa_schedule(args, params)
+        print(job_url)
+        gitea_post_status(job_params, job_url)
+
+    else:
+        if args.verbose >= 1:
+            print(f"Project and branch don't match {args.project}#{args.branch}")
+        return
 
 def get_packages_from_obs_project(job_params):
     # This should be able to query the OBS project to get the list of packages
