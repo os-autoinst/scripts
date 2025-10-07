@@ -88,18 +88,15 @@ def simulate(args):
     with open(json_file, 'r') as f:
         content = f.read()
     data = json.loads(content)
-
-    if args.simulate_build_finished_event and args.build_bot:
-        print("build_finished_event properly initialized")
-
-        json_file = args.simulate_build_finished_event
-        with open(json_file, 'r') as f:
-            content = f.read()
-        build_data = json.loads(content)
-        return handle_build_finished(build_data, args)
-
     handle_review_request(data, args)
 
+def simulate_build_finished_event(args):
+    print('================= simulate_build_finished_event')
+    json_file = args.simulate_build_finished_event
+    with open(json_file, 'r') as f:
+        content = f.read()
+    build_data = json.loads(content)
+    return handle_build_finished(build_data, args)
 
 def handle_review_request(data, args):
     print("============== handle_review_request")
@@ -299,5 +296,7 @@ if __name__ == "__main__":
     args = parse_args()
     if args.simulate_review_requested_event:
         simulate(args)
+    elif(args.simulate_build_finished_event and args.build_bot):
+        simulate_build_finished_event(args)
     else:
         listen(args)
