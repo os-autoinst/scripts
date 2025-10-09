@@ -199,8 +199,11 @@ def main(url: str, dry_run: bool = False) -> None:
             log.info("Job %s has no logs, skipping", job_id)
             continue
 
-        testsuite = job["settings"]["TEST"].removeprefix("container_host_")
-        # We can't use str.removesuffix (added to Python 3.8) so we must index at the end
+        testsuite = job["settings"]["TEST"]
+        # We can't use str.removeprefix (added to Python 3.9) so we must index at the start
+        if testsuite.startswith("container_host_"):
+            testsuite = testsuite[len("container_host_") :]
+        # We can't use str.removesuffix (added to Python 3.9) so we must index at the end
         if testsuite.endswith("_crun"):
             testsuite = testsuite[: -len("_crun")]
 
