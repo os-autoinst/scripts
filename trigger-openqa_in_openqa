@@ -24,6 +24,7 @@ osc=${osc:-osc}
 src_project=${src_project:-devel:openQA}
 staging_project=${staging_project:-${src_project}:testing}
 dst_project=${dst_project:-${src_project}:tested}
+build_day_limit="${build_day_limit:-"3"}"
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
@@ -45,7 +46,15 @@ main() {
 }
 
 download_latest_published_tumbleweed_image() {
+    local build_date
+    local skip_job_older_than_days
+    skip_job_older_than_days=$(date -d "${build_day_limit} days ago" +%d)
     qcow=$(find_latest_published_tumbleweed_image "$tw_group_id" "$arch" "$machine" qcow)
+    build_date=$(date -d "$(echo "$qcow" | grep -o -P '\d{8}')" +%d)
+    if [[ $build_date -lt "$skip_job_older_than_days" ]]; then
+        echo "** Skipping because the most recently published TW build is older than $build_day_limit days. **"
+        exit 0
+    fi
     if [ "$target_host_proto://$target_host" != "$tw_openqa_host" ]; then
         url="${tw_openqa_host}/assets/hdd/${qcow}"
 
