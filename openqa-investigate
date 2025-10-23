@@ -379,6 +379,7 @@ investigate() {
     group="$(echo "$job_data" | runjq -r '.job.parent_group + " / " + .job.group')" || return $?
     [[ "$group" = " / " ]] && [[ "$exclude_no_group" = "true" ]] && echo "Job w/o job group, \$exclude_no_group is set, skipping investigation" && return 0
     [[ "$group" =~ $exclude_group_regex ]] && echo "Job group '$group' matches \$exclude_group_regex '$exclude_group_regex', skipping investigation" && return 0
+    user_unset="$(echo "$job_data" | runjq -r '.job.settings.NO_INVESTIGATION')" && [[ ! "$user_unset" =~ "null" ]] && echo "NO_INVESTIGATION=1 detected, skipping" && return 0
 
     # Optionally we can find "first failed", could extend openQA investigation
     # method instead for we are just working based on supplied job which can
