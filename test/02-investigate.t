@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 100
+plan tests 102
 
 host=localhost
 url=https://localhost
@@ -93,6 +93,9 @@ client-get-job() {
         10042)
             echo '{"job": { "test": "vim", "result": "failed", "group": "42", "settings": {"NO_INVESTIGATION": "1"} } }'
             ;;
+        10043)
+            echo '{"job": { "test": "vim", "result": "failed", "group": "43", "settings": {"NO_INVESTIGATION": "0"} } }'
+            ;;
         404)
             echo '404 Not Found'
             ;;
@@ -144,6 +147,9 @@ client-get-job-comments() {
         10035)
             echo '[{"id": 1236, "text":"Starting investigation for job 10035"}]'
             ;;
+        10043)
+            echo '[{"id": 10043, "text":"Starting investigation for job 10043"}]'
+            ;;
         3000)
             echo '[{"id": 1236, "text":"Automatic investigation jobs for job\n*a:investigate:retry*: t#30001\n*a:investigate:last_good_tests:coffee*: t#30002\n*a:investigate:last_good_build:2001*: t#30003\n*a:investigate:last_good_tests_and_build:coffee+2001*: t#30004"}]'
             ;;
@@ -173,6 +179,9 @@ client-post-job-comment() {
             ;;
         10035)
             echo '{"id": 1236}'
+            ;;
+        10043)
+            echo '{"id": 10043}'
             ;;
         3000)
             warn "Commenting 3000 ($@)"
@@ -230,6 +239,9 @@ get-dependencies-ajax() {
             ;;
         10042)
             echo '{"cluster":{}, "edges":[], "nodes":[{"id":10042,"state":"done","result":"failed"}]}'
+            ;;
+        10043)
+            echo '{"cluster":{}, "edges":[], "nodes":[{"id":10043,"state":"done","result":"failed"}]}'
             ;;
         *)
             echo '{"debug": "get-dependencies-ajax '"$tid"'"}'
@@ -315,6 +327,10 @@ has "$got" 'Job w/o job group, $exclude_no_group is set, skipping investigation'
 try investigate 10042
 is "$rc" 0 'NO_INVESTIGATION=1, a failed job with this variable should be skipped'
 has "$got" 'NO_INVESTIGATION=1 detected, skipping'
+
+try investigate 10043
+is "$rc" 0 "Successful clone, NO_INVESTIGATION != 1 should not change default behavior"
+has "$got" '_TRIGGER_JOB_DONE_HOOK=1' "job is cloned with _TRIGGER_JOB_DONE_HOOK"
 
 test-post-investigate() {
     # job is one of the other investigation types, e.g. :investigate:last_good_tests
