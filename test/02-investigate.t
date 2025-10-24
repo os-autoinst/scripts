@@ -3,7 +3,7 @@
 source test/init
 bpan:source bashplus +err +fs +sym
 
-plan tests 98
+plan tests 100
 
 host=localhost
 url=https://localhost
@@ -89,6 +89,9 @@ client-get-job() {
             ;;
         10035)
             echo '{"job": { "test": "vim", "result": "failed", "parent_group": "foo", "group": "bar", "settings": {"OPENQA_INVESTIGATE_ORIGIN": "10035"} } }'
+            ;;
+        10042)
+            echo '{"job": { "test": "vim", "result": "failed", "group": "42", "settings": {"NO_INVESTIGATION": "1"} } }'
             ;;
         404)
             echo '404 Not Found'
@@ -225,6 +228,9 @@ get-dependencies-ajax() {
         10035)
             echo '{"cluster":{},"edges":[], "nodes":[{"id":10035,"state":"cancelled","result":"none"}]}'
             ;;
+        10042)
+            echo '{"cluster":{}, "edges":[], "nodes":[{"id":10042,"state":"done","result":"failed"}]}'
+            ;;
         *)
             echo '{"debug": "get-dependencies-ajax '"$tid"'"}'
             ;;
@@ -305,6 +311,10 @@ is "$rc" 0 'investigation not postponed if other job in dependency tree not done
 try force=true investigate 10031
 is "$rc" 0 'success when job is skipped (because of exclude_no_group and job w/o group)'
 has "$got" 'Job w/o job group, $exclude_no_group is set, skipping investigation'
+
+try investigate 10042
+is "$rc" 0 'NO_INVESTIGATION=1, a failed job with this variable should be skipped'
+has "$got" 'NO_INVESTIGATION=1 detected, skipping'
 
 test-post-investigate() {
     # job is one of the other investigation types, e.g. :investigate:last_good_tests
