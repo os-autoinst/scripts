@@ -90,7 +90,7 @@ make_obs_submit_request() {
 make_git_submit_request() {
     local package=$1 target=$2 version=$3 branch=$4 forked_repo='' fork_rc=0 pr_out='' pr_rc=''
     title="Update to $version"
-    description="Automatic submission via https://github.com/os-autoinst/scripts/blob/master/os-autoinst-obs-auto-submit"
+    description="Automatic submission via https://github.com/os-autoinst/os-autoinst-scripts/blob/master/os-autoinst-obs-auto-submit"
 
     # ensure a directory to store Git repositories under has been created
     git_dir=../git-repos

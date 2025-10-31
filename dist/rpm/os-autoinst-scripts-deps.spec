@@ -23,7 +23,7 @@ Summary:        Metapackage that contains the dependencies of openQA-related scr
 License:        MIT
 Group:          Development/Tools/Other
 BuildArch:      noarch
-Url:            https://github.com/os-autoinst/scripts
+Url:            https://github.com/os-autoinst/os-autoinst-scripts
 Source0:        scripts-%{version}.tar.xz
 # The following line is generated from dependencies.yaml
 %define main_requires bash coreutils curl grep html-xml-utils jq openQA-client openssh-clients osc perl >= 5.010 perl(Data::Dumper) perl(FindBin) perl(Getopt::Long) perl(Mojo::File) perl(Text::Markdown) perl(YAML::PP) python3-beautifulsoup4 python3-requests retry sed sudo xmlstarlet yq

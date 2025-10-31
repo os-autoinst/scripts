@@ -7,7 +7,7 @@ runs:
   steps:
     - uses: actions/checkout@v4
       with:
-        repository: os-autoinst/scripts
+        repository: os-autoinst/os-autoinst-scripts
         path: scripts
     - name: Clone and monitor job mentioned in PR description
       run: scripts/openqa-clone-and-monitor-job-from-pr
