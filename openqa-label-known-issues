@@ -25,7 +25,7 @@ curl_args=(-L --user-agent "openqa-label-known-issues")
 retries="${retries:-"3"}"
 OPENQA_CLI_RETRY_SLEEP_TIME_S=${OPENQA_CLI_RETRY_SLEEP_TIME_S:-120}
 MOJO_CONNECT_TIMEOUT=${MOJO_CONNECT_TIMEOUT:-30}
-client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/scripts)' --host "$host_url" --retries="$retries")
+client_args=(api --header 'User-Agent: openqa-label-known-issues (https://github.com/os-autoinst/os-autoinst-scripts)' --host "$host_url" --retries="$retries")
 
 out="${REPORT_FILE:-$(mktemp -t openqa-label-known-issues--output-XXXX)}"
 trap 'error-handler "$LINENO"' ERR

@@ -128,7 +128,7 @@ runcurl() {
 }
 
 openqa-api-get() {
-    client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/scripts)' --host "$host_url")
+    client_args=(api --header 'User-Agent: openqa-investigate (https://github.com/os-autoinst/os-autoinst-scripts)' --host "$host_url")
     local rc response
     set +e
     response=$(openqa-cli "${client_args[@]}" --json "$@" 2>&1)
@@ -215,7 +215,7 @@ test infrastructure related problem.
 Adding a [bugref](http://open.qa/docs/#_bug_references) that can be
 [carried over](http://open.qa/docs/#carry-over) will prevent these mails for
 this issue. If the carry-over is not sufficient, you may want to create a ticket with
-[auto-review-regex](https://github.com/os-autoinst/scripts/blob/master/README.md#auto-review---automatically-detect-known-issues-in-openqa-jobs-label-openqa-jobs-with-ticket-references-and-optionally-retrigger)."
+[auto-review-regex](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/README.md#auto-review---automatically-detect-known-issues-in-openqa-jobs-label-openqa-jobs-with-ticket-references-and-optionally-retrigger)."
             email="[$job_name]($testurl)"$'\n'"$header"$'\n'"$info"$'\n'$'\n'"$excerpt"
             subject="Unreviewed issue (Group $group_id $group_name)"
             email=$(multipart-from-markdown "$email" "$group_mailto" "openqa-label-known-issues <$from_email>" "$subject")

@@ -30,7 +30,7 @@ jobs:
     container:
       image: registry.opensuse.org/devel/openqa/containers/tumbleweed:client
     steps:
-      - uses: os-autoinst/scripts/actions/clone-job@master
+      - uses: os-autoinst/os-autoinst-scripts/actions/clone-job@master
 =end text
 
 It will then clone and monitor an openQA job when a PR mentioning one via e.g.
@@ -68,7 +68,7 @@ jobs:
       image: registry.opensuse.org/devel/openqa/containers/tumbleweed:client
     steps:
       - name: Clone and monitor job mentioned in PR comment
-        uses: os-autoinst/scripts/actions/clone-job@master
+        uses: os-autoinst/os-autoinst-scripts/actions/clone-job@master
 =end text
 
 So it works very similar to the usage for PR descriptions. The most important

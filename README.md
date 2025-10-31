@@ -1,4 +1,4 @@
-# os-autoinst scripts ![](https://github.com/os-autoinst/scripts/workflows/ci/badge.svg)
+# os-autoinst scripts ![](https://github.com/os-autoinst/os-autoinst-scripts/workflows/ci/badge.svg)
 
 
 ## Communication
@@ -10,7 +10,7 @@ If you have questions, visit us on IRC in
 
 Checkout the individual scripts and either call them manually or automatically,
 e.g. in CI jobs find all the dependencies which are required in
-[dependencies.yaml](https://github.com/os-autoinst/scripts/blob/master/dependencies.yaml).
+[dependencies.yaml](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/dependencies.yaml).
 You can install all dependencies by installing the `os-autoinst-scripts-deps`
 package under openSUSE. You need to add the
 [openQA development repository](https://open.qa/docs/#_development_version_repository)
@@ -52,12 +52,12 @@ Other double quotes in the subject line than around the search term should be
 avoided. Also **avoid generic search terms** to prevent false matches of job
 failures unrelated to the specified ticket.
 
-* [openqa-monitor-incompletes](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-incompletes)
+* [openqa-monitor-incompletes](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/openqa-monitor-incompletes)
   queries the database of an openQA instance (ssh access is necessary) and
   output the list of "interesting" incompletes, where "interesting" means not
   all incompletes but the ones likely needing actions by admins, e.g.
   unreviewed, no clones, no obvious "setup failure", etc.
-* [openqa-label-known-issues-multi](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues-multi)
+* [openqa-label-known-issues-multi](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/openqa-label-known-issues-multi)
   can take a list of openQA jobs, for example output from
   "openqa-monitor-incompletes" and look for matching "known issues", for
   example from progress.opensuse.org, label the job and retrigger if specified
@@ -70,7 +70,7 @@ based on the following template:
 ## Steps to reproduce
 
 Find jobs referencing this ticket with the help of
-https://raw.githubusercontent.com/os-autoinst/scripts/master/openqa-query-for-job-label ,
+https://raw.githubusercontent.com/os-autoinst/os-autoinst-scripts/master/openqa-query-for-job-label ,
 for example to look for ticket 12345 call `openqa-query-for-job-label poo#12345`
 ```
 
@@ -103,12 +103,12 @@ already pointing to the error. The sender email address can be
 openQA can be configured to automatically trigger investigation jobs whenever
 there is no carry-over and no automatic ticket assignment by auto-review.
 
-* [openqa-monitor-investigation-candidates](https://github.com/os-autoinst/scripts/blob/master/openqa-monitor-investigation-candidates)
+* [openqa-monitor-investigation-candidates](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/openqa-monitor-investigation-candidates)
   queries the dabase of an openQA instance (ssh access is necessary) and
   output the list of failed jobs that are suitable for triggering
   investigation jobs on, compare to "openqa-monitor-incompletes"
 
-* [openqa-investigate-multi](https://github.com/os-autoinst/scripts/blob/master/openqa-investigate-multi)
+* [openqa-investigate-multi](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/openqa-investigate-multi)
   can take a list of openQA jobs, for example output of
   "openqa-monitor-investigation-candidates" and trigger "investigation jobs",
   e.g. a plain retrigger, using the "last good" tests as well as "last good"
@@ -143,9 +143,9 @@ http://open.qa/docs/#_enable_custom_hook_scripts_on_job_done_based_on_result
 for details. For the purpose of being called as these hook scripts here the
 following scripts are provided:
 
-* [openqa-label-known-issues-hook](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues-hook)
+* [openqa-label-known-issues-hook](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/openqa-label-known-issues-hook)
   calls "openqa-label-known-issues" on the specified job
-* [openqa-label-known-issues-and-investigate-hook](https://github.com/os-autoinst/scripts/blob/master/openqa-label-known-issues-and-investigate-hook)
+* [openqa-label-known-issues-and-investigate-hook](https://github.com/os-autoinst/os-autoinst-scripts/blob/master/openqa-label-known-issues-and-investigate-hook)
   calls "openqa-label-known-issues" on the specified job and if no label was
   found, "openqa-investigate". Compare to section
   "Combine auto-review and openqa-investigate"
@@ -198,7 +198,7 @@ environment variables:
 
 ## Contribute
 
-This project lives in https://github.com/os-autoinst/scripts
+This project lives in https://github.com/os-autoinst/os-autoinst-scripts
 
 Feel free to add issues in github or send pull requests.
 
